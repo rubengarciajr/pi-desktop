@@ -162,7 +162,7 @@ const events = {
     ipcRenderer.on("pi:theme:changed", wrapped);
     return () => ipcRenderer.removeListener("pi:theme:changed", wrapped);
   },
-  restartForUpdate: () => ipcRenderer.send("pi:update:restart"),
+  restartForUpdate: () => {},
   checkForUpdates: invoke("pi:update:check"),
   downloadUpdate: invoke("pi:update:download"),
   getTheme: invoke("pi:theme:get"),

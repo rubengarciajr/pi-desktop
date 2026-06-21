@@ -14,6 +14,7 @@ export function PackagesView() {
   const [sort, setSort] = useState<SortMode>("downloads");
   const [installing, setInstalling] = useState<Record<string, boolean>>({});
   const [removing, setRemoving] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const refreshInstalled = useCallback(() => {
     window.pi.packages.installed().then((list: InstalledPackage[]) => {
@@ -43,19 +44,31 @@ export function PackagesView() {
 
   const handleInstall = async (pkg: PackageInfo) => {
     setInstalling((s) => ({ ...s, [pkg.name]: true }));
+    setErrors((s) => ({ ...s, [pkg.name]: "" }));
     try {
-      await window.pi.packages.install({ spec: pkg.installSpec });
-    } catch {}
+      const result = await window.pi.packages.install({ spec: pkg.installSpec });
+      if (result && !result.success) {
+        setErrors((s) => ({ ...s, [pkg.name]: result.error || "Installation failed" }));
+      }
+    } catch (e: any) {
+      setErrors((s) => ({ ...s, [pkg.name]: String(e) }));
+    }
     setInstalling((s) => ({ ...s, [pkg.name]: false }));
     refreshInstalled();
   };
 
   const handleRemove = async (pkg: PackageInfo) => {
     setRemoving((s) => ({ ...s, [pkg.name]: true }));
+    setErrors((s) => ({ ...s, [pkg.name]: "" }));
     try {
       const installedPkg = installed.find((i) => i.name === pkg.name);
-      await window.pi.packages.remove({ spec: installedPkg?.spec || pkg.installSpec });
-    } catch {}
+      const result = await window.pi.packages.remove({ spec: installedPkg?.spec || pkg.installSpec });
+      if (result && !result.success) {
+        setErrors((s) => ({ ...s, [pkg.name]: result.error || "Removal failed" }));
+      }
+    } catch (e: any) {
+      setErrors((s) => ({ ...s, [pkg.name]: String(e) }));
+    }
     setRemoving((s) => ({ ...s, [pkg.name]: false }));
     refreshInstalled();
   };
@@ -185,6 +198,13 @@ export function PackagesView() {
                       {pkg.publishedDate && <span>{relativeDate(pkg.publishedDate)}</span>}
                     </div>
                   </div>
+
+                  {/* Error message */}
+                  {errors[pkg.name] && (
+                    <p className="mb-2 line-clamp-2 break-words text-[10px] leading-tight text-danger">
+                      {errors[pkg.name].slice(0, 200)}
+                    </p>
+                  )}
 
                   {/* Action button */}
                   {installed ? (

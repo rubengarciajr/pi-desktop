@@ -503,9 +503,9 @@ export class PiSessionManager {
 
   // --- Package management (SDK-based, no pi CLI needed) ------------------
 
-  private getPackageManager(): any {
+  private async getPackageManager(): Promise<any> {
     if (!this._deps?.settingsManager) throw new Error("Settings manager not initialized");
-    const pi = require("@earendil-works/pi-coding-agent");
+    const pi = await import("@earendil-works/pi-coding-agent");
     return new pi.DefaultPackageManager({
       cwd: this.cwd,
       agentDir: this.agentDir,
@@ -515,34 +515,37 @@ export class PiSessionManager {
 
   async installPackage(spec: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const pm = this.getPackageManager();
+      const pm = await this.getPackageManager();
       await pm.installAndPersist(spec);
       return { success: true };
     } catch (err: any) {
+      console.error("[pi-desktop] Package install failed:", err);
       return { success: false, error: err?.message ?? String(err) };
     }
   }
 
   async removePackage(spec: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const pm = this.getPackageManager();
-      const removed = await pm.removeAndPersist(spec);
+      const pm = await this.getPackageManager();
+      await pm.removeAndPersist(spec);
       return { success: true };
     } catch (err: any) {
+      console.error("[pi-desktop] Package remove failed:", err);
       return { success: false, error: err?.message ?? String(err) };
     }
   }
 
-  listPackages(): { spec: string; name: string; source: string }[] {
+  async listPackages(): Promise<{ spec: string; name: string; source: string }[]> {
     try {
-      const pm = this.getPackageManager();
+      const pm = await this.getPackageManager();
       const configured = pm.listConfiguredPackages();
       return configured.map((p: any) => ({
         spec: p.source,
         name: p.source.replace(/^npm:/, "").split("@")[0] || p.source,
         source: p.source.startsWith("npm:") ? "npm" : p.source.startsWith("git") || p.source.startsWith("http") ? "git" : "local",
       }));
-    } catch {
+    } catch (err: any) {
+      console.error("[pi-desktop] Package list failed:", err);
       return [];
     }
   }
