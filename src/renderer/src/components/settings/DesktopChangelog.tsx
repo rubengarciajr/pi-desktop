@@ -6,6 +6,29 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.2.0",
+    date: "2026-06-21",
+    sections: [
+      {
+        title: "Features",
+        items: [
+          "Dark / Light mode with system appearance detection",
+          "Accent color presets (Purple, Blue, Green, Orange, Pink, Teal, Red)",
+          "In-app update checker with Download button",
+          "Update banner that appears when a new version is available",
+        ],
+      },
+      {
+        title: "Fixes",
+        items: [
+          "Fixed 'Check for Updates' button not responding - now uses GitHub API",
+          "Theme switching now works with CSS variables instead of hardcoded colors",
+          "System theme changes update in real-time",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.4",
     date: "2026-06-21",
     sections: [
@@ -117,7 +140,7 @@ export function DesktopChangelog() {
           <p className="text-xs text-text-faint">What's new in the desktop app.</p>
         </div>
         <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-xs font-medium text-accent">
-          v0.1.4
+          v0.2.0
         </span>
       </div>
 

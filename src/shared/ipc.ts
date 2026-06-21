@@ -264,8 +264,19 @@ export interface PiEventApi {
   onInstallDone: (listener: (result: any) => void) => () => void;
   onPackagesChanged: (listener: () => void) => () => void;
   onUpdate: (listener: (data: any) => void) => () => void;
+  onThemeChanged: (listener: (data: any) => void) => () => void;
   restartForUpdate: () => void;
-  checkForUpdates: () => Promise<{ status: string; version?: string; message?: string }>;
+  checkForUpdates: () => Promise<{
+    status: "up-to-date" | "available" | "error";
+    version?: string;
+    downloadUrl?: string;
+    releaseUrl?: string;
+    releaseNotes?: string;
+    message?: string;
+  }>;
+  downloadUpdate: () => Promise<{ success: boolean }>;
+  getTheme: () => Promise<{ shouldUseDarkColors: boolean; themeSource: string }>;
+  setTheme: (source: "system" | "light" | "dark") => Promise<{ success: boolean }>;
 }
 
 /** Subset of pi events we forward. Shape mirrors pi's AgentSessionEvent.

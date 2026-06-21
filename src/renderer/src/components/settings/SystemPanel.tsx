@@ -221,7 +221,7 @@ export function SystemPanel() {
       {/* About */}
       <Section title="About">
         <div className="space-y-1 text-xs text-text-muted">
-          <Row label="App version" value="0.1.4" />
+          <Row label="App version" value="0.2.0" />
           <Row label="Electron" value={window.pi?.versions?.electron ?? "—"} />
           <Row label="Node (bundled)" value={window.pi?.versions?.node ?? "—"} />
           <Row label="Pi agent SDK" value={window.pi?.versions?.pi ?? "—"} />

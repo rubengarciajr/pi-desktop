@@ -1,58 +1,85 @@
-import { autoUpdater } from "electron-updater";
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 
+const REPO_OWNER = "rubengarciajr";
+const REPO_NAME = "pi-desktop";
+
+/**
+ * Initialize theme forwarding and update checking.
+ *
+ * For unsigned macOS apps, electron-updater's auto-download + quitAndInstall
+ * doesn't work reliably. Instead we use a lightweight GitHub API check:
+ * fetch latest release version, compare, and deep-link to the download page.
+ */
 export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void {
-  // Only check for updates in packaged builds (dev would have no update server).
-  if (!app.isPackaged) return;
+  // --- Theme forwarding ---
+  ipcMain.handle("pi:theme:get", () => ({
+    shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
+    themeSource: nativeTheme.themeSource,
+  }));
 
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-
-  // Listen for restart requests from the renderer.
-  ipcMain.on("pi:update:restart", () => {
-    autoUpdater.quitAndInstall();
+  // Renderer can override the system theme.
+  ipcMain.handle("pi:theme:set", (_e, source: "system" | "light" | "dark") => {
+    nativeTheme.themeSource = source;
+    return { success: true };
   });
 
-  // Allow manual check from Settings.
-  ipcMain.handle("pi:update:check", async () => {
-    try {
-      const result = await autoUpdater.checkForUpdates();
-      return { status: "checked", version: result?.updateInfo?.version };
-    } catch (e) {
-      return { status: "error", message: String(e) };
-    }
-  });
-
-  autoUpdater.on("checking-for-update", () => {
-    send(getMainWindow, "pi:update", { status: "checking" });
-  });
-
-  autoUpdater.on("update-available", (info) => {
-    send(getMainWindow, "pi:update", { status: "available", version: info.version });
-  });
-
-  autoUpdater.on("update-not-available", () => {
-    send(getMainWindow, "pi:update", { status: "up-to-date" });
-  });
-
-  autoUpdater.on("error", (err) => {
-    send(getMainWindow, "pi:update", { status: "error", message: String(err) });
-  });
-
-  autoUpdater.on("download-progress", (progress) => {
-    send(getMainWindow, "pi:update", {
-      status: "downloading",
-      percent: Math.round(progress.percent),
+  nativeTheme.on("updated", () => {
+    send(getMainWindow, "pi:theme:changed", {
+      shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
     });
   });
 
-  autoUpdater.on("update-downloaded", (info) => {
-    send(getMainWindow, "pi:update", { status: "downloaded", version: info.version });
+  // --- Update check via GitHub API ---
+  ipcMain.handle("pi:update:check", async () => {
+    try {
+      const currentVersion = app.getVersion();
+      const res = await fetch(
+        `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`,
+        {
+          headers: { "User-Agent": "pi-desktop-updater" },
+        }
+      );
+      if (!res.ok) {
+        return { status: "error", message: `GitHub API returned ${res.status}` };
+      }
+      const data: any = await res.json();
+      const latestVersion = (data.tag_name || "").replace(/^v/, "");
+
+      if (!latestVersion) {
+        return { status: "error", message: "Could not parse latest version" };
+      }
+
+      if (compareVersions(latestVersion, currentVersion) > 0) {
+        const dmgAsset = (data.assets || []).find(
+          (a: any) => a.name.endsWith(".dmg") && a.name.includes(latestVersion)
+        );
+        return {
+          status: "available",
+          version: latestVersion,
+          downloadUrl: dmgAsset?.browser_download_url || data.html_url,
+          releaseUrl: data.html_url,
+          releaseNotes: data.body || "",
+        };
+      }
+
+      return { status: "up-to-date", version: currentVersion };
+    } catch (e: any) {
+      return { status: "error", message: e?.message ?? String(e) };
+    }
   });
 
-  // Check for updates after a short delay (let the app settle).
-  setTimeout(() => {
-    autoUpdater.checkForUpdates().catch(() => {});
+  // Open the release page in browser for manual download.
+  ipcMain.handle("pi:update:download", async () => {
+    const url = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest`;
+    await shell.openExternal(url);
+    return { success: true };
+  });
+
+  // Check for updates on startup (non-blocking, just notifies the renderer).
+  setTimeout(async () => {
+    const win = getMainWindow();
+    if (!win || win.isDestroyed()) return;
+    // The renderer will call pi:update:check itself; this is just a heads-up.
   }, 3000);
 }
 
@@ -61,4 +88,17 @@ function send(getMainWindow: () => BrowserWindow | null, channel: string, data: 
   if (win && !win.isDestroyed()) {
     win.webContents.send(channel, data);
   }
+}
+
+/** Returns positive if a > b, negative if a < b, 0 if equal. */
+function compareVersions(a: string, b: string): number {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const va = pa[i] ?? 0;
+    const vb = pb[i] ?? 0;
+    if (va > vb) return 1;
+    if (va < vb) return -1;
+  }
+  return 0;
 }

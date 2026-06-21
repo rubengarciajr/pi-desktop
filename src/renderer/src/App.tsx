@@ -36,6 +36,32 @@ export default function App() {
     setNeedsOnboarding(false);
   }, []);
 
+  // Apply saved theme and accent on mount.
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("pi-theme") || "system";
+    const savedAccent = localStorage.getItem("pi-accent") || "purple";
+    document.documentElement.setAttribute("data-accent", savedAccent);
+    if (savedTheme !== "system") {
+      document.documentElement.setAttribute("data-theme", savedTheme);
+      window.pi.events.setTheme(savedTheme as any);
+    } else {
+      window.pi.events.getTheme().then((t) => {
+        document.documentElement.setAttribute("data-theme", t.shouldUseDarkColors ? "dark" : "light");
+      });
+    }
+  }, []);
+
+  // Listen for system theme changes and update if in "system" mode.
+  useEffect(() => {
+    const off = window.pi.events.onThemeChanged((data: any) => {
+      const savedTheme = localStorage.getItem("pi-theme") || "system";
+      if (savedTheme === "system") {
+        document.documentElement.setAttribute("data-theme", data.shouldUseDarkColors ? "dark" : "light");
+      }
+    });
+    return () => { off?.(); };
+  }, []);
+
   // Load favorites on mount.
   useEffect(() => {
     useAppStore.getState().loadFavorites();

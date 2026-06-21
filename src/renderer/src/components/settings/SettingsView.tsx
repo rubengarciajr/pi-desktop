@@ -92,7 +92,7 @@ function SettingsPanel() {
       const result = await window.pi.events.checkForUpdates();
       if (result?.status === "error") {
         setUpdateStatus({ status: "error", message: result.message });
-      } else if (result?.version) {
+      } else if (result?.status === "available") {
         setUpdateStatus({ status: "available", version: result.version });
       } else {
         setUpdateStatus({ status: "up-to-date" });
@@ -105,6 +105,8 @@ function SettingsPanel() {
 
   return (
     <div className="space-y-6">
+      <AppearanceSection />
+
       <Section title="Working directory">
         <div className="flex items-center gap-2">
           <input
@@ -284,21 +286,31 @@ function SettingsPanel() {
         <div className="rounded-lg border border-border bg-bg-subtle px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-text">Pi Desktop v0.1.4</p>
+              <p className="text-sm text-text">Pi Desktop v0.2.0</p>
               <p className="text-xs text-text-faint">
                 {updateStatus.status === "up-to-date" && "You're on the latest version."}
-                {updateStatus.status === "available" && `Update ${updateStatus.version} is downloading...`}
+                {updateStatus.status === "available" && `Version ${updateStatus.version} is available! Click Download to get it.`}
                 {updateStatus.status === "error" && `Error: ${updateStatus.message ?? "check failed"}`}
                 {(updateStatus.status === "idle" || updateStatus.status === "checking") && "Check for new versions."}
               </p>
             </div>
-            <button
-              onClick={handleCheckForUpdates}
-              disabled={updateChecking}
-              className="rounded-lg border border-border bg-bg-hover px-3 py-2 text-xs text-text-muted hover:bg-bg-active disabled:opacity-40"
-            >
-              {updateChecking ? "Checking..." : "Check for Updates"}
-            </button>
+            <div className="flex gap-2">
+              {updateStatus.status === "available" && (
+                <button
+                  onClick={() => window.pi.events.downloadUpdate()}
+                  className="no-drag rounded-lg bg-accent px-3 py-2 text-xs font-medium text-white hover:bg-accent-hover"
+                >
+                  Download v{updateStatus.version}
+                </button>
+              )}
+              <button
+                onClick={handleCheckForUpdates}
+                disabled={updateChecking}
+                className="no-drag rounded-lg border border-border bg-bg-hover px-3 py-2 text-xs text-text-muted hover:bg-bg-active disabled:opacity-40"
+              >
+                {updateChecking ? "Checking..." : "Check for Updates"}
+              </button>
+            </div>
           </div>
         </div>
       </Section>
@@ -329,5 +341,145 @@ function Row({ label, value }: { label: string; value: string }) {
       <span>{label}</span>
       <span className="font-mono text-text-faint">{value}</span>
     </div>
+  );
+}
+
+const THEME_OPTIONS = [
+  { value: "system", label: "System", icon: "auto" },
+  { value: "dark", label: "Dark", icon: "dark" },
+  { value: "light", label: "Light", icon: "light" },
+] as const;
+
+const ACCENT_PRESETS = [
+  { value: "purple", color: "#7c5cff" },
+  { value: "blue", color: "#3b82f6" },
+  { value: "green", color: "#22c55e" },
+  { value: "orange", color: "#f97316" },
+  { value: "pink", color: "#ec4899" },
+  { value: "teal", color: "#14b8a6" },
+  { value: "red", color: "#ef4444" },
+] as const;
+
+function AppearanceSection() {
+  const [themePref, setThemePref] = useState<"system" | "dark" | "light">(
+    () => (localStorage.getItem("pi-theme") as any) || "system"
+  );
+  const [accentPref, setAccentPref] = useState<string>(
+    () => localStorage.getItem("pi-accent") || "purple"
+  );
+
+  // Determine effective theme (resolve "system" to dark/light)
+  const [systemDark, setSystemDark] = useState(true);
+
+  useEffect(() => {
+    window.pi.events.getTheme().then((t) => setSystemDark(t.shouldUseDarkColors));
+    const off = window.pi.events.onThemeChanged((data: any) => {
+      setSystemDark(data.shouldUseDarkColors);
+    });
+    return () => { off?.(); };
+  }, []);
+
+  const effectiveTheme =
+    themePref === "system" ? (systemDark ? "dark" : "light") : themePref;
+
+  const applyTheme = (pref: "system" | "dark" | "light") => {
+    setThemePref(pref);
+    localStorage.setItem("pi-theme", pref);
+    window.pi.events.setTheme(pref);
+    // Update DOM
+    const resolved = pref === "system" ? (systemDark ? "dark" : "light") : pref;
+    document.documentElement.setAttribute("data-theme", resolved);
+  };
+
+  const applyAccent = (accent: string) => {
+    setAccentPref(accent);
+    localStorage.setItem("pi-accent", accent);
+    document.documentElement.setAttribute("data-accent", accent);
+  };
+
+  // Apply on mount
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", effectiveTheme);
+    document.documentElement.setAttribute("data-accent", accentPref);
+  }, [effectiveTheme, accentPref]);
+
+  return (
+    <Section title="Appearance">
+      <div className="rounded-lg border border-border bg-bg-subtle px-4 py-3 space-y-4">
+        {/* Theme */}
+        <div>
+          <p className="mb-2 text-xs font-medium text-text-muted">Theme</p>
+          <div className="flex gap-2">
+            {THEME_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => applyTheme(opt.value)}
+                className={`no-drag flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                  themePref === opt.value
+                    ? "border-accent/40 bg-accent/10 text-accent"
+                    : "border-border bg-bg text-text-muted hover:bg-bg-hover"
+                }`}
+              >
+                <ThemeIcon type={opt.icon} />
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Accent Color */}
+        <div>
+          <p className="mb-2 text-xs font-medium text-text-muted">Accent color</p>
+          <div className="flex items-center gap-2.5">
+            {ACCENT_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() => applyAccent(preset.value)}
+                className={`no-drag h-7 w-7 rounded-full transition-transform hover:scale-110 ${
+                  accentPref === preset.value ? "ring-2 ring-offset-2 ring-offset-bg-subtle" : ""
+                }`}
+                style={{
+                  backgroundColor: preset.color,
+                  boxShadow: accentPref === preset.value ? `0 0 0 2px ${preset.color}` : "none",
+                }}
+                title={preset.value}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function ThemeIcon({ type }: { type: "auto" | "dark" | "light" }) {
+  if (type === "auto") {
+    return (
+      <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="4" width="20" height="14" rx="2" />
+        <path d="M12 4v16" />
+        <path d="M8 8h.01M16 8h.01M8 12h.01M16 12h.01" />
+      </svg>
+    );
+  }
+  if (type === "dark") {
+    return (
+      <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+    );
+  }
+  return (
+    <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="5" />
+      <line x1="12" y1="1" x2="12" y2="3" />
+      <line x1="12" y1="21" x2="12" y2="23" />
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+      <line x1="1" y1="12" x2="3" y2="12" />
+      <line x1="21" y1="12" x2="23" y2="12" />
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </svg>
   );
 }
