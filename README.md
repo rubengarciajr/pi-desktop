@@ -4,6 +4,8 @@ A full-featured macOS desktop app for the [Pi coding agent](https://pi.dev). Bui
 
 Pi Desktop brings the power of the Pi AI coding agent into a native macOS experience with streaming chat, multi-tab sessions, custom model management, GitHub integration, and automatic updates. No terminal required.
 
+**[Download the latest release](https://github.com/rubengarciajr/pi-desktop/releases)**
+
 ---
 
 ## Features
