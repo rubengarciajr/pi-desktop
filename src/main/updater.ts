@@ -1,5 +1,5 @@
 import { autoUpdater } from "electron-updater";
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 
 export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void {
   // Only check for updates in packaged builds (dev would have no update server).
@@ -7,6 +7,21 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+
+  // Listen for restart requests from the renderer.
+  ipcMain.on("pi:update:restart", () => {
+    autoUpdater.quitAndInstall();
+  });
+
+  // Allow manual check from Settings.
+  ipcMain.handle("pi:update:check", async () => {
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      return { status: "checked", version: result?.updateInfo?.version };
+    } catch (e) {
+      return { status: "error", message: String(e) };
+    }
+  });
 
   autoUpdater.on("checking-for-update", () => {
     send(getMainWindow, "pi:update", { status: "checking" });
@@ -31,8 +46,8 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
     });
   });
 
-  autoUpdater.on("update-downloaded", () => {
-    send(getMainWindow, "pi:update", { status: "downloaded" });
+  autoUpdater.on("update-downloaded", (info) => {
+    send(getMainWindow, "pi:update", { status: "downloaded", version: info.version });
   });
 
   // Check for updates after a short delay (let the app settle).

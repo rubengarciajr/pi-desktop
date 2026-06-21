@@ -20,6 +20,8 @@ import {
   readRepoLinkage,
 } from "./github";
 import { searchPackages, getDownloadCounts, installPackage, removePackage, listInstalledPackages } from "./packages";
+import { listCustomModels, addCustomModel, removeCustomModel, getModelsPath } from "./models";
+import { shell } from "electron";
 
 /**
  * Registers all ipcMain handlers. Every call is routed to the correct
@@ -123,6 +125,28 @@ export function registerIpc(
   handle("pi:model.available", async (a) => { const m = await mgr(a); return m.getAvailableModels(); });
   handle("pi:thinking.set", async (a) => { const m = await mgr(a); return m.setThinkingLevel(a.level); });
   handle("pi:thinking.cycle", async (a) => { const m = await mgr(a); return m.cycleThinkingLevel(); });
+
+  // --- Custom models (models.json management) ---
+  handle("pi:models.custom.list", () => listCustomModels());
+  handle("pi:models.custom.add", async (a) => {
+    const result = addCustomModel(a);
+    if (result.success) {
+      invalidateSharedDeps();
+    }
+    return result;
+  });
+  handle("pi:models.custom.remove", async (a) => {
+    const result = removeCustomModel(a.provider, a.modelId);
+    if (result.success) {
+      invalidateSharedDeps();
+    }
+    return result;
+  });
+  handle("pi:models.json.path", () => getModelsPath());
+  handle("pi:models.json.open", () => {
+    shell.showItemInFolder(getModelsPath());
+    return { success: true };
+  });
 
   // --- Compaction (per-tab) ---
   handle("pi:compact", async (a) => { const m = await mgr(a); return m.compact(a?.customInstructions); });

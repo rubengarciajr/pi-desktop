@@ -444,7 +444,7 @@ export class PiSessionManager {
     if (!model) throw new Error(`Model not found: ${provider}/${modelId}`);
     await this.session.setModel(model as any);
     this.emitState();
-    return { success: true };
+    return this.getState();
   }
 
   async cycleModel() {

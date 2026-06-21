@@ -167,6 +167,12 @@ export interface PiApi {
   getSkills: () => Promise<{ name: string; description?: string; source?: string }[]>;
   getThemes: () => Promise<{ name: string }[]>;
   getTools: () => Promise<{ tools: { name: string; description?: string; source?: string }[] }>;
+  // Custom models management
+  customModelsList: () => Promise<{ providers: Record<string, { baseUrl?: string; api?: string; models: any[] }> }>;
+  customModelAdd: (args: { provider: string; baseUrl: string; api: string; apiKey: string; modelId: string; modelName?: string; reasoning?: boolean; contextWindow?: number }) => Promise<{ success: boolean; error?: string }>;
+  customModelRemove: (args: { provider: string; modelId: string }) => Promise<{ success: boolean }>;
+  modelsJsonPath: () => Promise<string>;
+  openModelsJson: () => Promise<{ success: boolean }>;
 
   // Misc
   getCwd: (args?: { tabId?: string }) => Promise<string>;
@@ -256,6 +262,9 @@ export interface PiEventApi {
   onInstallProgress: (listener: (progress: any) => void) => () => void;
   onInstallDone: (listener: (result: any) => void) => () => void;
   onPackagesChanged: (listener: () => void) => () => void;
+  onUpdate: (listener: (data: any) => void) => () => void;
+  restartForUpdate: () => void;
+  checkForUpdates: () => Promise<{ status: string; version?: string; message?: string }>;
 }
 
 /** Subset of pi events we forward. Shape mirrors pi's AgentSessionEvent.

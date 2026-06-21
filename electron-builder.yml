@@ -25,5 +25,5 @@ dmg:
     - { x: 410, y: 220, type: link, path: /Applications }
 publish:
   provider: github
-  owner: pi-desktop
+  owner: rubengarciajr
   repo: pi-desktop

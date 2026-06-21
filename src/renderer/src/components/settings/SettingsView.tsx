@@ -3,6 +3,7 @@ import { useAppStore } from "../../store/useAppStore";
 import { GitHubIcon } from "../GitHubBadge";
 import { PiChangelog } from "./PiChangelog";
 import { DesktopChangelog } from "./DesktopChangelog";
+import { SystemPanel } from "./SystemPanel";
 
 interface AuthStatus {
   provider: string;
@@ -17,7 +18,7 @@ interface GitHubAuth {
   error?: string;
 }
 
-type SettingsTab = "settings" | "desktop-changelog" | "pi-changelog";
+type SettingsTab = "settings" | "system" | "desktop-changelog" | "pi-changelog";
 
 export function SettingsView() {
   const [tab, setTab] = useState<SettingsTab>("settings");
@@ -29,6 +30,9 @@ export function SettingsView() {
         <SettingsTabButton active={tab === "settings"} onClick={() => setTab("settings")}>
           Settings
         </SettingsTabButton>
+        <SettingsTabButton active={tab === "system"} onClick={() => setTab("system")}>
+          System
+        </SettingsTabButton>
         <SettingsTabButton active={tab === "desktop-changelog"} onClick={() => setTab("desktop-changelog")}>
           Desktop Changelog
         </SettingsTabButton>
@@ -38,6 +42,7 @@ export function SettingsView() {
       </div>
       <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4">
         {tab === "settings" && <SettingsPanel />}
+        {tab === "system" && <SystemPanel />}
         {tab === "desktop-changelog" && <DesktopChangelog />}
         {tab === "pi-changelog" && <PiChangelog />}
       </div>
@@ -68,12 +73,35 @@ function SettingsPanel() {
   const [ghAuth, setGhAuth] = useState<GitHubAuth>({ authenticated: false });
   const [ghToken, setGhToken] = useState("");
   const [ghVerifying, setGhVerifying] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<{
+    status: "idle" | "checking" | "up-to-date" | "available" | "error";
+    version?: string;
+    message?: string;
+  }>({ status: "idle" });
+  const [updateChecking, setUpdateChecking] = useState(false);
 
   useEffect(() => {
     window.pi.api.getAuthStatus().then(setAuthStatus).catch(() => {});
     window.pi.api.getCwd().then(setCwd).catch(() => {});
     window.pi.github.getAuthStatus().then((s: GitHubAuth) => setGhAuth(s)).catch(() => {});
   }, []);
+
+  const handleCheckForUpdates = async () => {
+    setUpdateChecking(true);
+    try {
+      const result = await window.pi.events.checkForUpdates();
+      if (result?.status === "error") {
+        setUpdateStatus({ status: "error", message: result.message });
+      } else if (result?.version) {
+        setUpdateStatus({ status: "available", version: result.version });
+      } else {
+        setUpdateStatus({ status: "up-to-date" });
+      }
+    } catch (e) {
+      setUpdateStatus({ status: "error", message: String(e) });
+    }
+    setUpdateChecking(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -250,6 +278,29 @@ function SettingsPanel() {
           Manually compact context to reduce token usage. Auto-compaction runs
           when the context window is nearly full.
         </p>
+      </Section>
+
+      <Section title="Updates">
+        <div className="rounded-lg border border-border bg-bg-subtle px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-text">Pi Desktop v0.1.0</p>
+              <p className="text-xs text-text-faint">
+                {updateStatus.status === "up-to-date" && "You're on the latest version."}
+                {updateStatus.status === "available" && `Update ${updateStatus.version} is downloading...`}
+                {updateStatus.status === "error" && `Error: ${updateStatus.message ?? "check failed"}`}
+                {(updateStatus.status === "idle" || updateStatus.status === "checking") && "Check for new versions."}
+              </p>
+            </div>
+            <button
+              onClick={handleCheckForUpdates}
+              disabled={updateChecking}
+              className="rounded-lg border border-border bg-bg-hover px-3 py-2 text-xs text-text-muted hover:bg-bg-active disabled:opacity-40"
+            >
+              {updateChecking ? "Checking..." : "Check for Updates"}
+            </button>
+          </div>
+        </div>
       </Section>
 
       <Section title="Session info">

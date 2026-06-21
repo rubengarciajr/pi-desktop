@@ -64,6 +64,13 @@ const api = {
   getThemes: invoke("pi:themes"),
   getTools: invoke("pi:tools"),
 
+  // Custom models management
+  customModelsList: invoke("pi:models.custom.list"),
+  customModelAdd: invoke("pi:models.custom.add"),
+  customModelRemove: invoke("pi:models.custom.remove"),
+  modelsJsonPath: invoke("pi:models.json.path"),
+  openModelsJson: invoke("pi:models.json.open"),
+
   // Misc
   getCwd: invoke("pi:cwd.get"),
   setCwd: invoke("pi:cwd.set"),
@@ -144,6 +151,13 @@ const events = {
     ipcRenderer.on("packages:installed.changed", wrapped);
     return () => ipcRenderer.removeListener("packages:installed.changed", wrapped);
   },
+  onUpdate: (listener: (data: any) => void) => {
+    const wrapped = (_e: IpcRendererEvent, data: any) => listener(data);
+    ipcRenderer.on("pi:update", wrapped);
+    return () => ipcRenderer.removeListener("pi:update", wrapped);
+  },
+  restartForUpdate: () => ipcRenderer.send("pi:update:restart"),
+  checkForUpdates: invoke("pi:update:check"),
 };
 
 try {

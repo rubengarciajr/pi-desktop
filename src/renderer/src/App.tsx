@@ -10,6 +10,7 @@ import { ExtensionsView } from "./components/extensions/ExtensionsView";
 import { PackagesView } from "./components/packages/PackagesView";
 import { StatusBar } from "./components/StatusBar";
 import { Onboarding } from "./components/Onboarding";
+import { UpdateBanner } from "./components/UpdateBanner";
 
 export default function App() {
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
@@ -186,6 +187,7 @@ export default function App() {
         </div>
         <StatusBar />
       </main>
+      <UpdateBanner />
     </div>
   );
 }
