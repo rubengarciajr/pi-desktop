@@ -1,0 +1,47 @@
+{
+  "name": "pi-desktop",
+  "version": "0.1.0",
+  "description": "Pi Desktop - a full-featured macOS desktop app for the Pi coding agent",
+  "main": "out/main/index.js",
+  "author": "Pi Desktop",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "build:mac": "electron-vite build && electron-builder --mac",
+    "build:dmg": "electron-vite build && electron-builder --mac dmg",
+    "package": "electron-vite build && electron-builder"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.79.9",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "diff": "^8.0.4",
+    "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^16.1.1",
+    "remark-gfm": "^4.0.1",
+    "undici": "^8.5.0",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/diff": "^7.0.2",
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "electron": "^38.8.6",
+    "electron-builder": "^25.1.8",
+    "electron-updater": "^6.3.9",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.4.49",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
+  }
+}

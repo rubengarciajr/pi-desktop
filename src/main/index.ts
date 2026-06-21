@@ -1,0 +1,67 @@
+import { app, BrowserWindow } from "electron";
+import { fixPath } from "./fix-path";
+import { createMainWindow } from "./window";
+
+// Repair PATH before ANY child_process call. macOS GUI apps launched from
+// Finder/Dock get a minimal PATH that omits node/npm/pi; without this the
+// installer fails with "npm: command not found" and the Packages view can't
+// reach the pi CLI. Must run before pool creation / session init below.
+fixPath();
+import { registerIpc } from "./ipc";
+import { createAppMenu } from "./menu";
+import { createTray } from "./tray";
+import { registerShortcuts, unregisterShortcuts } from "./shortcuts";
+import { initAutoUpdater } from "./updater";
+import { SessionPool } from "./pi/SessionPool";
+
+let mainWindow: BrowserWindow | null = null;
+const pool = new SessionPool();
+
+const gotSingleLock = app.requestSingleInstanceLock();
+if (!gotSingleLock) {
+  app.quit();
+}
+
+app.on("second-instance", () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
+
+app.whenReady().then(async () => {
+  // Initialize first session before window so first render has a session.
+  try {
+    const initialTabId = `tab-${Date.now()}`;
+    await pool.createForTab(initialTabId);
+    pool.setActiveTab(initialTabId);
+  } catch (err) {
+    console.error("[pi-desktop] Failed to init pi session pool:", err);
+  }
+
+  mainWindow = createMainWindow();
+
+  createAppMenu(() => mainWindow);
+  createTray(() => mainWindow);
+  registerShortcuts(() => mainWindow);
+
+  registerIpc(pool, () => mainWindow);
+  initAutoUpdater(() => mainWindow);
+
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      mainWindow = createMainWindow();
+    }
+  });
+});
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
+});
+
+app.on("before-quit", () => {
+  unregisterShortcuts();
+  pool.dispose();
+});
