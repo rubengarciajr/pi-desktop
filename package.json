@@ -1,6 +1,6 @@
 {
   "name": "pi-desktop",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Pi Desktop - a full-featured macOS desktop app for the Pi coding agent",
   "main": "out/main/index.js",
   "author": "Pi Desktop",
@@ -13,7 +13,7 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "build:mac": "electron-vite build && electron-builder --mac",
-    "build:dmg": "electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir --publish never && codesign --force --deep --sign - 'dist/mac-arm64/Pi Desktop.app' && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg",
+    "build:dmg": "electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg",
     "package": "electron-vite build && electron-builder"
   },
   "dependencies": {

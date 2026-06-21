@@ -27,13 +27,16 @@ jobs:
       - name: Build, sign & publish DMG
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Ad-hoc signing: signs the app without a paid Apple Developer cert.
-          # Prevents the "DMG is damaged" error on other machines.
-          # Users approve via System Settings > Privacy & Security on first launch.
+          # The afterSign hook handles ad-hoc signing.
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: |
-          # Build the app without signing first, then ad-hoc sign, then create DMG.
-          npx electron-builder --mac dir --publish never
-          APP_PATH="dist/mac-arm64/Pi Desktop.app"
-          codesign --force --deep --sign - "$APP_PATH"
           npx electron-builder --mac dmg --publish always
+          # Strip quarantine from the DMG so it's clean on upload.
+          # Browsers re-add it on download, but a clean DMG + ad-hoc signed app
+          # changes the error from "damaged" to "unidentified developer" (bypassable).
+          DMG_FILE=$(ls dist/*.dmg | head -1)
+          if [ -f "$DMG_FILE" ]; then
+            xattr -cr "$DMG_FILE"
+            codesign --force --sign - "$DMG_FILE"
+            echo "Stripped quarantine and signed DMG: $DMG_FILE"
+          fi

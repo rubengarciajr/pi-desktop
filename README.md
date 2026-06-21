@@ -79,23 +79,34 @@ Pi Desktop brings the power of the Pi AI coding agent into a native macOS experi
 
 ## Installation
 
-### Download
+### Quick Install (Terminal)
+Paste this one command into Terminal to download, install, and remove the Gatekeeper quarantine flag automatically:
+
+```bash
+curl -sL https://github.com/rubengarciajr/pi-desktop/releases/latest/download/Pi-Desktop-0.1.2.dmg -o /tmp/pidesktop.dmg && hdiutil attach /tmp/pidesktop.dmg -nobrowse -quiet && cp -R "/Volumes/Pi Desktop 0.1.2/Pi Desktop.app" /Applications/ && xattr -cr "/Applications/Pi Desktop.app" && hdiutil detach "/Volumes/Pi Desktop 0.1.2" -quiet && rm /tmp/pidesktop.dmg && open /Applications
+```
+
+### Manual Download
 Download the latest DMG from the [Releases page](https://github.com/rubengarciajr/pi-desktop/releases).
 
 ### macOS Gatekeeper Note
-Since Pi Desktop is not code-signed with an Apple Developer certificate, macOS may show a warning on first launch. To open it:
+Pi Desktop is ad-hoc signed but not notarized (no Apple Developer certificate). If macOS blocks it:
 
 **Option A (recommended):**
 1. Drag Pi Desktop to your Applications folder
+2. Right-click **Pi Desktop** and select **Open**
+3. Click **Open** in the dialog that appears
+4. It will open normally from now on
+
+**Option B:**
+1. Drag Pi Desktop to your Applications folder
 2. Open **System Settings > Privacy & Security**
 3. Scroll down and click **"Open Anyway"** next to the Pi Desktop message
-4. Launch the app
 
-**Option B (terminal):**
+**Option C (Terminal):**
 ```bash
 xattr -cr "/Applications/Pi Desktop.app"
 ```
-Then launch normally.
 
 ### Build from Source
 
