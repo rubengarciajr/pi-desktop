@@ -30,15 +30,8 @@ app.on("second-instance", () => {
 });
 
 app.whenReady().then(async () => {
-  // Initialize first session before window so first render has a session.
-  try {
-    const initialTabId = `tab-${Date.now()}`;
-    await pool.createForTab(initialTabId);
-    pool.setActiveTab(initialTabId);
-  } catch (err) {
-    console.error("[pi-desktop] Failed to init pi session pool:", err);
-  }
-
+  // Create window FIRST so it appears immediately.
+  // Session pool init can take a few seconds (SDK import, auth load).
   mainWindow = createMainWindow();
 
   createAppMenu(() => mainWindow);
@@ -47,6 +40,15 @@ app.whenReady().then(async () => {
 
   registerIpc(pool, () => mainWindow);
   initAutoUpdater(() => mainWindow);
+
+  // Initialize session pool AFTER window is created and showing.
+  try {
+    const initialTabId = `tab-${Date.now()}`;
+    await pool.createForTab(initialTabId);
+    pool.setActiveTab(initialTabId);
+  } catch (err) {
+    console.error("[pi-desktop] Failed to init pi session pool:", err);
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -27,16 +27,5 @@ jobs:
       - name: Build, sign & publish DMG
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # The afterSign hook handles ad-hoc signing.
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: |
-          npx electron-builder --mac dmg --publish always
-          # Strip quarantine from the DMG so it's clean on upload.
-          # Browsers re-add it on download, but a clean DMG + ad-hoc signed app
-          # changes the error from "damaged" to "unidentified developer" (bypassable).
-          DMG_FILE=$(ls dist/*.dmg | head -1)
-          if [ -f "$DMG_FILE" ]; then
-            xattr -cr "$DMG_FILE"
-            codesign --force --sign - "$DMG_FILE"
-            echo "Stripped quarantine and signed DMG: $DMG_FILE"
-          fi
+        run: npx electron-builder --mac dmg --publish always
