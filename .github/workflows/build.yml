@@ -24,8 +24,16 @@ jobs:
       - name: Build app
         run: npm run build
 
-      - name: Build & publish DMG
+      - name: Build, sign & publish DMG
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Ad-hoc signing: signs the app without a paid Apple Developer cert.
+          # Prevents the "DMG is damaged" error on other machines.
+          # Users approve via System Settings > Privacy & Security on first launch.
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npx electron-builder --mac dmg --publish always
+        run: |
+          # Build the app without signing first, then ad-hoc sign, then create DMG.
+          npx electron-builder --mac dir --publish never
+          APP_PATH="dist/mac-arm64/Pi Desktop.app"
+          codesign --force --deep --sign - "$APP_PATH"
+          npx electron-builder --mac dmg --publish always
