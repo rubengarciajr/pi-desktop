@@ -14,7 +14,7 @@ export function createMainWindow(): BrowserWindow {
     height: 780,
     minWidth: 760,
     minHeight: 520,
-    show: false,
+    show: true,
     autoHideMenuBar: true,
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 16, y: 18 },
@@ -32,8 +32,12 @@ export function createMainWindow(): BrowserWindow {
 
   const win = new BrowserWindow(options);
 
-  win.on("ready-to-show", () => {
-    win.show();
+  win.webContents.on("did-fail-load", (_e, errorCode, errorDescription) => {
+    console.error(`[pi-desktop] Renderer failed to load: ${errorCode} ${errorDescription}`);
+  });
+
+  win.webContents.on("render-process-gone", (_e, details) => {
+    console.error(`[pi-desktop] Render process gone: ${details.reason}`);
   });
 
   win.webContents.setWindowOpenHandler(({ url }) => {

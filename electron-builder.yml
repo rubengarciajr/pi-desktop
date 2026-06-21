@@ -7,6 +7,7 @@ afterSign: build/afterSign.cjs
 files:
   - out/**/*
   - "!out/**/*.{map}"
+  - resources/**
   - package.json
 mac:
   category: public.app-category.developer-tools
