@@ -30,11 +30,10 @@ export default function App() {
   const resetTabMessages = useAppStore((s) => s.resetTabMessages);
   const addDiagnostic = useAppStore((s) => s.addDiagnostic);
 
-  // Check if pi CLI is installed on first launch.
+  // The app runs the pi agent SDK in-process and does NOT require the pi CLI.
+  // Skip onboarding entirely - users can optionally install the CLI from System tab.
   useEffect(() => {
-    window.pi.api.checkPiInstalled().then((res: any) => {
-      setNeedsOnboarding(!res.installed);
-    }).catch(() => setNeedsOnboarding(false));
+    setNeedsOnboarding(false);
   }, []);
 
   // Load favorites on mount.

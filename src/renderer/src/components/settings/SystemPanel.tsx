@@ -45,7 +45,7 @@ export function SystemPanel() {
   return (
     <div className="space-y-6">
       {/* Pi CLI */}
-      <Section title="Pi CLI">
+      <Section title="Pi CLI (optional)">
         <div className="rounded-lg border border-border bg-bg-subtle px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
@@ -57,7 +57,7 @@ export function SystemPanel() {
                   : "Not installed"}
               </p>
               <p className="text-xs text-text-faint">
-                The pi CLI powers the terminal experience. Required for some advanced features.
+                Optional. Pi Desktop works without the CLI. Install only if you want the terminal experience too.
               </p>
             </div>
             <button
