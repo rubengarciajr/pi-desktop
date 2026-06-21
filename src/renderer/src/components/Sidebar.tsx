@@ -46,7 +46,7 @@ export function Sidebar() {
         <PiLogoIcon size={28} />
         <div className="flex flex-col leading-none">
           <span className="text-sm font-semibold tracking-tight text-text">Pi Desktop</span>
-          <span className="text-[10px] text-text-faint">v0.1.0</span>
+          <span className="text-[10px] text-text-faint">v0.1.4</span>
         </div>
       </div>
 

@@ -284,7 +284,7 @@ function SettingsPanel() {
         <div className="rounded-lg border border-border bg-bg-subtle px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-text">Pi Desktop v0.1.0</p>
+              <p className="text-sm text-text">Pi Desktop v0.1.4</p>
               <p className="text-xs text-text-faint">
                 {updateStatus.status === "up-to-date" && "You're on the latest version."}
                 {updateStatus.status === "available" && `Update ${updateStatus.version} is downloading...`}

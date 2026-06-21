@@ -6,6 +6,68 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.1.4",
+    date: "2026-06-21",
+    sections: [
+      {
+        title: "Features",
+        items: [
+          "SDK-based package installation - install/remove pi packages without the CLI",
+          "System tab with dependency checker (Node.js, npm, Git, Pi CLI status)",
+          "Copyable quick-start install commands for pi CLI in System tab",
+          "Links to pi.dev, documentation, quickstart guide, and models docs",
+          "Warning banner when Node.js is missing",
+        ],
+      },
+      {
+        title: "Fixes",
+        items: [
+          "Package install/remove now uses DefaultPackageManager directly instead of spawning pi CLI",
+          "Improved error messages when dependencies are missing",
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.1.3",
+    date: "2026-06-21",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "Removed blocking onboarding that required Node.js/npm - app runs SDK in-process",
+          "Pi CLI is now optional (installable from System tab)",
+          "Simplified startup screen",
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.1.2",
+    date: "2026-06-21",
+    sections: [
+      {
+        title: "Features",
+        items: [
+          "Custom model management with inline form and quick presets (Claude, OpenAI, Z.ai, MiniMax, MiMo, Grok)",
+          "System tab with pi CLI installer and models.json location",
+          "Auto-update banner toast with restart button",
+          "GitHub Actions CI for auto-build on tag push",
+          "One-click terminal install command in README",
+        ],
+      },
+      {
+        title: "Fixes",
+        items: [
+          "Fixed 'DMG is damaged' error - ad-hoc code signing via afterSign hook",
+          "Fixed setModel returning { success } instead of full state",
+          "Fixed model operations not passing tabId",
+          "Updated publish config to correct GitHub repo",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.1.0",
     date: "2026-06-21",
     sections: [
@@ -21,7 +83,6 @@ const CHANGELOG: DesktopChangelogEntry[] = [
           "Model picker with provider grouping and thinking level control",
           "Token usage and session cost display in the status bar",
           "Extensions and Skills browser with tabs for extensions, skills, commands, and tools",
-          "Onboarding flow with animated pi CLI installer",
           "Native macOS menu bar tray icon with quick actions",
           "Drag-to-install DMG with custom Pi app icon",
           "Smart scroll tracking that stays pinned or lets you scroll freely",
@@ -56,7 +117,7 @@ export function DesktopChangelog() {
           <p className="text-xs text-text-faint">What's new in the desktop app.</p>
         </div>
         <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-xs font-medium text-accent">
-          v0.1.0
+          v0.1.4
         </span>
       </div>
 
