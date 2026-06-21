@@ -19,7 +19,7 @@ import {
   cloneRepo,
   readRepoLinkage,
 } from "./github";
-import { searchPackages, getDownloadCounts, installPackage, removePackage, listInstalledPackages } from "./packages";
+import { searchPackages, getDownloadCounts } from "./packages";
 import { listCustomModels, addCustomModel, removeCustomModel, getModelsPath } from "./models";
 import { shell } from "electron";
 
@@ -228,6 +228,23 @@ export function registerIpc(
   handle("pi:install.check", async () => {
     return { installed: isPiInstalled(), version: getPiVersion() };
   });
+  handle("pi:system.check", async () => {
+    const { execSync } = await import("child_process");
+    const check = (cmd: string) => {
+      try {
+        execSync(`${cmd} --version`, { encoding: "utf-8", timeout: 5000, stdio: ["pipe", "pipe", "pipe"] });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    return {
+      npm: check("npm"),
+      node: check("node"),
+      git: check("git"),
+      pi: check("pi"),
+    };
+  });
 
   handle("pi:install.start", async () => {
     const installer = installPi();
@@ -308,7 +325,7 @@ export function registerIpc(
     return readRepoLinkage(cwd);
   });
 
-  // --- Packages ---
+  // --- Packages (SDK-based, no pi CLI required) ---
   handle("packages:search", async () => {
     const packages = await searchPackages();
     // Enrich with download counts.
@@ -320,19 +337,22 @@ export function registerIpc(
     return packages;
   });
 
-  handle("packages:installed", async () => {
-    return listInstalledPackages();
+  handle("packages:installed", async (a) => {
+    const m = await mgr(a);
+    return m.listPackages();
   });
 
   handle("packages:install", async (a) => {
-    const result = await installPackage(a?.spec);
+    const m = await mgr(a);
+    const result = await m.installPackage(a?.spec);
     invalidateSharedDeps();
     send("packages:installed.changed", {});
     return result;
   });
 
   handle("packages:remove", async (a) => {
-    const result = await removePackage(a?.spec);
+    const m = await mgr(a);
+    const result = await m.removePackage(a?.spec);
     invalidateSharedDeps();
     send("packages:installed.changed", {});
     return result;

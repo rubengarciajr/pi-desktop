@@ -80,6 +80,7 @@ const api = {
   // Install
   checkPiInstalled: invoke("pi:install.check"),
   startPiInstall: invoke("pi:install.start"),
+  systemCheck: invoke("pi:system.check"),
 };
 
 // GitHub API

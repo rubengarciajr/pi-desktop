@@ -173,6 +173,7 @@ export interface PiApi {
   customModelRemove: (args: { provider: string; modelId: string }) => Promise<{ success: boolean }>;
   modelsJsonPath: () => Promise<string>;
   openModelsJson: () => Promise<{ success: boolean }>;
+  systemCheck: () => Promise<{ npm: boolean; node: boolean; git: boolean; pi: boolean }>;
 
   // Misc
   getCwd: (args?: { tabId?: string }) => Promise<string>;

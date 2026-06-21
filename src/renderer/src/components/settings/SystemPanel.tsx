@@ -1,24 +1,35 @@
 import { useEffect, useState } from "react";
 
+interface SystemCheck {
+  npm: boolean;
+  node: boolean;
+  git: boolean;
+  pi: boolean;
+}
+
 export function SystemPanel() {
-  const [piInstalled, setPiInstalled] = useState<boolean | null>(null);
+  const [sysCheck, setSysCheck] = useState<SystemCheck | null>(null);
   const [piVersion, setPiVersion] = useState<string | null>(null);
   const [installing, setInstalling] = useState(false);
   const [installMsg, setInstallMsg] = useState<string | null>(null);
   const [modelsPath, setModelsPath] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
-    checkPi();
+    checkAll();
     window.pi.api.modelsJsonPath().then(setModelsPath).catch(() => {});
   }, []);
 
-  const checkPi = async () => {
+  const checkAll = async () => {
     try {
-      const res = await window.pi.api.checkPiInstalled();
-      setPiInstalled(res.installed);
-      setPiVersion(res.version ?? null);
+      const checks = await window.pi.api.systemCheck();
+      setSysCheck(checks);
+      if (checks.pi) {
+        const piStatus = await window.pi.api.checkPiInstalled();
+        setPiVersion(piStatus.version ?? null);
+      }
     } catch {
-      setPiInstalled(false);
+      setSysCheck({ npm: false, node: false, git: false, pi: false });
     }
   };
 
@@ -35,50 +46,150 @@ export function SystemPanel() {
       setInstalling(false);
       if (result?.success) {
         setInstallMsg("Installed successfully!");
-        checkPi();
+        checkAll();
       } else {
         setInstallMsg(result?.error ?? "Installation failed.");
       }
     });
   };
 
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Dependency Status */}
+      <Section title="System Status">
+        <div className="rounded-lg border border-border bg-bg-subtle px-4 py-3 space-y-2.5">
+          <DependencyRow
+            label="Node.js"
+            description="Required for installing pi packages and extensions"
+            installed={sysCheck?.node ?? null}
+          />
+          <DependencyRow
+            label="npm"
+            description="Required for installing pi packages from npm registry"
+            installed={sysCheck?.npm ?? null}
+          />
+          <DependencyRow
+            label="Git"
+            description="Required for GitHub integration and version control"
+            installed={sysCheck?.git ?? null}
+          />
+          <DependencyRow
+            label="Pi CLI"
+            description={`Optional. ${sysCheck?.pi ? `Installed${piVersion ? ` (${piVersion})` : ""}` : "Not installed - only needed for terminal use"}`}
+            installed={sysCheck?.pi ?? null}
+            optional
+          />
+        </div>
+        {sysCheck && !sysCheck.npm && (
+          <div className="mt-2 rounded-lg border border-warning/30 bg-warning/5 px-4 py-2.5">
+            <p className="text-xs text-text-muted">
+              <span className="font-medium text-warning">Node.js not found.</span>{" "}
+              Pi Desktop works without it, but installing packages and extensions requires Node.js.
+            </p>
+            <a
+              href="https://nodejs.org"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-block text-xs text-accent hover:underline"
+            >
+              Download Node.js from nodejs.org
+            </a>
+          </div>
+        )}
+      </Section>
+
       {/* Pi CLI */}
       <Section title="Pi CLI (optional)">
         <div className="rounded-lg border border-border bg-bg-subtle px-4 py-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-2">
             <div>
               <p className="text-sm text-text">
-                {piInstalled === null
+                {sysCheck?.pi === null
                   ? "Checking..."
-                  : piInstalled
+                  : sysCheck?.pi
                   ? `Installed${piVersion ? ` (${piVersion})` : ""}`
                   : "Not installed"}
               </p>
               <p className="text-xs text-text-faint">
-                Optional. Pi Desktop works without the CLI. Install only if you want the terminal experience too.
+                Optional. Pi Desktop works without it. Install only if you want the terminal experience.
               </p>
             </div>
             <button
               onClick={handleInstall}
-              disabled={installing || piInstalled === null}
-              className={`no-drag rounded-lg px-3 py-2 text-xs font-medium disabled:opacity-40 ${
-                piInstalled
+              disabled={installing || sysCheck?.npm === false}
+              className={`no-drag shrink-0 rounded-lg px-3 py-2 text-xs font-medium disabled:opacity-40 ${
+                sysCheck?.pi
                   ? "border border-border bg-bg-hover text-text-muted hover:bg-bg-active"
                   : "bg-accent text-white hover:bg-accent-hover"
               }`}
             >
-              {installing ? "Installing..." : piInstalled ? "Reinstall" : "Install"}
+              {installing ? "Installing..." : sysCheck?.pi ? "Reinstall" : "Install"}
             </button>
           </div>
           {installMsg && (
             <p className="mt-2 text-xs text-accent">{installMsg}</p>
           )}
+          {sysCheck?.npm === false && (
+            <p className="mt-2 text-xs text-text-faint">
+              Requires Node.js/npm. Install Node.js first, then restart Pi Desktop.
+            </p>
+          )}
+        </div>
+
+        {/* Quick install commands */}
+        <div className="mt-3 space-y-2">
+          <p className="text-xs font-medium text-text-faint">Or install from Terminal:</p>
+          <CopyableCode
+            id="npm"
+            text="npm install -g --ignore-scripts @earendil-works/pi-coding-agent"
+            copied={copied === "npm"}
+            onCopy={copyToClipboard}
+          />
+          <CopyableCode
+            id="curl"
+            text="curl -fsSL https://pi.dev/install.sh | sh"
+            copied={copied === "curl"}
+            onCopy={copyToClipboard}
+          />
+        </div>
+
+        <div className="mt-3 flex gap-3">
+          <a
+            href="https://pi.dev"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-accent hover:underline"
+          >
+            pi.dev
+          </a>
+          <span className="text-text-faint">|</span>
+          <a
+            href="https://pi.dev/docs/latest"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-accent hover:underline"
+          >
+            Documentation
+          </a>
+          <span className="text-text-faint">|</span>
+          <a
+            href="https://pi.dev/docs/latest/quickstart"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-accent hover:underline"
+          >
+            Quickstart Guide
+          </a>
         </div>
       </Section>
 
-      {/* Models configuration */}
+      {/* Model configuration */}
       <Section title="Model configuration">
         <div className="rounded-lg border border-border bg-bg-subtle px-4 py-3">
           <div className="flex items-center justify-between">
@@ -97,6 +208,14 @@ export function SystemPanel() {
             </button>
           </div>
         </div>
+        <a
+          href="https://pi.dev/docs/latest/models"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-block text-xs text-accent hover:underline"
+        >
+          Custom models documentation
+        </a>
       </Section>
 
       {/* About */}
@@ -104,10 +223,52 @@ export function SystemPanel() {
         <div className="space-y-1 text-xs text-text-muted">
           <Row label="App version" value="0.1.0" />
           <Row label="Electron" value={window.pi?.versions?.electron ?? "—"} />
-          <Row label="Node" value={window.pi?.versions?.node ?? "—"} />
-          <Row label="Pi agent" value={window.pi?.versions?.pi ?? "—"} />
+          <Row label="Node (bundled)" value={window.pi?.versions?.node ?? "—"} />
+          <Row label="Pi agent SDK" value={window.pi?.versions?.pi ?? "—"} />
         </div>
       </Section>
+    </div>
+  );
+}
+
+function DependencyRow({ label, description, installed, optional }: { label: string; description: string; installed: boolean | null; optional?: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-text">{label}</span>
+          {optional && <span className="rounded bg-bg-hover px-1.5 py-0.5 text-[9px] text-text-faint">optional</span>}
+        </div>
+        <p className="text-xs text-text-faint">{description}</p>
+      </div>
+      <div className="shrink-0 ml-3">
+        {installed === null ? (
+          <span className="text-xs text-text-faint">...</span>
+        ) : installed ? (
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        ) : (
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={optional ? "#a1a1aa" : "#ef4444"} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CopyableCode({ id, text, copied, onCopy }: { id: string; text: string; copied: boolean; onCopy: (text: string, id: string) => void }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2">
+      <code className="flex-1 truncate font-mono text-xs text-text-muted">{text}</code>
+      <button
+        onClick={() => onCopy(text, id)}
+        className="no-drag shrink-0 rounded-md border border-border bg-bg-hover px-2 py-1 text-[10px] text-text-faint hover:text-text"
+      >
+        {copied ? "Copied!" : "Copy"}
+      </button>
     </div>
   );
 }
