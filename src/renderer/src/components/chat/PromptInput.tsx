@@ -23,6 +23,7 @@ export function PromptInput() {
   const [text, setText] = useState("");
   const [commands, setCommands] = useState<CommandItem[]>([]);
   const [slashIndex, setSlashIndex] = useState(0);
+  const [dropdownDismissed, setDropdownDismissed] = useState(false);
   const isStreaming = useAppStore((s) => s.activeTab.piState.isStreaming);
   const queue = useAppStore((s) => s.activeTab.queue);
   const activeTabId = useAppStore((s) => s.activeTabId);
@@ -66,6 +67,7 @@ export function PromptInput() {
     };
 
     setCommands([]);
+    setDropdownDismissed(false);
     tryFetch();
 
     return () => { cancelled = true; };
@@ -103,6 +105,10 @@ export function PromptInput() {
   const slashQuery = (() => {
     if (!text.startsWith("/")) return null;
     const query = text.slice(1).split(/\s/)[0].toLowerCase();
+    // Empty query (just "/") or a partial word after "/"
+    if (query === "") return "";
+    // If there's already a space after the command, the user has moved past selection
+    if (text.slice(1).includes(" ")) return null;
     return query;
   })();
 
@@ -110,7 +116,9 @@ export function PromptInput() {
     ? commands.filter((c) => c.name.toLowerCase().includes(slashQuery))
     : [];
 
-  const slashOpen = filteredCommands.length > 0;
+  // Show dropdown: only when there's a slash query, filtered results exist,
+  // and the user hasn't dismissed it (by selecting, pressing Escape, or clicking away).
+  const slashOpen = !dropdownDismissed && slashQuery !== null && filteredCommands.length > 0;
 
   // Reset index when the filter changes, and scroll the active item into view.
   useEffect(() => {
@@ -127,6 +135,7 @@ export function PromptInput() {
     const message = text.trim();
     if (!message) return;
     setText("");
+    setDropdownDismissed(false);
     const tabId = useAppStore.getState().activeTabId ?? undefined;
     try {
       if (isStreaming && !streamingBehavior) {
@@ -146,9 +155,8 @@ export function PromptInput() {
   };
 
   const insertCommand = (cmd: CommandItem) => {
-    // All items from getCommands() are slash commands.
-    // Skills already have "skill:" prefix in their name from the backend.
     setText(`/${cmd.name} `);
+    setDropdownDismissed(true);
     textareaRef.current?.focus();
   };
 
@@ -172,8 +180,7 @@ export function PromptInput() {
       }
       if (e.key === "Escape") {
         e.preventDefault();
-        // Clear the / and close menu.
-        setText("");
+        setDropdownDismissed(true);
         return;
       }
     }
@@ -234,7 +241,7 @@ export function PromptInput() {
           <textarea
             ref={textareaRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => { setText(e.target.value); setDropdownDismissed(false); }}
             onKeyDown={handleKeyDown}
             placeholder={isStreaming ? "Queue a steering message... (Enter to steer, Cmd+Shift+Enter for follow-up)" : "Message Pi Desktop (Enter to send) or type / for commands"}
             rows={1}
