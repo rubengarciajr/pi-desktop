@@ -98,7 +98,9 @@ export function Sidebar() {
                   : "text-text-muted hover:bg-bg-hover hover:text-text"
               }`}
             >
-              <item.Icon size={17} className={active ? "text-accent" : ""} />
+              <span className="flex w-[18px] shrink-0 items-center justify-center">
+                <item.Icon size={14} className={active ? "text-accent" : ""} />
+              </span>
               {item.label}
             </button>
           );

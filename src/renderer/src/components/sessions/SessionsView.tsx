@@ -20,6 +20,7 @@ export function SessionsView() {
   const favorites = useAppStore((s) => s.favorites);
   const addFavorite = useAppStore((s) => s.addFavorite);
   const removeFavorite = useAppStore((s) => s.removeFavorite);
+  const setSessionsPanelOpen = useAppStore((s) => s.setSessionsPanelOpen);
 
   const refresh = async () => {
     setLoading(true);
@@ -109,6 +110,9 @@ export function SessionsView() {
                     >
                       <button
                         onClick={async () => {
+                          // Opening a favorite auto-closes the Sessions panel
+                          // (only favorites do this — regular session items don't).
+                          setSessionsPanelOpen(false);
                           const tabId = `tab-${Date.now()}`;
                           await window.pi.api.createTab({ tabId, cwd: f.path });
                           addTab({ id: tabId, title: f.name, cwd: f.path });
