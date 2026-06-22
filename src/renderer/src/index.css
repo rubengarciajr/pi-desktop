@@ -4,25 +4,24 @@
 
 /* ========================================
    Theme Variables - Dark (default)
+   Using RGB triplets so Tailwind can compute opacity with /10, /40, etc.
    ======================================== */
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
-  --color-bg: #0f0f10;
-  --color-bg-subtle: #161617;
-  --color-bg-hover: #1d1d1f;
-  --color-bg-active: #242426;
-  --color-border: #262629;
-  --color-border-strong: #34343a;
-  --color-text: #e8e8ea;
-  --color-text-muted: #8e8e94;
-  --color-text-faint: #5e5e64;
-  --color-success: #3dd68c;
-  --color-warning: #ffb454;
-  --color-danger: #ff6b6b;
-  --color-thinking: #9ba1d4;
-  --color-user: var(--color-accent);
-  --color-assistant: #e8e8ea;
+  --color-bg-rgb: 15 15 16;
+  --color-bg-subtle-rgb: 22 22 23;
+  --color-bg-hover-rgb: 29 29 31;
+  --color-bg-active-rgb: 36 36 38;
+  --color-border-rgb: 38 38 41;
+  --color-border-strong-rgb: 52 52 58;
+  --color-text-rgb: 232 232 234;
+  --color-text-muted-rgb: 142 142 148;
+  --color-text-faint-rgb: 94 94 100;
+  --color-success-rgb: 61 214 140;
+  --color-warning-rgb: 255 180 84;
+  --color-danger-rgb: 255 107 107;
+  --color-thinking-rgb: 155 161 212;
   --scrollbar-thumb: rgba(255, 255, 255, 0.1);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
   --input-bg: rgba(255, 255, 255, 0.03);
@@ -34,21 +33,19 @@
    ======================================== */
 [data-theme="light"] {
   color-scheme: light;
-  --color-bg: #ffffff;
-  --color-bg-subtle: #f5f5f7;
-  --color-bg-hover: #eeeef1;
-  --color-bg-active: #e4e4e8;
-  --color-border: #d8d8de;
-  --color-border-strong: #c0c0c8;
-  --color-text: #1a1a1c;
-  --color-text-muted: #6b6b72;
-  --color-text-faint: #9a9aa2;
-  --color-success: #1a9f5e;
-  --color-warning: #d97706;
-  --color-danger: #e53e3e;
-  --color-thinking: #6b6f9e;
-  --color-user: var(--color-accent);
-  --color-assistant: #1a1a1c;
+  --color-bg-rgb: 255 255 255;
+  --color-bg-subtle-rgb: 245 245 247;
+  --color-bg-hover-rgb: 238 238 241;
+  --color-bg-active-rgb: 228 228 232;
+  --color-border-rgb: 216 216 222;
+  --color-border-strong-rgb: 192 192 200;
+  --color-text-rgb: 26 26 28;
+  --color-text-muted-rgb: 107 107 114;
+  --color-text-faint-rgb: 154 154 162;
+  --color-success-rgb: 26 159 94;
+  --color-warning-rgb: 217 119 6;
+  --color-danger-rgb: 229 62 62;
+  --color-thinking-rgb: 107 111 158;
   --scrollbar-thumb: rgba(0, 0, 0, 0.15);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
   --input-bg: rgba(0, 0, 0, 0.03);
@@ -59,46 +56,38 @@
    Accent Color Presets
    ======================================== */
 [data-accent="purple"] {
-  --color-accent: #7c5cff;
-  --color-accent-hover: #8e6dff;
-  --color-accent-subtle: rgba(124, 92, 255, 0.12);
+  --color-accent-rgb: 124 92 255;
+  --color-accent-hover-rgb: 142 109 255;
 }
 [data-accent="blue"] {
-  --color-accent: #3b82f6;
-  --color-accent-hover: #2563eb;
-  --color-accent-subtle: rgba(59, 130, 246, 0.12);
+  --color-accent-rgb: 59 130 246;
+  --color-accent-hover-rgb: 37 99 235;
 }
 [data-accent="green"] {
-  --color-accent: #22c55e;
-  --color-accent-hover: #16a34a;
-  --color-accent-subtle: rgba(34, 197, 94, 0.12);
+  --color-accent-rgb: 34 197 94;
+  --color-accent-hover-rgb: 22 163 74;
 }
 [data-accent="orange"] {
-  --color-accent: #f97316;
-  --color-accent-hover: #ea580c;
-  --color-accent-subtle: rgba(249, 115, 22, 0.12);
+  --color-accent-rgb: 249 115 22;
+  --color-accent-hover-rgb: 234 88 12;
 }
 [data-accent="pink"] {
-  --color-accent: #ec4899;
-  --color-accent-hover: #db2777;
-  --color-accent-subtle: rgba(236, 72, 153, 0.12);
+  --color-accent-rgb: 236 72 153;
+  --color-accent-hover-rgb: 219 39 119;
 }
 [data-accent="teal"] {
-  --color-accent: #14b8a6;
-  --color-accent-hover: #0d9488;
-  --color-accent-subtle: rgba(20, 184, 166, 0.12);
+  --color-accent-rgb: 20 184 166;
+  --color-accent-hover-rgb: 13 148 136;
 }
 [data-accent="red"] {
-  --color-accent: #ef4444;
-  --color-accent-hover: #dc2626;
-  --color-accent-subtle: rgba(239, 68, 68, 0.12);
+  --color-accent-rgb: 239 68 68;
+  --color-accent-hover-rgb: 220 38 38;
 }
 
 /* Default accent if none set */
 :root {
-  --color-accent: #7c5cff;
-  --color-accent-hover: #8e6dff;
-  --color-accent-subtle: rgba(124, 92, 255, 0.12);
+  --color-accent-rgb: 124 92 255;
+  --color-accent-hover-rgb: 142 109 255;
 }
 
 html,
@@ -150,17 +139,16 @@ body {
 .form-input {
   width: 100%;
   border-radius: 0.5rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid rgb(var(--color-border-rgb));
   background: var(--input-bg);
   padding: 0.5rem 0.75rem;
   font-size: 0.8125rem;
-  color: var(--color-text);
+  color: rgb(var(--color-text-rgb));
   outline: none;
   transition: border-color 0.15s;
 }
 .form-input:focus {
-  border-color: var(--color-accent);
-  opacity: 0.7;
+  border-color: rgb(var(--color-accent-rgb) / 0.5);
 }
 .form-input::placeholder {
   color: var(--input-placeholder);
@@ -170,7 +158,7 @@ body {
 .streaming-cursor::after {
   content: "▋";
   animation: blink 1s step-end infinite;
-  color: var(--color-accent);
+  color: rgb(var(--color-accent-rgb));
   margin-left: 2px;
 }
 @keyframes blink {

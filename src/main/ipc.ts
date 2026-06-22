@@ -357,4 +357,29 @@ export function registerIpc(
     send("packages:installed.changed", {});
     return result;
   });
+
+  // --- Skill / Extension removal ---
+  handle("pi:skill.remove", async (a) => {
+    const m = await mgr(a);
+    const result = await m.removeSkill(a?.path);
+    invalidateSharedDeps();
+    send("packages:installed.changed", {});
+    return result;
+  });
+  handle("pi:extension.remove", async (a) => {
+    const m = await mgr(a);
+    const result = await m.removeExtension(a?.path);
+    invalidateSharedDeps();
+    send("packages:installed.changed", {});
+    return result;
+  });
+
+  // --- Restore to stock ---
+  handle("pi:restoreStock", async () => {
+    const m = await mgr({});
+    const result = await m.restoreToStock();
+    invalidateSharedDeps();
+    send("packages:installed.changed", {});
+    return result;
+  });
 }

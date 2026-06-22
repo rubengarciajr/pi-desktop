@@ -244,6 +244,9 @@ export interface PackagesApi {
   installed: () => Promise<InstalledPackage[]>;
   install: (args: { spec: string }) => Promise<{ success: boolean; error?: string }>;
   remove: (args: { spec: string }) => Promise<{ success: boolean; error?: string }>;
+  removeSkill: (args: { path: string }) => Promise<{ success: boolean; error?: string }>;
+  removeExtension: (args: { path: string }) => Promise<{ success: boolean; error?: string }>;
+  restoreStock: () => Promise<{ success: boolean; removed: string[]; error?: string }>;
 }
 
 export interface PiImage {

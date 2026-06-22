@@ -550,6 +550,95 @@ export class PiSessionManager {
     }
   }
 
+  /** Remove a skill by its path from the settings. */
+  async removeSkill(skillPath: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!this._deps?.settingsManager) throw new Error("Settings manager not initialized");
+      const sm = this._deps.settingsManager;
+      const skills = sm.getSkillPaths();
+      const filtered = skills.filter((p: string) => p !== skillPath && !p.endsWith(skillPath));
+      if (filtered.length < skills.length) {
+        sm.setSkillPaths(filtered);
+        return { success: true };
+      }
+      return { success: false, error: "Skill path not found in settings" };
+    } catch (err: any) {
+      return { success: false, error: err?.message ?? String(err) };
+    }
+  }
+
+  /** Remove an extension by its path from the settings. */
+  async removeExtension(extPath: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!this._deps?.settingsManager) throw new Error("Settings manager not initialized");
+      const sm = this._deps.settingsManager;
+      const extensions = sm.getExtensionPaths();
+      const filtered = extensions.filter((p: string) => p !== extPath && !p.endsWith(extPath));
+      if (filtered.length < extensions.length) {
+        sm.setExtensionPaths(filtered);
+        return { success: true };
+      }
+      return { success: false, error: "Extension path not found in settings" };
+    } catch (err: any) {
+      return { success: false, error: err?.message ?? String(err) };
+    }
+  }
+
+  /** Restore to stock Pi: remove all packages, extensions, skills, prompts, and themes. */
+  async restoreToStock(): Promise<{ success: boolean; removed: string[]; error?: string }> {
+    try {
+      if (!this._deps?.settingsManager) throw new Error("Settings manager not initialized");
+      const sm = this._deps.settingsManager;
+      const removed: string[] = [];
+
+      // Remove all packages
+      const pm = await this.getPackageManager();
+      const packages = pm.listConfiguredPackages();
+      for (const pkg of packages) {
+        try {
+          await pm.removeAndPersist(pkg.source);
+          removed.push(`package: ${pkg.source}`);
+        } catch {}
+      }
+
+      // Clear extension paths
+      const extensions = sm.getExtensionPaths();
+      if (extensions.length > 0) {
+        sm.setExtensionPaths([]);
+        removed.push(`extensions: ${extensions.length} removed`);
+      }
+
+      // Clear skill paths
+      const skills = sm.getSkillPaths();
+      if (skills.length > 0) {
+        sm.setSkillPaths([]);
+        removed.push(`skills: ${skills.length} removed`);
+      }
+
+      // Clear prompt paths
+      const prompts = sm.getPromptTemplatePaths();
+      if (prompts.length > 0) {
+        sm.setPromptTemplatePaths([]);
+        removed.push(`prompts: ${prompts.length} removed`);
+      }
+
+      // Clear theme paths
+      const themes = sm.getThemePaths();
+      if (themes.length > 0) {
+        sm.setThemePaths([]);
+        removed.push(`themes: ${themes.length} removed`);
+      }
+
+      // Clear packages from settings
+      sm.setPackages([]);
+      sm.setProjectPackages([]);
+
+      return { success: true, removed };
+    } catch (err: any) {
+      return { success: false, removed: [], error: err?.message ?? String(err) };
+    }
+  }
+
   // --- Misc --------------------------------------------------------------
 
   async getAuthStatus() {
@@ -608,9 +697,12 @@ export class PiSessionManager {
     const loader = this.getResourceLoader();
     if (!loader) return [];
     const result = loader.getExtensions();
-    const items: { path: string; error?: string }[] = [];
+    const items: { path: string; error?: string; source?: string }[] = [];
     for (const ext of result.extensions) {
-      items.push({ path: (ext as any).path ?? (ext as any).name ?? "extension" });
+      items.push({
+        path: (ext as any).path ?? (ext as any).name ?? "extension",
+        source: (ext as any).sourceInfo?.location ?? (ext as any).source ?? "",
+      });
     }
     for (const err of result.errors) {
       items.push({ path: err.path, error: err.error });
@@ -622,7 +714,14 @@ export class PiSessionManager {
     const loader = this.getResourceLoader();
     if (!loader) return { skills: [] };
     const { skills } = loader.getSkills();
-    return { skills: skills.map((s: any) => ({ name: s.name, description: s.description, source: s.source })) };
+    return {
+      skills: skills.map((s: any) => ({
+        name: s.name,
+        description: s.description,
+        source: s.sourceInfo?.location ?? s.source,
+        path: s.baseDir ?? s.filePath ?? "",
+      })),
+    };
   }
 
   async getThemes() {

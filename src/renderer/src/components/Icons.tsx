@@ -91,10 +91,10 @@ export function PiLogoIcon(props: IconProps) {
       viewBox="0 0 800 800"
       fill="none"
       className={props.className}
-      style={{ flexShrink: 0 }}
+      style={{ flexShrink: 0, color: "var(--color-text)" }}
     >
       <path
-        fill="#fff"
+        fill="currentColor"
         fillRule="evenodd"
         d="M165.29 165.29 H517.36 V400 H400 V517.36 H282.65 V634.72 H165.29 Z M282.65 282.65 V400 H400 V282.65 Z"
       />

@@ -73,35 +73,12 @@ function SettingsPanel() {
   const [ghAuth, setGhAuth] = useState<GitHubAuth>({ authenticated: false });
   const [ghToken, setGhToken] = useState("");
   const [ghVerifying, setGhVerifying] = useState(false);
-  const [updateStatus, setUpdateStatus] = useState<{
-    status: "idle" | "checking" | "up-to-date" | "available" | "error";
-    version?: string;
-    message?: string;
-  }>({ status: "idle" });
-  const [updateChecking, setUpdateChecking] = useState(false);
 
   useEffect(() => {
     window.pi.api.getAuthStatus().then(setAuthStatus).catch(() => {});
     window.pi.api.getCwd().then(setCwd).catch(() => {});
     window.pi.github.getAuthStatus().then((s: GitHubAuth) => setGhAuth(s)).catch(() => {});
   }, []);
-
-  const handleCheckForUpdates = async () => {
-    setUpdateChecking(true);
-    try {
-      const result = await window.pi.events.checkForUpdates();
-      if (result?.status === "error") {
-        setUpdateStatus({ status: "error", message: result.message });
-      } else if (result?.status === "available") {
-        setUpdateStatus({ status: "available", version: result.version });
-      } else {
-        setUpdateStatus({ status: "up-to-date" });
-      }
-    } catch (e) {
-      setUpdateStatus({ status: "error", message: String(e) });
-    }
-    setUpdateChecking(false);
-  };
 
   return (
     <div className="space-y-6">
@@ -280,39 +257,6 @@ function SettingsPanel() {
           Manually compact context to reduce token usage. Auto-compaction runs
           when the context window is nearly full.
         </p>
-      </Section>
-
-      <Section title="Updates">
-        <div className="rounded-lg border border-border bg-bg-subtle px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-text">Pi Desktop v0.2.2</p>
-              <p className="text-xs text-text-faint">
-                {updateStatus.status === "up-to-date" && "You're on the latest version."}
-                {updateStatus.status === "available" && `Version ${updateStatus.version} is available! Click Download to get it.`}
-                {updateStatus.status === "error" && `Error: ${updateStatus.message ?? "check failed"}`}
-                {(updateStatus.status === "idle" || updateStatus.status === "checking") && "Check for new versions."}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {updateStatus.status === "available" && (
-                <button
-                  onClick={() => window.pi.events.downloadUpdate()}
-                  className="no-drag rounded-lg bg-accent px-3 py-2 text-xs font-medium text-white hover:bg-accent-hover"
-                >
-                  Download v{updateStatus.version}
-                </button>
-              )}
-              <button
-                onClick={handleCheckForUpdates}
-                disabled={updateChecking}
-                className="no-drag rounded-lg border border-border bg-bg-hover px-3 py-2 text-xs text-text-muted hover:bg-bg-active disabled:opacity-40"
-              >
-                {updateChecking ? "Checking..." : "Check for Updates"}
-              </button>
-            </div>
-          </div>
-        </div>
       </Section>
 
       <Section title="Session info">

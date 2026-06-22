@@ -104,6 +104,9 @@ const packages = {
   installed: invoke("packages:installed"),
   install: invoke("packages:install"),
   remove: invoke("packages:remove"),
+  removeSkill: invoke("pi:skill.remove"),
+  removeExtension: invoke("pi:extension.remove"),
+  restoreStock: invoke("pi:restoreStock"),
 };
 
 const events = {

@@ -11,6 +11,7 @@ interface SkillInfo {
   name: string;
   description?: string;
   source?: string;
+  path?: string;
 }
 
 interface CommandInfo {
@@ -60,6 +61,14 @@ export function ExtensionsView() {
     } catch {}
   };
 
+  const handleRemoveSkill = async (skill: SkillInfo) => {
+    if (!skill.path) return;
+    try {
+      const result = await window.pi.packages.removeSkill({ path: skill.path });
+      if (result?.success) refresh();
+    } catch {}
+  };
+
   return (
     <div className="flex h-full flex-col">
       <div className="drag-region h-14 shrink-0" />
@@ -101,11 +110,14 @@ export function ExtensionsView() {
               onRemovePackage={handleRemovePackage}
             />
           )}
-          {tab === "skills" && <SkillsList skills={skills} />}
+          {tab === "skills" && <SkillsList skills={skills} onRemove={handleRemoveSkill} />}
           {tab === "commands" && <CommandsList commands={commands} />}
           {tab === "tools" && <ToolsList tools={tools} />}
           {tab === "connectors" && <ConnectorsPanel />}
         </div>
+
+        {/* Restore to Stock - always visible at bottom */}
+        <RestoreToStock onDone={refresh} />
       </div>
     </div>
   );
@@ -190,7 +202,7 @@ function ExtensionsList({
   );
 }
 
-function SkillsList({ skills }: { skills: SkillInfo[] }) {
+function SkillsList({ skills, onRemove }: { skills: SkillInfo[]; onRemove: (skill: SkillInfo) => void }) {
   if (skills.length === 0) {
     return (
       <EmptyState
@@ -202,26 +214,39 @@ function SkillsList({ skills }: { skills: SkillInfo[] }) {
   }
   return (
     <div className="space-y-2">
-      {skills.map((skill, i) => (
-        <button
-          key={i}
-          onClick={() => {
-            const tabId = useAppStore.getState().activeTabId;
-            window.pi.api.prompt({ message: `/skill:${skill.name}`, tabId: tabId ?? undefined });
-          }}
-          className="no-drag flex w-full items-start justify-between rounded-lg border border-border bg-bg-subtle px-4 py-3 text-left transition-colors hover:bg-bg-hover"
-        >
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium text-text">{skill.name}</div>
-            {skill.description && <div className="mt-0.5 text-xs text-text-muted">{skill.description}</div>}
+      {skills.map((skill, i) => {
+        const isRemovable = !!skill.path;
+        return (
+          <div
+            key={i}
+            className="no-drag group flex w-full items-start justify-between rounded-lg border border-border bg-bg-subtle px-4 py-3 text-left transition-colors hover:bg-bg-hover"
+          >
+            <button
+              onClick={() => {
+                const tabId = useAppStore.getState().activeTabId;
+                window.pi.api.prompt({ message: `/skill:${skill.name}`, tabId: tabId ?? undefined });
+              }}
+              className="min-w-0 flex-1 text-left"
+            >
+              <div className="text-sm font-medium text-text">{skill.name}</div>
+              {skill.description && <div className="mt-0.5 text-xs text-text-muted">{skill.description}</div>}
+              {skill.source && (
+                <span className="mt-1 inline-block rounded-full bg-bg-hover px-2 py-0.5 text-xs text-text-faint">
+                  {skill.source}
+                </span>
+              )}
+            </button>
+            {isRemovable && (
+              <button
+                onClick={() => onRemove(skill)}
+                className="ml-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs text-danger opacity-0 transition-opacity hover:bg-danger/20 group-hover:opacity-100"
+              >
+                Remove
+              </button>
+            )}
           </div>
-          {skill.source && (
-            <span className="ml-3 rounded-full bg-bg-hover px-2 py-0.5 text-xs text-text-faint">
-              {skill.source}
-            </span>
-          )}
-        </button>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -364,6 +389,84 @@ function EmptyState({ title, description, link }: { title: string; description: 
         <a href={link} className="mt-3 text-xs text-accent hover:underline">
           Documentation →
         </a>
+      )}
+    </div>
+  );
+}
+
+function RestoreToStock({ onDone }: { onDone: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; removed: string[]; error?: string } | null>(null);
+
+  const handleRestore = async () => {
+    setRestoring(true);
+    setResult(null);
+    try {
+      const res = await window.pi.packages.restoreStock();
+      setResult(res);
+      if (res?.success) {
+        setConfirming(false);
+        onDone();
+      }
+    } catch (err) {
+      setResult({ success: false, removed: [], error: String(err) });
+    }
+    setRestoring(false);
+  };
+
+  return (
+    <div className="mt-8 rounded-lg border border-danger/30 bg-danger/5 px-4 py-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-medium text-danger">Restore to Stock Pi</h3>
+          <p className="mt-0.5 text-xs text-text-muted">
+            Removes all packages, extensions, skills, prompts, and themes. Reverts to the 7 built-in tools.
+          </p>
+        </div>
+        {!confirming ? (
+          <button
+            onClick={() => setConfirming(true)}
+            className="no-drag shrink-0 rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs text-danger hover:bg-danger/20"
+          >
+            Restore to Stock
+          </button>
+        ) : (
+          <div className="flex shrink-0 gap-2">
+            <button
+              onClick={handleRestore}
+              disabled={restoring}
+              className="no-drag rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40"
+            >
+              {restoring ? "Restoring..." : "Confirm Nuke"}
+            </button>
+            <button
+              onClick={() => setConfirming(false)}
+              disabled={restoring}
+              className="no-drag rounded-lg border border-border bg-bg px-3 py-1.5 text-xs text-text-muted hover:bg-bg-hover"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+      {result && (
+        <div className="mt-3 text-xs">
+          {result.success ? (
+            <div className="space-y-1">
+              <p className="text-success">Successfully restored to stock.</p>
+              {result.removed.length > 0 && (
+                <ul className="text-text-faint">
+                  {result.removed.map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : (
+            <p className="text-danger">Error: {result.error}</p>
+          )}
+        </div>
       )}
     </div>
   );
