@@ -6,6 +6,20 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.2.7",
+    date: "2026-06-22",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "Fixed slash command dropdown staying open after selecting a command",
+          "Enter now properly closes the dropdown and lets you type arguments or press Enter again to submit",
+          "Escape now dismisses the dropdown without clearing your text",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.2.6",
     date: "2026-06-22",
     sections: [
