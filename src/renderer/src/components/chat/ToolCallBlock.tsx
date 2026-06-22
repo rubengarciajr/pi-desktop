@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
 
-export function ToolCallBlock({ toolCallId }: { toolCallId: string }) {
+export const ToolCallBlock = memo(function ToolCallBlock({ toolCallId }: { toolCallId: string }) {
   const tool = useAppStore((s) => s.activeTab.tools[toolCallId]);
 
   if (!tool) {
@@ -38,7 +38,7 @@ export function ToolCallBlock({ toolCallId }: { toolCallId: string }) {
       </div>
     </details>
   );
-}
+});
 
 const TOOL_ICONS: Record<string, string> = {
   bash: "⚙",
@@ -77,12 +77,16 @@ function truncate(s: string, n: number): string {
 }
 
 function ToolArgs({ tool }: { tool: any }) {
+  const argsText = useMemo(
+    () => (tool.args ? JSON.stringify(tool.args, null, 2) : ""),
+    [tool.args],
+  );
   if (!tool.args) return null;
   return (
     <div className="mb-2">
       <div className="mb-1 text-[10px] uppercase tracking-wider text-text-faint">Args</div>
       <pre className="overflow-x-auto rounded bg-bg px-2 py-1.5 text-[11px] text-text-muted font-mono">
-        {JSON.stringify(tool.args, null, 2)}
+        {argsText}
       </pre>
     </div>
   );

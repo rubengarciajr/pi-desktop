@@ -123,6 +123,7 @@ export interface PiApi {
   steer: (args: { message: string; images?: PiImage[]; tabId?: string }) => Promise<{ success: boolean }>;
   followUp: (args: { message: string; images?: PiImage[]; tabId?: string }) => Promise<{ success: boolean }>;
   abort: (args?: { tabId?: string }) => Promise<{ success: boolean }>;
+  removeQueued: (args: { kind: "steering" | "followUp"; index: number; tabId?: string }) => Promise<{ success: boolean }>;
 
   // Session
   newSession: (args?: { parentSession?: string; name?: string; cwd?: string; tabId?: string }) => Promise<{ success: boolean; cancelled?: boolean }>;
@@ -184,6 +185,9 @@ export interface PiApi {
   // Install
   checkPiInstalled: () => Promise<{ installed: boolean; version: string | null }>;
   startPiInstall: () => Promise<{ success: boolean; error?: string }>;
+
+  // Extension UI dialog response (answers a select/confirm/input/editor request)
+  respondExtUi: (args: { tabId?: string; id: string; response: unknown }) => Promise<{ success: boolean }>;
 }
 
 /** GitHub API surface. */
@@ -268,6 +272,7 @@ export interface PiEventApi {
   onPackagesChanged: (listener: () => void) => () => void;
   onUpdate: (listener: (data: any) => void) => () => void;
   onThemeChanged: (listener: (data: any) => void) => () => void;
+  onExtUi: (listener: (message: any) => void) => () => void;
   restartForUpdate: () => void;
   checkForUpdates: () => Promise<{
     status: "up-to-date" | "available" | "error";

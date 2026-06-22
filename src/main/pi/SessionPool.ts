@@ -10,6 +10,8 @@ import { PiSessionManager } from "./PiSessionManager";
 export class SessionPool {
   private pools = new Map<string, PiSessionManager>();
   private activeTabId: string | null = null;
+  /** In-flight init promises, keyed by tabId, so concurrent callers share one init. */
+  private initPromises = new Map<string, Promise<PiSessionManager>>();
 
   readonly events = new EventEmitter();
   readonly AGENT_EVENT = "pi:event";
@@ -17,6 +19,14 @@ export class SessionPool {
   readonly QUEUE_EVENT = "pi:queue";
   readonly DIAG_EVENT = "pi:diag";
   readonly SESSION_RESET_EVENT = "pi:sessionReset";
+  readonly EXT_UI_EVENT = "pi:extui";
+
+  constructor() {
+    // The pool fans every per-tab manager's events through this single emitter,
+    // plus the IPC layer adds its own forwarders. Raise the cap above the
+    // default 10 so a genuine leak still surfaces, but routine wiring doesn't.
+    this.events.setMaxListeners(50);
+  }
 
   /** Get the manager for a tab, or the active tab if no tabId given. */
   get(tabId?: string): PiSessionManager | null {
@@ -34,7 +44,19 @@ export class SessionPool {
       this.pools.set(tabId, mgr);
     }
     if (!mgr.isReady) {
-      await mgr.init();
+      // Share a single in-flight init across concurrent callers; a second
+      // call must not trigger a second init() (which would orphan the first
+      // runtime/session and double-subscribe events).
+      let pending = this.initPromises.get(tabId);
+      if (!pending) {
+        const target = mgr;
+        pending = target.init().then(() => target);
+        this.initPromises.set(tabId, pending);
+        pending.finally(() => {
+          if (this.initPromises.get(tabId) === pending) this.initPromises.delete(tabId);
+        });
+      }
+      return pending;
     }
     return mgr;
   }
@@ -46,6 +68,7 @@ export class SessionPool {
     if (old) {
       old.dispose();
     }
+    this.initPromises.delete(tabId);
 
     const mgr = new PiSessionManager();
     this.attachEvents(tabId, mgr);
@@ -56,6 +79,9 @@ export class SessionPool {
 
   /** Wire a manager's events to the pool's emitter, tagging with tabId. */
   private attachEvents(tabId: string, mgr: PiSessionManager) {
+    // Idempotent: clear any prior wiring so re-attaching (e.g. createForTab on
+    // an existing tabId) never stacks duplicate listeners on this manager.
+    mgr.events.removeAllListeners();
     mgr.events.on(mgr.AGENT_EVENT, (event: any) => {
       this.events.emit(this.AGENT_EVENT, { ...event, tabId });
     });
@@ -70,6 +96,9 @@ export class SessionPool {
     });
     mgr.events.on(mgr.DIAG_EVENT, (msg: string) => {
       this.events.emit(this.DIAG_EVENT, msg);
+    });
+    mgr.events.on(mgr.EXT_UI_EVENT, (message: any) => {
+      this.events.emit(this.EXT_UI_EVENT, { ...message, tabId });
     });
   }
 
@@ -86,6 +115,12 @@ export class SessionPool {
     if (mgr) {
       mgr.dispose();
       this.pools.delete(tabId);
+    }
+    this.initPromises.delete(tabId);
+    // Don't leave activeTabId dangling at a removed tab — later getOrCreate
+    // calls would silently resurrect a hidden manager for a gone tab.
+    if (this.activeTabId === tabId) {
+      this.activeTabId = this.pools.keys().next().value ?? null;
     }
   }
 

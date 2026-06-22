@@ -1,0 +1,8 @@
+out
+dist
+node_modules
+build
+*.tsbuildinfo
+package-lock.json
+index.js
+*.svg

@@ -74,7 +74,7 @@ export function PackagesView() {
   };
 
   // Filter + sort.
-  let filtered = packages.filter((p) => {
+  const filtered = packages.filter((p) => {
     if (typeFilter !== "all" && !p.types.includes(typeFilter)) return false;
     if (search) {
       const q = search.toLowerCase();

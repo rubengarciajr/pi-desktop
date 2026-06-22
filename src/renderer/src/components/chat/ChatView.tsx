@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { MessageItem } from "./MessageItem";
 import { PromptInput } from "./PromptInput";
 import { QueueChips } from "./QueueChips";
+import { ExtensionWidgets } from "../extensions/ExtensionUi";
 import { PiLogoIcon, FolderIcon } from "../Icons";
 
 export function ChatView() {
@@ -11,30 +12,60 @@ export function ChatView() {
   const isStreaming = activeTab.piState.isStreaming;
   const cwd = activeTab.piState.cwd;
   const scrollRef = useRef<HTMLDivElement>(null);
-  const isPinnedToBottom = useRef(true);
+  // Pinned = follow new output. Toggled OFF the moment the user scrolls up, and
+  // back ON only when they return to the bottom themselves. The auto-scroll's
+  // own movement is distinguished from a user scroll by direction (it only ever
+  // moves down to the bottom), so it can never re-pin against the user's wishes.
+  const pinnedRef = useRef(true);
+  const lastTopRef = useRef(0);
+  const [showJump, setShowJump] = useState(false);
 
-  // Auto-scroll to bottom only if user is already at/near the bottom.
-  useEffect(() => {
+  const scrollToBottom = () => {
     const el = scrollRef.current;
     if (!el) return;
-    if (isPinnedToBottom.current) {
+    pinnedRef.current = true;
+    el.scrollTop = el.scrollHeight;
+    lastTopRef.current = el.scrollTop;
+    setShowJump(false);
+  };
+
+  // Follow streaming output only while pinned. The pinned flag is re-checked at
+  // rAF fire time, so a token that arrives mid-scroll-up never yanks the view.
+  useEffect(() => {
+    if (!pinnedRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      if (!pinnedRef.current || !el) return;
       el.scrollTop = el.scrollHeight;
-    }
+      lastTopRef.current = el.scrollTop;
+    });
+    return () => cancelAnimationFrame(id);
   }, [messages]);
 
-  // Track scroll position.
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    isPinnedToBottom.current = distanceFromBottom < 80;
+    const top = el.scrollTop;
+    const distance = el.scrollHeight - top - el.clientHeight;
+    if (top < lastTopRef.current - 2) {
+      pinnedRef.current = false; // user scrolled up — stop following
+    } else if (distance < 24) {
+      pinnedRef.current = true; // returned to the bottom — resume following
+    }
+    lastTopRef.current = top;
+    setShowJump(!pinnedRef.current && distance > 80);
   };
 
   // Scroll to bottom on tab switch.
   useEffect(() => {
-    isPinnedToBottom.current = true;
+    pinnedRef.current = true;
+    setShowJump(false);
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+      lastTopRef.current = el.scrollTop;
+    }
   }, [activeTab.id]);
 
   const isEmpty = messages.length === 0;
@@ -50,19 +81,33 @@ export function ChatView() {
       )}
 
       {/* Messages */}
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
-        {isEmpty ? (
-          <EmptyState />
-        ) : (
-          <div className="flex flex-col gap-1 px-6 pb-6">
-            {messages.map((msg) => (
-              <MessageItem key={msg.id} message={msg} />
-            ))}
-            {isStreaming && <div className="py-1 text-xs text-thinking animate-pulse-subtle">Thinking...</div>}
-          </div>
+      <div className="relative flex-1 overflow-hidden">
+        <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto overflow-x-hidden">
+          {isEmpty ? (
+            <EmptyState />
+          ) : (
+            <div className="flex min-w-0 flex-col gap-1 px-6 pb-6">
+              {messages.map((msg) => (
+                <MessageItem key={msg.id} message={msg} />
+              ))}
+              {isStreaming && <div className="py-1 text-xs text-thinking animate-pulse-subtle">Thinking...</div>}
+            </div>
+          )}
+        </div>
+        {showJump && (
+          <button
+            onClick={scrollToBottom}
+            className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border-strong bg-bg-subtle px-3 py-1.5 text-xs text-text-muted shadow-lg backdrop-blur-xl transition-colors hover:bg-bg-hover hover:text-text animate-fade-in"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M19 12l-7 7-7-7" />
+            </svg>
+            {isStreaming ? "Jump to latest" : "Scroll to bottom"}
+          </button>
         )}
       </div>
 
+      <ExtensionWidgets />
       <QueueChips />
       <PromptInput />
     </div>

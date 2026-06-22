@@ -52,6 +52,28 @@ export interface QueueState {
 
 export type View = "chat" | "model" | "settings" | "extensions" | "packages";
 
+export interface ExtWidget {
+  lines: string[];
+  placement: string;
+}
+
+export interface ExtDialogRequest {
+  id: string;
+  tabId?: string;
+  method: "select" | "confirm" | "input" | "editor";
+  title: string;
+  message?: string;
+  placeholder?: string;
+  prefill?: string;
+  options?: string[];
+}
+
+export interface ExtToast {
+  id: number;
+  message: string;
+  level: "info" | "warning" | "error";
+}
+
 export interface TabState {
   id: string;
   title: string;
@@ -60,6 +82,10 @@ export interface TabState {
   tools: Record<string, ToolExecution>;
   piState: PiState;
   queue: QueueState;
+  /** Extension-driven status badges, keyed by the extension's status key. */
+  extStatuses: Record<string, string>;
+  /** Extension-driven widgets (banners), keyed by widget key. */
+  extWidgets: Record<string, ExtWidget>;
 }
 
 export interface Tab {
@@ -88,6 +114,10 @@ interface AppState {
   sessionsPanelOpen: boolean;
   diagnostics: string[];
 
+  // Extension UI (driven by Pi extensions via the UI bridge)
+  extDialog: ExtDialogRequest | null;
+  toasts: ExtToast[];
+
   // Derived (from active tab)
   activeTab: TabState;
 
@@ -110,6 +140,11 @@ interface AppState {
   setSessionsPanelOpen: (o: boolean) => void;
   addDiagnostic: (msg: string) => void;
 
+  // Extension UI actions
+  handleExtUi: (tabId: string, message: any) => void;
+  clearExtDialog: () => void;
+  dismissToast: (id: number) => void;
+
   // Favorites actions
   addFavorite: (path: string) => void;
   removeFavorite: (path: string) => void;
@@ -125,8 +160,12 @@ function emptyTabState(id: string, title: string, cwd?: string): TabState {
     tools: {},
     piState: { cwd },
     queue: { steering: [], followUp: [] },
+    extStatuses: {},
+    extWidgets: {},
   };
 }
+
+let toastSeq = 0;
 
 export const useAppStore = create<AppState>((set, get) => ({
   tabs: [],
@@ -137,6 +176,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   sidebarOpen: true,
   sessionsPanelOpen: false,
   diagnostics: [],
+  extDialog: null,
+  toasts: [],
   activeTab: emptyTabState("", ""),
 
   addTab: (tab) =>
@@ -368,6 +409,50 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSessionsPanelOpen: (o) => set({ sessionsPanelOpen: o }),
   addDiagnostic: (msg) =>
     set((st) => ({ diagnostics: [...st.diagnostics.slice(-50), msg] })),
+
+  handleExtUi: (tabId, message) =>
+    set((st) => {
+      const ts = st.tabStates[tabId];
+      const kind = message?.kind;
+
+      // Toasts and dialogs are app-global (not stored per tab).
+      if (kind === "notify") {
+        const toast: ExtToast = { id: ++toastSeq, message: message.message ?? "", level: message.level ?? "info" };
+        return { toasts: [...st.toasts.slice(-4), toast] };
+      }
+      if (kind === "request") {
+        return { extDialog: { ...message.request, tabId } as ExtDialogRequest };
+      }
+
+      if (!ts) return {};
+      let updated: TabState;
+
+      if (kind === "setStatus") {
+        const extStatuses = { ...ts.extStatuses };
+        if (message.text == null || message.text === "") delete extStatuses[message.key];
+        else extStatuses[message.key] = message.text;
+        updated = { ...ts, extStatuses };
+      } else if (kind === "setWidget") {
+        const extWidgets = { ...ts.extWidgets };
+        if (!message.lines) delete extWidgets[message.key];
+        else extWidgets[message.key] = { lines: message.lines, placement: message.placement ?? "aboveEditor" };
+        updated = { ...ts, extWidgets };
+      } else if (kind === "reset") {
+        updated = { ...ts, extStatuses: {}, extWidgets: {} };
+      } else {
+        return {};
+      }
+
+      const closeDialog = kind === "reset" && st.extDialog?.tabId === tabId;
+      return {
+        tabStates: { ...st.tabStates, [tabId]: updated },
+        activeTab: st.activeTabId === tabId ? updated : st.activeTab,
+        ...(closeDialog ? { extDialog: null } : {}),
+      };
+    }),
+
+  clearExtDialog: () => set({ extDialog: null }),
+  dismissToast: (id) => set((st) => ({ toasts: st.toasts.filter((t) => t.id !== id) })),
 
   // Favorites
   loadFavorites: () => {

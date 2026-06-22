@@ -45,6 +45,16 @@ export function createMainWindow(): BrowserWindow {
     return { action: "deny" };
   });
 
+  // Never let the app frame navigate away from the bundled renderer. Any
+  // in-frame navigation (link, form, programmatic location change) to a
+  // different URL is cancelled and handed to the OS browser instead.
+  win.webContents.on("will-navigate", (e, url) => {
+    if (url !== win.webContents.getURL()) {
+      e.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     win.loadURL(process.env["ELECTRON_RENDERER_URL"]);
     win.webContents.openDevTools({ mode: "detach" });

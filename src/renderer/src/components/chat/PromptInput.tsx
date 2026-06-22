@@ -36,6 +36,7 @@ export function PromptInput() {
   useEffect(() => {
     let cancelled = false;
     let attempt = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const delays = [0, 1000, 2000, 4000];
 
     const tryFetch = async () => {
@@ -55,13 +56,13 @@ export function PromptInput() {
           if (!cancelled) setCommands(items);
         } else {
           attempt++;
-          setTimeout(tryFetch, delays[attempt]);
+          timer = setTimeout(tryFetch, delays[attempt]);
         }
       } catch {
         // Session not ready yet, retry
         attempt++;
         if (attempt < delays.length) {
-          setTimeout(tryFetch, delays[attempt]);
+          timer = setTimeout(tryFetch, delays[attempt]);
         }
       }
     };
@@ -70,14 +71,19 @@ export function PromptInput() {
     setDropdownDismissed(false);
     tryFetch();
 
-    return () => { cancelled = true; };
+    // Cancel both the in-flight flag and any pending retry timer so rapid tab
+    // switches don't stack backoff chains or setState after unmount.
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
   }, [activeTabId]);
 
   // Refresh commands when packages/extensions change.
   useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const off = window.pi.events.onPackagesChanged(() => {
       // Small delay to let the backend reload resources.
-      setTimeout(() => window.pi.api.getCommands().then((res: any) => {
+      timer = setTimeout(() => window.pi.api.getCommands().then((res: any) => {
+        if (cancelled) return;
         const cmds = res.commands ?? [];
         const items: CommandItem[] = [];
         for (const c of cmds) {
@@ -89,7 +95,7 @@ export function PromptInput() {
         setCommands(items);
       }).catch(() => {}), 500);
     });
-    return () => { off?.(); };
+    return () => { cancelled = true; if (timer) clearTimeout(timer); off?.(); };
   }, []);
 
   // Auto-resize the textarea.

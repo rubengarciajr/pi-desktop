@@ -8,6 +8,11 @@ on:
 permissions:
   contents: write
 
+# Don't let two tags pushed close together race two publishes.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: macos-latest
@@ -17,9 +22,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
+
+      # Quality gate — a tag push must not publish a release that fails to
+      # type-check, lint, or pass tests.
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
 
       - name: Build app
         run: npm run build

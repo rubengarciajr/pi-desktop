@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useAppStore } from "../store/useAppStore";
 import { GitRepoBadge } from "./GitRepoBadge";
+import { ExtensionStatusBadges } from "./extensions/ExtensionUi";
 
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
 
@@ -20,6 +21,7 @@ export function StatusBar() {
   };
   const queue = useAppStore((s) => s.activeTab.queue);
   const diagnostics = useAppStore((s) => s.diagnostics);
+  const activeTabId = useAppStore((s) => s.activeTabId);
   const [thinkOpen, setThinkOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -86,13 +88,14 @@ export function StatusBar() {
           </span>
         ) : (
           <span className="text-[11px] text-text-faint">
-            Pi Coding Agent v{window.pi?.versions?.pi ?? "0.79.9"}
+            Pi Coding Agent v{window.pi?.versions?.pi ?? "0.79.10"}
           </span>
         )}
         {pendingCount > 0 && (
           <span className="text-warning">{pendingCount} queued</span>
         )}
-        <GitRepoBadge cwd={piState.cwd} tabId={useAppStore.getState().activeTabId ?? undefined} />
+        <ExtensionStatusBadges />
+        <GitRepoBadge cwd={piState.cwd} tabId={activeTabId ?? undefined} />
       </div>
 
       <div className="flex items-center gap-3">

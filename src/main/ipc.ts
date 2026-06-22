@@ -42,6 +42,7 @@ export function registerIpc(
   pool.events.on(pool.QUEUE_EVENT, (queue: unknown) => send("pi:queue", queue));
   pool.events.on(pool.DIAG_EVENT, (msg: string) => send("pi:diag", msg));
   pool.events.on(pool.SESSION_RESET_EVENT, (data: unknown) => send("pi:sessionReset", data));
+  pool.events.on(pool.EXT_UI_EVENT, (message: unknown) => send("pi:extui", message));
 
   const handle = <Res>(
     channel: string,
@@ -86,6 +87,7 @@ export function registerIpc(
   handle("pi:steer", async (a) => { const m = await mgr(a); return m.steer(a.message, a.images); });
   handle("pi:followUp", async (a) => { const m = await mgr(a); return m.followUp(a.message, a.images); });
   handle("pi:abort", async (a) => { const m = await mgr(a); return m.abort(); });
+  handle("pi:queue.remove", async (a) => { const m = await mgr(a); return m.removeQueuedItem(a.kind, a.index); });
 
   // --- Session (per-tab) ---
   handle("pi:session.new", async (a) => { const m = await mgr(a); return m.newSession(a?.parentSession, a?.cwd); });
@@ -215,6 +217,12 @@ export function registerIpc(
       ? await dialog.showOpenDialog(win, { properties: ["openDirectory"] })
       : { canceled: true, filePaths: [] };
     return res.canceled ? null : res.filePaths[0] ?? null;
+  });
+
+  // --- Extension UI (status / widgets / dialogs from extensions) ---
+  handle("pi:extui.respond", async (a) => {
+    const m = await mgr(a);
+    return m.resolveDialog(a.id, a.response);
   });
 
   // --- Git repository info ---

@@ -12,9 +12,18 @@
     "preview": "electron-vite preview",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run lint && npm run test",
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:dmg": "electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg",
     "package": "electron-vite build && electron-builder"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.79.10",
@@ -27,6 +36,7 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/diff": "^7.0.2",
     "@types/node": "^22.10.0",
     "@types/react": "^18.3.12",
@@ -36,11 +46,16 @@
     "electron": "^38.8.6",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
+    "eslint": "^10.5.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "postcss": "^8.4.49",
+    "prettier": "^3.8.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwindcss": "^3.4.16",
     "typescript": "^5.7.2",
-    "vite": "^5.4.11"
+    "typescript-eslint": "^8.61.1",
+    "vite": "^5.4.11",
+    "vitest": "^4.1.9"
   }
 }

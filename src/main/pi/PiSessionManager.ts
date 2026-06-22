@@ -20,6 +20,11 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { getSharedDeps } from "./SharedDepsCache";
 import { getCachedMessages, setCachedMessages, invalidateCache } from "./MessageCache";
+import {
+  createExtensionUiBridge,
+  type ExtUiDialogRequest,
+  type ExtUiDialogResponse,
+} from "./ExtensionUiBridge";
 
 /** Model type lives in @earendil-works/pi-ai; use a structural alias here. */
 type Model = {
@@ -82,10 +87,58 @@ export class PiSessionManager {
   readonly QUEUE_EVENT = "pi:queue";
   readonly DIAG_EVENT = "pi:diag";
   readonly SESSION_RESET_EVENT = "pi:sessionReset";
+  /** Extension-driven UI (status badges, widgets, dialogs, toasts). */
+  readonly EXT_UI_EVENT = "pi:extui";
 
   private unsubscribe: (() => void) | null = null;
   private _deps: PiManagerDeps | null = null;
   private initialized = false;
+  private isCompacting = false;
+
+  /** Blocking extension dialogs awaiting a renderer response, keyed by id. */
+  private pendingDialogs = new Map<string, (response: ExtUiDialogResponse) => void>();
+  private dialogSeq = 0;
+  /** UI adapter handed to Pi's extension runner. Built once, reused per session. */
+  private readonly uiBridge = createExtensionUiBridge({
+    emit: (message) => this.events.emit(this.EXT_UI_EVENT, message),
+    registerDialog: (request, map, fallback) =>
+      new Promise((resolve) => {
+        const id = `dlg-${++this.dialogSeq}`;
+        this.pendingDialogs.set(id, (response) => {
+          try {
+            resolve(map(response));
+          } catch {
+            resolve(fallback);
+          }
+        });
+        this.events.emit(this.EXT_UI_EVENT, {
+          kind: "request",
+          request: { ...request, id } as ExtUiDialogRequest,
+        });
+      }),
+  });
+
+  constructor() {
+    // Pool wiring (5 listeners) plus headroom; surfaces real leaks without
+    // tripping the default 10-listener warning during normal operation.
+    this.events.setMaxListeners(50);
+  }
+
+  /** Resolve a pending extension dialog with the renderer's answer. */
+  resolveDialog(id: string, response: ExtUiDialogResponse) {
+    const resolve = this.pendingDialogs.get(id);
+    if (resolve) {
+      this.pendingDialogs.delete(id);
+      resolve(response);
+    }
+    return { success: true };
+  }
+
+  /** Cancel every pending dialog (on session swap / dispose) so extensions don't hang. */
+  private cancelPendingDialogs() {
+    for (const resolve of this.pendingDialogs.values()) resolve({ cancelled: true });
+    this.pendingDialogs.clear();
+  }
 
   get isReady() {
     return this.initialized;
@@ -150,6 +203,20 @@ export class PiSessionManager {
     cwd: string,
     sessionManager: PiSessionManagerType,
   ) {
+    // Tear down any existing runtime/session before replacing it. Without this,
+    // every cwd change / setCwd leaks a full runtime: child processes, file
+    // watchers, undici sockets, and the SDK session it holds.
+    if (this.runtime) {
+      try { this.unsubscribe?.(); } catch {}
+      this.unsubscribe = null;
+      try { this.session?.dispose?.(); } catch {}
+      this.session = null;
+      const oldRuntime = this.runtime;
+      this.runtime = null;
+      try { await (oldRuntime as any)?.dispose?.(); } catch {}
+      try { await (oldRuntime as any)?.services?.dispose?.(); } catch {}
+    }
+
     const factory = this.createRuntimeFactory(pi);
     this.runtime = await pi.createAgentSessionRuntime(factory, {
       cwd,
@@ -171,11 +238,30 @@ export class PiSessionManager {
 
   /** Attach to a session and re-emit events on the stable emitter. */
   private attachSession(session: AgentSession) {
+    const previous = this.session;
     if (this.unsubscribe) this.unsubscribe();
     this.session = session;
+    this.isCompacting = false; // a fresh/replaced session is never mid-compaction
+    // Drop stale extension UI from the previous session and cancel any open
+    // dialog, then clear the renderer's badges/widgets for this tab.
+    this.cancelPendingDialogs();
+    this.events.emit(this.EXT_UI_EVENT, { kind: "reset" });
+    // Light up extension-driven UI (plan-mode banner, subagent status, …) by
+    // giving the extension runner our renderer-backed UI adapter. Without this
+    // extensions get a no-op UI and their status/widgets/dialogs never appear.
+    try {
+      (session as any).extensionRunner?.setUIContext?.(this.uiBridge, "rpc");
+    } catch (err) {
+      console.error("[pi-desktop] Failed to set extension UI context:", err);
+    }
     this.unsubscribe = session.subscribe((event: AgentSessionEvent) => {
       this.onAgentEvent(event);
     });
+    // Dispose the outgoing session the runtime just swapped out (new/fork/
+    // switch/clone). Guarded so we never touch the session we just attached.
+    if (previous && previous !== session) {
+      try { (previous as any).dispose?.(); } catch {}
+    }
     // Broadcast that the session was replaced so the renderer clears messages.
     this.events.emit(this.SESSION_RESET_EVENT, {
       sessionId: session.sessionId,
@@ -200,13 +286,16 @@ export class PiSessionManager {
       if (this.session?.sessionFile) {
         invalidateCache(this.session.sessionFile);
       }
+      this.isCompacting = false; // safety reset in case compaction_end was missed
       // Full state emit to update cost/tokens after the turn.
       this.emitState();
-    } else if (
-      event.type === "compaction_start" ||
-      event.type === "compaction_end" ||
-      event.type === "message_end"
-    ) {
+    } else if (event.type === "compaction_start") {
+      this.isCompacting = true;
+      this.emitState();
+    } else if (event.type === "compaction_end") {
+      this.isCompacting = false;
+      this.emitState();
+    } else if (event.type === "message_end") {
       this.emitState();
     }
   }
@@ -237,6 +326,7 @@ export class PiSessionManager {
     } catch {}
     this.events.emit(this.STATE_EVENT, {
       isStreaming: s.isStreaming,
+      isCompacting: this.isCompacting,
       modelId: model?.id,
       modelName: model?.name,
       provider: model?.provider,
@@ -278,6 +368,26 @@ export class PiSessionManager {
   async abort() {
     if (!this.session) throw new Error("Session not initialized");
     await this.session.abort();
+    return { success: true };
+  }
+
+  /**
+   * Remove a single queued (steering/follow-up) message WITHOUT stopping the
+   * agent. The SDK has no per-item dequeue, so we clear the queue and re-enqueue
+   * everything except the removed item, preserving order.
+   */
+  async removeQueuedItem(kind: "steering" | "followUp", index: number) {
+    if (!this.session) return { success: false };
+    const cleared = (this.session as any).clearQueue?.() as
+      | { steering: string[]; followUp: string[] }
+      | undefined;
+    if (!cleared) return { success: false };
+    const steering = [...(cleared.steering ?? [])];
+    const followUp = [...(cleared.followUp ?? [])];
+    if (kind === "steering") steering.splice(index, 1);
+    else followUp.splice(index, 1);
+    for (const m of steering) await this.session.steer(m);
+    for (const m of followUp) await this.session.followUp(m);
     return { success: true };
   }
 
@@ -328,9 +438,13 @@ export class PiSessionManager {
 
   async clone() {
     if (!this.runtime) throw new Error("Runtime not initialized");
-    const res: any = await this.runtime.fork("", { position: "at" } as any).catch(() => ({}));
-    this.attachSession(this.runtime.session);
-    return { success: true, cancelled: res?.cancelled };
+    try {
+      const res: any = await this.runtime.fork("", { position: "at" } as any);
+      this.attachSession(this.runtime.session);
+      return { success: true, cancelled: res?.cancelled };
+    } catch (err: any) {
+      return { success: false, error: err?.message ?? String(err) };
+    }
   }
 
   // --- Session listing & tree --------------------------------------------
@@ -390,7 +504,7 @@ export class PiSessionManager {
     const model = s.model;
     return {
       isStreaming: s.isStreaming,
-      isCompacting: false,
+      isCompacting: this.isCompacting,
       modelId: model?.id,
       modelName: model?.name,
       provider: model?.provider,
@@ -837,11 +951,16 @@ export class PiSessionManager {
   }
 
   dispose() {
-    if (this.unsubscribe) this.unsubscribe();
+    this.cancelPendingDialogs();
+    try { this.unsubscribe?.(); } catch {}
     this.unsubscribe = null;
-    this.session?.dispose?.();
+    try { this.session?.dispose?.(); } catch {}
+    // Release the runtime too (child processes, file watchers, sockets).
+    try { (this.runtime as any)?.dispose?.(); } catch {}
+    try { (this.runtime as any)?.services?.dispose?.(); } catch {}
     this.session = null;
     this.runtime = null;
+    this.isCompacting = false;
     this.initialized = false;
     this.events.removeAllListeners();
   }

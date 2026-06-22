@@ -1,14 +1,18 @@
+import { memo } from "react";
 import type { ChatMessage } from "../../store/useAppStore";
 import { ToolCallBlock } from "./ToolCallBlock";
 import { DiffViewer } from "./DiffViewer";
 import { Markdown } from "./Markdown";
 
-export function MessageItem({ message }: { message: ChatMessage }) {
+// Memoized: the store hands out a new message object only when that specific
+// message changes, so unchanged history is skipped on every streaming delta.
+// Tool/diff subtrees subscribe to the store directly, so they still update.
+export const MessageItem = memo(function MessageItem({ message }: { message: ChatMessage }) {
   if (message.role === "user") {
     return <UserMessage message={message} />;
   }
   return <AssistantMessage message={message} />;
-}
+});
 
 function UserMessage({ message }: { message: ChatMessage }) {
   const text = message.blocks
@@ -26,7 +30,7 @@ function UserMessage({ message }: { message: ChatMessage }) {
 
 function AssistantMessage({ message }: { message: ChatMessage }) {
   return (
-    <div className="py-2 animate-fade-in">
+    <div className="min-w-0 max-w-full break-words py-2 animate-fade-in">
       {message.blocks.map((block, i) => {
         if (block.type === "text") {
           return (

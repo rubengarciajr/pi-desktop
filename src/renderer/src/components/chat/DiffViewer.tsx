@@ -1,18 +1,21 @@
+import { memo, useMemo } from "react";
 import { useAppStore } from "../../store/useAppStore";
 
 /**
  * Renders a unified diff (from edit tool's details.patch) with syntax coloring.
  */
-export function DiffViewer({ toolCallId }: { toolCallId: string }) {
+export const DiffViewer = memo(function DiffViewer({ toolCallId }: { toolCallId: string }) {
   const tool = useAppStore((s) => s.activeTab.tools[toolCallId]);
+  const patch: string = tool?.result?.details?.patch ?? tool?.result?.details?.diff ?? "";
+  // useMemo must run unconditionally (before any early return) to satisfy the
+  // rules of hooks; splitting a large patch on every render is wasteful.
+  const lines = useMemo(() => patch.split("\n"), [patch]);
 
-  if (!tool?.result?.details?.patch && !tool?.result?.details?.diff) {
+  if (!patch) {
     return null;
   }
 
-  const patch: string = tool.result.details.patch ?? tool.result.details.diff ?? "";
-  const filePath: string = tool.args?.file_path ?? tool.args?.path ?? "file";
-  const lines = patch.split("\n");
+  const filePath: string = tool?.args?.file_path ?? tool?.args?.path ?? "file";
 
   return (
     <details open className="rounded-lg border border-border bg-bg-subtle/40 overflow-hidden">
@@ -32,7 +35,7 @@ export function DiffViewer({ toolCallId }: { toolCallId: string }) {
       </div>
     </details>
   );
-}
+});
 
 function diffLineClass(line: string): string {
   if (line.startsWith("+++") || line.startsWith("---")) return "text-text-faint";

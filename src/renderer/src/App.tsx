@@ -11,6 +11,7 @@ import { PackagesView } from "./components/packages/PackagesView";
 import { StatusBar } from "./components/StatusBar";
 import { Onboarding } from "./components/Onboarding";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { ExtensionDialog, ExtensionToasts } from "./components/extensions/ExtensionUi";
 
 export default function App() {
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
@@ -29,6 +30,7 @@ export default function App() {
   const loadTabMessages = useAppStore((s) => s.loadTabMessages);
   const resetTabMessages = useAppStore((s) => s.resetTabMessages);
   const addDiagnostic = useAppStore((s) => s.addDiagnostic);
+  const handleExtUi = useAppStore((s) => s.handleExtUi);
 
   // The app runs the pi agent SDK in-process and does NOT require the pi CLI.
   // Skip onboarding entirely - users can optionally install the CLI from System tab.
@@ -88,6 +90,11 @@ export default function App() {
     });
     const offDiag = pi.events.onDiagnostics((msg) => addDiagnostic(msg));
 
+    const offExtUi = pi.events.onExtUi((message: any) => {
+      const tabId = message?.tabId;
+      if (tabId) handleExtUi(tabId, message);
+    });
+
     const offReset = pi.events.onSessionReset((data: any) => {
       const tabId = data.tabId;
       if (!tabId) return;
@@ -139,10 +146,11 @@ export default function App() {
       offState();
       offQueue();
       offDiag();
+      offExtUi();
       offReset();
       offMenu();
     };
-  }, [handleTabAgentEvent, setTabPiState, setTabQueue, loadTabMessages, resetTabMessages, addDiagnostic, addTab, setActiveView, setSidebarOpen]);
+  }, [handleTabAgentEvent, setTabPiState, setTabQueue, loadTabMessages, resetTabMessages, addDiagnostic, handleExtUi, addTab, setActiveView, setSidebarOpen]);
 
   // Sync active tab to backend when renderer switches tabs.
   useEffect(() => {
@@ -181,11 +189,11 @@ export default function App() {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg text-text">
       <Sidebar />
-      <main className="flex flex-1 flex-col overflow-hidden">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {hasTabs && <TabBar />}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex min-w-0 flex-1 overflow-hidden">
           {/* Main content */}
-          <div className="flex-1 overflow-hidden">
+          <div className="min-w-0 flex-1 overflow-hidden">
             {activeView === "chat" && (hasTabs ? <ChatView /> : <div className="flex h-full items-center justify-center text-text-muted">No active tab</div>)}
             {activeView === "model" && <ModelView />}
             {activeView === "settings" && <SettingsView />}
@@ -215,6 +223,8 @@ export default function App() {
         <StatusBar />
       </main>
       <UpdateBanner />
+      <ExtensionToasts />
+      <ExtensionDialog />
     </div>
   );
 }

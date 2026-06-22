@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface SystemCheck {
   npm: boolean;
@@ -14,10 +14,14 @@ export function SystemPanel() {
   const [installMsg, setInstallMsg] = useState<string | null>(null);
   const [modelsPath, setModelsPath] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
+  // Tears down the install event subscriptions; set while an install is live.
+  const installCleanup = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     checkAll();
     window.pi.api.modelsJsonPath().then(setModelsPath).catch(() => {});
+    // Drop install listeners if the panel unmounts mid-install.
+    return () => installCleanup.current?.();
   }, []);
 
   const checkAll = async () => {
@@ -41,8 +45,7 @@ export function SystemPanel() {
       setInstallMsg(p.message ?? "");
     });
     const offDone = window.pi.events.onInstallDone((result: any) => {
-      offProgress();
-      offDone();
+      teardown();
       setInstalling(false);
       if (result?.success) {
         setInstallMsg("Installed successfully!");
@@ -51,13 +54,18 @@ export function SystemPanel() {
         setInstallMsg(result?.error ?? "Installation failed.");
       }
     });
+    const teardown = () => {
+      offProgress();
+      offDone();
+      installCleanup.current = null;
+    };
+    installCleanup.current = teardown;
 
     // Actually start the installation
     try {
       await window.pi.api.startPiInstall();
     } catch (err: any) {
-      offProgress();
-      offDone();
+      teardown();
       setInstalling(false);
       setInstallMsg(err?.message ?? "Failed to start installation.");
     }

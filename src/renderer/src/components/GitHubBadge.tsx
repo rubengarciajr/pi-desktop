@@ -92,16 +92,27 @@ export function GitHubBadge() {
 
   const handlePush = async () => {
     setSyncing(true);
-    await window.pi.github.push({ tabId: activeTabId ?? undefined });
-    setSyncing(false);
-    await refreshSyncState();
+    try {
+      await window.pi.github.push({ tabId: activeTabId ?? undefined });
+      await refreshSyncState();
+    } catch (err: any) {
+      // A rejected push must not leave the button stuck spinning.
+      console.error("[pi-desktop] git push failed:", err);
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const handlePull = async () => {
     setSyncing(true);
-    await window.pi.github.pull({ tabId: activeTabId ?? undefined });
-    setSyncing(false);
-    await refreshSyncState();
+    try {
+      await window.pi.github.pull({ tabId: activeTabId ?? undefined });
+      await refreshSyncState();
+    } catch (err: any) {
+      console.error("[pi-desktop] git pull failed:", err);
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const handleCreateRepo = async () => {

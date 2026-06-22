@@ -22,6 +22,7 @@ const api = {
   steer: invoke("pi:steer"),
   followUp: invoke("pi:followUp"),
   abort: invoke("pi:abort"),
+  removeQueued: invoke("pi:queue.remove"),
 
   // Session
   newSession: invoke("pi:session.new"),
@@ -84,6 +85,9 @@ const api = {
   checkPiInstalled: invoke("pi:install.check"),
   startPiInstall: invoke("pi:install.start"),
   systemCheck: invoke("pi:system.check"),
+
+  // Extension UI dialog response (select/confirm/input/editor)
+  respondExtUi: invoke("pi:extui.respond"),
 };
 
 // GitHub API
@@ -167,6 +171,11 @@ const events = {
     const wrapped = (_e: IpcRendererEvent, data: any) => listener(data);
     ipcRenderer.on("pi:theme:changed", wrapped);
     return () => ipcRenderer.removeListener("pi:theme:changed", wrapped);
+  },
+  onExtUi: (listener: (message: any) => void) => {
+    const wrapped = (_e: IpcRendererEvent, message: any) => listener(message);
+    ipcRenderer.on("pi:extui", wrapped);
+    return () => ipcRenderer.removeListener("pi:extui", wrapped);
   },
   restartForUpdate: () => {},
   checkForUpdates: invoke("pi:update:check"),

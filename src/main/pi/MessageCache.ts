@@ -6,8 +6,6 @@
  * CPU-intensive for long conversations. This cache stores the result so
  * returning to a previously-viewed session is instant.
  */
-import { EventEmitter } from "node:events";
-
 interface CacheEntry {
   messages: any[];
   sessionFile: string;
@@ -16,20 +14,17 @@ interface CacheEntry {
 }
 
 const CACHE_MAX = 50; // Keep last 50 sessions in memory
+const CACHE_TTL_MS = 30 * 60_000; // Drop entries untouched for 30 minutes
 const cache = new Map<string, CacheEntry>();
 
-export const messageCacheEvents = new EventEmitter();
-export const MESSAGE_CACHE_HIT = "cache:hit";
-export const MESSAGE_CACHE_MISS = "cache:miss";
-
-/** Get cached messages for a session file, or null if not cached. */
+/** Get cached messages for a session file, or null if not cached / expired. */
 export function getCachedMessages(sessionFile: string): any[] | null {
   const entry = cache.get(sessionFile);
-  if (!entry) {
-    messageCacheEvents.emit(MESSAGE_CACHE_MISS, sessionFile);
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAt > CACHE_TTL_MS) {
+    cache.delete(sessionFile);
     return null;
   }
-  messageCacheEvents.emit(MESSAGE_CACHE_HIT, sessionFile);
   return entry.messages;
 }
 
@@ -37,14 +32,18 @@ export function getCachedMessages(sessionFile: string): any[] | null {
 export function setCachedMessages(sessionFile: string, messages: any[]) {
   if (!sessionFile) return;
 
-  // Evict oldest if at capacity.
+  // Re-insert moves this key to the most-recent position (Map preserves
+  // insertion order), making the first key the genuine LRU victim.
+  cache.delete(sessionFile);
   if (cache.size >= CACHE_MAX) {
-    const oldest = [...cache.entries()].sort((a, b) => a[1].cachedAt - b[1].cachedAt)[0];
-    if (oldest) cache.delete(oldest[0]);
+    const oldestKey = cache.keys().next().value; // O(1) — no full sort
+    if (oldestKey !== undefined) cache.delete(oldestKey);
   }
 
   cache.set(sessionFile, {
-    messages,
+    // Store a shallow copy so a later mutation of the live session.messages
+    // array can't silently rewrite cached history.
+    messages: [...messages],
     sessionFile,
     messageCount: messages.length,
     cachedAt: Date.now(),

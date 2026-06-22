@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -10,43 +10,101 @@ interface MarkdownProps {
 }
 
 function CodeBlock({ language, value }: { language: string; value: string }) {
+  const lineCount = value.split("\n").length;
   return (
-    <div className="group relative my-3 overflow-hidden rounded-lg border border-border bg-bg">
-      {language && (
-        <div className="flex items-center justify-between border-b border-border bg-bg-subtle px-3 py-1.5">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-text-faint">
-            {language}
-          </span>
-          <button
-            onClick={() => navigator.clipboard.writeText(value)}
-            className="text-[10px] text-text-faint opacity-0 transition-opacity hover:text-text-muted group-hover:opacity-100"
-          >
-            Copy
-          </button>
-        </div>
-      )}
-      <SyntaxHighlighter
-        language={language || "text"}
-        style={oneDark}
-        customStyle={{
-          margin: 0,
-          background: "transparent",
-          padding: "12px 16px",
-          fontSize: "13px",
-          fontFamily: '"SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas, monospace',
-        }}
-        codeTagProps={{ style: { fontFamily: "inherit" } }}
-      >
-        {value}
-      </SyntaxHighlighter>
+    <div className="group relative my-3 max-w-full overflow-hidden rounded-lg border border-border bg-bg">
+      <div className="flex items-center justify-between border-b border-border bg-bg-subtle px-3 py-1.5">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-text-faint">
+          {language || "text"}
+          {lineCount > 1 && <span className="ml-2 normal-case text-text-faint/70">{lineCount} lines</span>}
+        </span>
+        <button
+          onClick={() => navigator.clipboard.writeText(value)}
+          className="text-[10px] text-text-faint opacity-0 transition-opacity hover:text-text-muted group-hover:opacity-100"
+        >
+          Copy
+        </button>
+      </div>
+      {/* Scroll long lines inside the block so they never widen the chat canvas. */}
+      <div className="overflow-x-auto">
+        <SyntaxHighlighter
+          language={language || "text"}
+          style={oneDark}
+          customStyle={{
+            margin: 0,
+            background: "transparent",
+            padding: "10px 14px",
+            fontSize: "12px",
+            lineHeight: "1.5",
+            fontFamily: '"SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas, monospace',
+          }}
+          codeTagProps={{ style: { fontFamily: "inherit" } }}
+        >
+          {value}
+        </SyntaxHighlighter>
+      </div>
     </div>
   );
+}
+
+/**
+ * Web/markdown images render collapsed to a small chip by default — raw,
+ * full-resolution images from fetched pages would otherwise blow out the
+ * canvas. The user clicks to reveal a size-constrained preview.
+ */
+function ImageChip({ src, alt }: { src?: string; alt?: string }) {
+  const [open, setOpen] = useState(false);
+  const label = (alt && alt.trim()) || (src ? filenameFromSrc(src) : "image");
+
+  if (open) {
+    return (
+      <span className="my-2 block">
+        <img
+          src={src}
+          alt={alt}
+          className="max-h-80 max-w-full rounded-lg border border-border object-contain"
+        />
+        <button
+          onClick={() => setOpen(false)}
+          className="mt-1 block text-[11px] text-text-faint hover:text-text-muted"
+        >
+          Hide image
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setOpen(true)}
+      title={src}
+      className="my-1 inline-flex max-w-full items-center gap-2 rounded-lg border border-border bg-bg-subtle px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-bg-hover hover:text-text"
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-text-faint">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="9" cy="9" r="1.5" />
+        <path d="m21 15-5-5L5 21" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span className="truncate">{label}</span>
+      <span className="shrink-0 text-text-faint">· show image</span>
+    </button>
+  );
+}
+
+function filenameFromSrc(src: string): string {
+  try {
+    const clean = src.split("?")[0].split("#")[0];
+    const name = clean.split("/").filter(Boolean).pop();
+    return name && name.length <= 40 ? name : "image";
+  } catch {
+    return "image";
+  }
 }
 
 export const Markdown = memo(function Markdown({ children, streaming }: MarkdownProps) {
   return (
     <div
-      className={`selectable text-sm leading-relaxed text-assistant ${streaming ? "streaming-cursor" : ""}`}
+      className={`selectable min-w-0 max-w-full break-words text-sm leading-relaxed text-assistant ${streaming ? "streaming-cursor" : ""}`}
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
@@ -99,7 +157,7 @@ export const Markdown = memo(function Markdown({ children, streaming }: Markdown
             }
             return (
               <code
-                className="rounded bg-bg-hover px-1.5 py-0.5 text-[13px] font-mono text-accent"
+                className="rounded bg-bg-hover px-1.5 py-0.5 text-xs font-mono text-accent break-words"
                 {...props}
               >
                 {children}
@@ -107,6 +165,7 @@ export const Markdown = memo(function Markdown({ children, streaming }: Markdown
             );
           },
           pre: ({ children }) => <>{children}</>,
+          img: ({ node, ...props }: any) => <ImageChip src={props.src} alt={props.alt} />,
           input: ({ node, ...props }) => (
             <input
               type="checkbox"

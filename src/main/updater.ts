@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
+import { compareVersions } from "../shared/version";
 
 const REPO_OWNER = "rubengarciajr";
 const REPO_NAME = "pi-desktop";
@@ -88,17 +89,4 @@ function send(getMainWindow: () => BrowserWindow | null, channel: string, data: 
   if (win && !win.isDestroyed()) {
     win.webContents.send(channel, data);
   }
-}
-
-/** Returns positive if a > b, negative if a < b, 0 if equal. */
-function compareVersions(a: string, b: string): number {
-  const pa = a.split(".").map(Number);
-  const pb = b.split(".").map(Number);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const va = pa[i] ?? 0;
-    const vb = pb[i] ?? 0;
-    if (va > vb) return 1;
-    if (va < vb) return -1;
-  }
-  return 0;
 }
