@@ -55,6 +55,13 @@
 /* ========================================
    Accent Color Presets
    ======================================== */
+
+/* Default accent (only applies when no data-accent attribute is set) */
+:root:not([data-accent]) {
+  --color-accent-rgb: 124 92 255;
+  --color-accent-hover-rgb: 142 109 255;
+}
+
 [data-accent="purple"] {
   --color-accent-rgb: 124 92 255;
   --color-accent-hover-rgb: 142 109 255;
@@ -82,12 +89,6 @@
 [data-accent="red"] {
   --color-accent-rgb: 239 68 68;
   --color-accent-hover-rgb: 220 38 38;
-}
-
-/* Default accent if none set */
-:root {
-  --color-accent-rgb: 124 92 255;
-  --color-accent-hover-rgb: 142 109 255;
 }
 
 html,

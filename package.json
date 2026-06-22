@@ -1,6 +1,6 @@
 {
   "name": "pi-desktop",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Pi Desktop - a full-featured macOS desktop app for the Pi coding agent",
   "main": "out/main/index.js",
   "author": "Pi Desktop",
@@ -17,7 +17,7 @@
     "package": "electron-vite build && electron-builder"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "^0.79.9",
+    "@earendil-works/pi-coding-agent": "^0.79.10",
     "@types/react-syntax-highlighter": "^15.5.13",
     "diff": "^8.0.4",
     "react-markdown": "^10.1.0",

@@ -32,7 +32,7 @@ type Model = {
   maxTokens?: number;
 };
 
-const PI_VERSION = "0.79.9";
+const PI_VERSION = "0.79.10";
 const DEFAULT_HTTP_IDLE_TIMEOUT_MS = 300_000;
 
 /**
@@ -125,10 +125,12 @@ export class PiSessionManager {
       // The resourceLoader inside services holds an extension runner that
       // gets invalidated on session replacement (switch/fork/new/clone).
       // Reusing cached services causes "stale extension ctx" errors.
+      // PASS settingsManager so skill/extension/package removals take effect.
       const services = await pi.createAgentSessionServices({
         cwd,
         agentDir: this.agentDir,
         authStorage: this._deps?.authStorage,
+        settingsManager: this._deps?.settingsManager,
       });
       // Update modelRegistry after services loads custom models from models.json
       if (this._deps && services.modelRegistry) {
@@ -559,6 +561,7 @@ export class PiSessionManager {
       const filtered = skills.filter((p: string) => p !== skillPath && !p.endsWith(skillPath));
       if (filtered.length < skills.length) {
         sm.setSkillPaths(filtered);
+        await this.reloadResources();
         return { success: true };
       }
       return { success: false, error: "Skill path not found in settings" };
@@ -576,6 +579,7 @@ export class PiSessionManager {
       const filtered = extensions.filter((p: string) => p !== extPath && !p.endsWith(extPath));
       if (filtered.length < extensions.length) {
         sm.setExtensionPaths(filtered);
+        await this.reloadResources();
         return { success: true };
       }
       return { success: false, error: "Extension path not found in settings" };
@@ -691,6 +695,18 @@ export class PiSessionManager {
       return (this.session as any).resourceLoader ?? this.runtime?.services?.resourceLoader ?? null;
     }
     return this.runtime?.services?.resourceLoader ?? null;
+  }
+
+  /** Reload resources so skill/extension/package changes are reflected immediately. */
+  async reloadResources() {
+    const loader = this.getResourceLoader();
+    if (loader?.reload) {
+      try {
+        await loader.reload();
+      } catch (err) {
+        console.error("[pi-desktop] Failed to reload resources:", err);
+      }
+    }
   }
 
   async getExtensions() {

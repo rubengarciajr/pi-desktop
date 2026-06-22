@@ -6,6 +6,105 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.2.6",
+    date: "2026-06-22",
+    sections: [
+      {
+        title: "Features",
+        items: [
+          "Upgraded Pi SDK to 0.79.10",
+          "Extension commands now load reliably with retry/backoff",
+          "Commands refresh automatically when switching tabs or installing packages",
+          "Skill removal and Restore to Stock now reload resources immediately",
+        ],
+      },
+      {
+        title: "Fixes",
+        items: [
+          "Fixed accent colors not switching (CSS :root was overriding [data-accent])",
+          "Fixed logo 'i' dot invisible in light mode (now uses accent color)",
+          "Fixed settingsManager not passed to session services (stale extensions)",
+          "Dynamic app version in System panel (no longer hardcoded)",
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.2.5",
+    date: "2026-06-22",
+    sections: [
+      {
+        title: "Features",
+        items: [
+          "Remove individual skills from the Skills tab (hover to reveal Remove button)",
+          "Restore to Stock: nuke all packages, extensions, skills, prompts, and themes back to 7 built-in tools",
+        ],
+      },
+      {
+        title: "Fixes",
+        items: [
+          "Fixed light mode logo being invisible white (now uses currentColor)",
+          "Fixed accent/theme colors not switching: CSS variables use RGB triplets for Tailwind opacity support",
+          "Removed Updates section from Settings panel",
+          "Dynamic app version in System panel (no longer hardcoded)",
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.2.4",
+    date: "2026-06-22",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "Window now shows immediately on launch (show: true instead of waiting for ready-to-show)",
+          "Resources directory included in app package (tray icon, app icons)",
+          "Added error handlers for renderer load failures and crashes",
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.2.3",
+    date: "2026-06-22",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "Window created before session pool init to prevent startup deadlock",
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.2.2",
+    date: "2026-06-21",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "Removed electron-updater entirely (was causing 404 errors on startup)",
+          "Fixed package install using require() in ESM context",
+          "Fixed error overflow in package cards",
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.2.1",
+    date: "2026-06-21",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "Fixed extension install failing silently (require() in ESM, switched to await import())",
+          "Added error display in package cards",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.2.0",
     date: "2026-06-21",
     sections: [
@@ -140,7 +239,7 @@ export function DesktopChangelog() {
           <p className="text-xs text-text-faint">What's new in the desktop app.</p>
         </div>
         <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-xs font-medium text-accent">
-          v0.2.0
+          v{CHANGELOG[0].version}
         </span>
       </div>
 

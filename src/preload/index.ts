@@ -1,4 +1,7 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
+import pkg from "../../package.json" with { type: "json" };
+
+const APP_VERSION = pkg.version;
 
 const invoke = <T>(channel: string) => {
   return (args?: any): Promise<T> => ipcRenderer.invoke(channel, args);
@@ -179,10 +182,11 @@ try {
     packages,
     events,
     versions: {
+      app: APP_VERSION,
       electron: process.versions.electron,
       chrome: process.versions.chrome,
       node: process.versions.node,
-      pi: "0.79.9",
+      pi: "0.79.10",
     },
   });
 } catch (err) {

@@ -296,7 +296,7 @@ export interface PiDesktopGlobal {
   github: GitHubApi;
   packages: PackagesApi;
   events: PiEventApi;
-  versions: { electron: string; chrome: string; node: string; pi: string };
+  versions: { app: string; electron: string; chrome: string; node: string; pi: string };
 }
 
 declare global {

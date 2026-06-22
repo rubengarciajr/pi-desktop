@@ -25,28 +25,70 @@ export function PromptInput() {
   const [slashIndex, setSlashIndex] = useState(0);
   const isStreaming = useAppStore((s) => s.activeTab.piState.isStreaming);
   const queue = useAppStore((s) => s.activeTab.queue);
+  const activeTabId = useAppStore((s) => s.activeTabId);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fetch all commands (extension commands, skills, prompts) from the running session.
+  // Fetch commands when tab changes or session becomes ready.
+  // Extensions load asynchronously during session init, so we retry with
+  // backoff until commands appear.
   useEffect(() => {
-    refreshCommands();
-  }, []);
+    let cancelled = false;
+    let attempt = 0;
+    const delays = [0, 1000, 2000, 4000];
 
-  const refreshCommands = async () => {
-    try {
-      const res = await window.pi.api.getCommands();
-      const cmds = res.commands ?? [];
-      const items: CommandItem[] = [];
-      for (const c of cmds) {
-        if (TUI_ONLY_COMMANDS.has(c.name)) continue;
-        const kind = c.source === "skill" ? "skill" : c.source === "prompt" ? "prompt" : "command";
-        items.push({ name: c.name, description: c.description, argumentHint: c.argumentHint, source: c.source ?? "extension", kind });
+    const tryFetch = async () => {
+      if (cancelled) return;
+      try {
+        const res = await window.pi.api.getCommands();
+        if (cancelled) return;
+        const cmds = res.commands ?? [];
+        if (cmds.length > 0 || attempt >= delays.length - 1) {
+          const items: CommandItem[] = [];
+          for (const c of cmds) {
+            if (TUI_ONLY_COMMANDS.has(c.name)) continue;
+            const kind = c.source === "skill" ? "skill" : c.source === "prompt" ? "prompt" : "command";
+            items.push({ name: c.name, description: c.description, argumentHint: c.argumentHint, source: c.source ?? "extension", kind });
+          }
+          items.sort((a, b) => a.name.localeCompare(b.name));
+          if (!cancelled) setCommands(items);
+        } else {
+          attempt++;
+          setTimeout(tryFetch, delays[attempt]);
+        }
+      } catch {
+        // Session not ready yet, retry
+        attempt++;
+        if (attempt < delays.length) {
+          setTimeout(tryFetch, delays[attempt]);
+        }
       }
-      items.sort((a, b) => a.name.localeCompare(b.name));
-      setCommands(items);
-    } catch {}
-  };
+    };
+
+    setCommands([]);
+    tryFetch();
+
+    return () => { cancelled = true; };
+  }, [activeTabId]);
+
+  // Refresh commands when packages/extensions change.
+  useEffect(() => {
+    const off = window.pi.events.onPackagesChanged(() => {
+      // Small delay to let the backend reload resources.
+      setTimeout(() => window.pi.api.getCommands().then((res: any) => {
+        const cmds = res.commands ?? [];
+        const items: CommandItem[] = [];
+        for (const c of cmds) {
+          if (TUI_ONLY_COMMANDS.has(c.name)) continue;
+          const kind = c.source === "skill" ? "skill" : c.source === "prompt" ? "prompt" : "command";
+          items.push({ name: c.name, description: c.description, argumentHint: c.argumentHint, source: c.source ?? "extension", kind });
+        }
+        items.sort((a, b) => a.name.localeCompare(b.name));
+        setCommands(items);
+      }).catch(() => {}), 500);
+    });
+    return () => { off?.(); };
+  }, []);
 
   // Auto-resize the textarea.
   useEffect(() => {
