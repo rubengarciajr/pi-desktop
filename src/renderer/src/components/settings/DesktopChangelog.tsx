@@ -6,6 +6,23 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.2.8",
+    date: "2026-06-22",
+    sections: [
+      {
+        title: "Security Fixes (P0)",
+        items: [
+          "Fixed shell command injection in GitHub operations (execSync → execFileSync with arg arrays)",
+          "Fixed command injection in package install/remove (removed shell:true)",
+          "Fixed per-tab event misrouting: events without tabId are now dropped instead of defaulting to active tab",
+          "Fixed Install Pi button: now actually calls startPiInstall()",
+          "Removed shell:true from npm installer",
+          "Clear token file properly (unlink instead of truncate)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.2.7",
     date: "2026-06-22",
     sections: [

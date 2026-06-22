@@ -51,6 +51,16 @@ export function SystemPanel() {
         setInstallMsg(result?.error ?? "Installation failed.");
       }
     });
+
+    // Actually start the installation
+    try {
+      await window.pi.api.startPiInstall();
+    } catch (err: any) {
+      offProgress();
+      offDone();
+      setInstalling(false);
+      setInstallMsg(err?.message ?? "Failed to start installation.");
+    }
   };
 
   const copyToClipboard = (text: string, id: string) => {

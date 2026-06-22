@@ -1,7 +1,7 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { safeStorage, app } from "electron";
 import { join } from "node:path";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 
 const TOKEN_FILE = join(app.getPath("userData"), "github-token.enc");
 
@@ -48,7 +48,7 @@ export function getGitHubToken(): string | null {
 export function clearGitHubToken(): void {
   try {
     if (existsSync(TOKEN_FILE)) {
-      writeFileSync(TOKEN_FILE, "");
+      unlinkSync(TOKEN_FILE);
     }
   } catch {}
 }
@@ -86,7 +86,7 @@ export function getSyncState(cwd: string): GitHubSyncState {
   const state: GitHubSyncState = { ahead: 0, behind: 0, hasRemote: false };
 
   // First check if there's a git remote.
-  const remoteUrl = tryExec("git remote get-url origin", cwd);
+  const remoteUrl = tryExecFile("git", ["remote", "get-url", "origin"], cwd);
   if (!remoteUrl) {
     // No git remote, but check the linkage file (e.g., on a fresh clone machine).
     const linkage = readRepoLinkage(cwd);
@@ -107,12 +107,12 @@ export function getSyncState(cwd: string): GitHubSyncState {
     state.repoName = match[2];
   }
 
-  state.branch = tryExec("git rev-parse --abbrev-ref HEAD", cwd) || "main";
+  state.branch = tryExecFile("git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd) || "main";
 
   // Fetch quietly to update ahead/behind.
-  tryExec("git fetch --quiet 2>/dev/null", cwd);
+  tryExecFile("git", ["fetch", "--quiet"], cwd);
 
-  const tracking = tryExec("git rev-list --left-right --count HEAD...@{upstream}", cwd);
+  const tracking = tryExecFile("git", ["rev-list", "--left-right", "--count", "HEAD...@{upstream}"], cwd);
   if (tracking) {
     const parts = tracking.split(/\s+/);
     state.ahead = parseInt(parts[0], 10) || 0;
@@ -125,7 +125,7 @@ export function getSyncState(cwd: string): GitHubSyncState {
 /** Push local changes to remote. Uses git credential helper. */
 export function pushToRemote(cwd: string): { success: boolean; error?: string } {
   try {
-    execSync("git push", { cwd, encoding: "utf-8", timeout: 30000, stdio: ["pipe", "pipe", "pipe"] });
+    execFileSync("git", ["push"], { cwd, encoding: "utf-8", timeout: 30000, stdio: ["pipe", "pipe", "pipe"] });
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message || "Push failed" };
@@ -135,7 +135,7 @@ export function pushToRemote(cwd: string): { success: boolean; error?: string } 
 /** Pull from remote. */
 export function pullFromRemote(cwd: string): { success: boolean; error?: string } {
   try {
-    execSync("git pull", { cwd, encoding: "utf-8", timeout: 30000, stdio: ["pipe", "pipe", "pipe"] });
+    execFileSync("git", ["pull"], { cwd, encoding: "utf-8", timeout: 30000, stdio: ["pipe", "pipe", "pipe"] });
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message || "Pull failed" };
@@ -191,10 +191,10 @@ export async function listUserRepos(token: string): Promise<{ name: string; full
 /** Attach an existing GitHub repo to the local folder: set remote, write linkage. */
 export function attachRepo(cwd: string, repo: { owner: string; name: string; remoteUrl: string }): { success: boolean; error?: string } {
   try {
-    tryExec("git init", cwd);
-    tryExec("git remote remove origin", cwd);
-    execSync(`git remote add origin ${repo.remoteUrl}`, { cwd, encoding: "utf-8", timeout: 5000 });
-    tryExec("git fetch --quiet", cwd);
+    tryExecFile("git", ["init"], cwd);
+    tryExecFile("git", ["remote", "remove", "origin"], cwd);
+    execFileSync("git", ["remote", "add", "origin", repo.remoteUrl], { cwd, encoding: "utf-8", timeout: 5000 });
+    tryExecFile("git", ["fetch", "--quiet"], cwd);
     writeRepoLinkage(cwd, {
       repoOwner: repo.owner,
       repoName: repo.name,
@@ -210,7 +210,7 @@ export function attachRepo(cwd: string, repo: { owner: string; name: string; rem
 /** Clone a repo into a local folder (for new machine / new folder setup). */
 export function cloneRepo(remoteUrl: string, localPath: string): { success: boolean; error?: string } {
   try {
-    execSync(`git clone "${remoteUrl}" "${localPath}"`, { encoding: "utf-8", timeout: 60000, stdio: ["pipe", "pipe", "pipe"] });
+    execFileSync("git", ["clone", remoteUrl, localPath], { encoding: "utf-8", timeout: 60000, stdio: ["pipe", "pipe", "pipe"] });
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to clone" };
@@ -252,23 +252,23 @@ export async function createRepo(
   const repoUrl = sshUrl || httpsUrl;
 
   // Initialize git if needed.
-  tryExec("git init", cwd);
+  tryExecFile("git", ["init"], cwd);
 
   // Set remote (remove existing origin first if present).
-  tryExec("git remote remove origin", cwd);
-  execSync(`git remote add origin ${repoUrl}`, { cwd, encoding: "utf-8", timeout: 5000 });
+  tryExecFile("git", ["remote", "remove", "origin"], cwd);
+  execFileSync("git", ["remote", "add", "origin", repoUrl], { cwd, encoding: "utf-8", timeout: 5000 });
 
   // Initial commit + push if there are files.
-  const hasFiles = tryExec("git status --porcelain", cwd);
+  const hasFiles = tryExecFile("git", ["status", "--porcelain"], cwd);
   if (hasFiles) {
-    execSync("git add -A", { cwd, encoding: "utf-8", timeout: 10000 });
-    tryExec('git commit -m "Initial commit from Pi Desktop"', cwd);
+    execFileSync("git", ["add", "-A"], { cwd, encoding: "utf-8", timeout: 10000 });
+    tryExecFile("git", ["commit", "-m", "Initial commit from Pi Desktop"], cwd);
   }
 
   // Push to set upstream.
-  const branch = tryExec("git rev-parse --abbrev-ref HEAD", cwd) || "main";
+  const branch = tryExecFile("git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd) || "main";
   try {
-    execSync(`git push -u origin ${branch}`, { cwd, encoding: "utf-8", timeout: 30000, stdio: ["pipe", "pipe", "pipe"] });
+    execFileSync("git", ["push", "-u", "origin", branch], { cwd, encoding: "utf-8", timeout: 30000, stdio: ["pipe", "pipe", "pipe"] });
   } catch (err: any) {
     // Push may fail if no files/commits, but repo was still created.
   }
@@ -284,9 +284,10 @@ export async function createRepo(
   return { success: true, repoUrl };
 }
 
-function tryExec(cmd: string, cwd: string): string | null {
+/** Safe exec helper using arg arrays (no shell injection risk). */
+function tryExecFile(cmd: string, args: string[], cwd: string): string | null {
   try {
-    return execSync(cmd, { cwd, encoding: "utf-8", timeout: 5000, stdio: ["pipe", "pipe", "pipe"] }).trim();
+    return execFileSync(cmd, args, { cwd, encoding: "utf-8", timeout: 5000, stdio: ["pipe", "pipe", "pipe"] }).trim();
   } catch {
     return null;
   }

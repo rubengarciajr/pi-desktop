@@ -89,7 +89,6 @@ export function installPi(): EventEmitter & Promise<{ success: boolean; error?: 
 
     const child = spawn("npm", ["install", "-g", "@earendil-works/pi-coding-agent@latest"], {
       stdio: ["pipe", "pipe", "pipe"],
-      shell: true,
     });
 
     let stderr = "";

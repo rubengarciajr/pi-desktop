@@ -73,21 +73,23 @@ export default function App() {
     if (!pi) return;
 
     const offEvent = pi.events.onEvent((event) => {
-      const tabId = (event as any).tabId ?? useAppStore.getState().activeTabId;
+      // Per-tab events MUST have a tabId. Dropping events without one
+      // prevents background-tab events from being applied to the active tab.
+      const tabId = (event as any).tabId;
       if (tabId) handleTabAgentEvent(tabId, event);
     });
     const offState = pi.events.onState((state: any) => {
-      const tabId = state.tabId ?? useAppStore.getState().activeTabId;
+      const tabId = state.tabId;
       if (tabId) setTabPiState(tabId, state);
     });
     const offQueue = pi.events.onQueue((queue: any) => {
-      const tabId = queue.tabId ?? useAppStore.getState().activeTabId;
+      const tabId = queue.tabId;
       if (tabId) setTabQueue(tabId, queue);
     });
     const offDiag = pi.events.onDiagnostics((msg) => addDiagnostic(msg));
 
     const offReset = pi.events.onSessionReset((data: any) => {
-      const tabId = data.tabId ?? useAppStore.getState().activeTabId;
+      const tabId = data.tabId;
       if (!tabId) return;
       resetTabMessages(tabId);
       window.pi.api.getMessages({ tabId }).then((raw) => {

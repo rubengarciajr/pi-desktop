@@ -98,7 +98,6 @@ export function installPackage(spec: string): Promise<{ success: boolean; error?
   return new Promise((resolve) => {
     const child = spawn("pi", ["install", spec], {
       stdio: ["pipe", "pipe", "pipe"],
-      shell: true,
     });
 
     let stderr = "";
@@ -123,7 +122,6 @@ export function removePackage(spec: string): Promise<{ success: boolean; error?:
   return new Promise((resolve) => {
     const child = spawn("pi", ["remove", spec], {
       stdio: ["pipe", "pipe", "pipe"],
-      shell: true,
     });
 
     let stderr = "";
