@@ -18,10 +18,14 @@ Built with **Electron 38**, **React 18**, **TypeScript**, and **Tailwind CSS**.
 Pi is a minimal coding agent by earendil-works. It ships as a CLI tool that runs in the terminal. Pi Desktop takes the Pi SDK and runs it in-process inside an Electron app, giving users:
 
 - A GUI chat interface with streaming responses
+- **Quick Chat mode** — start talking instantly, no folder required (like Claude Desktop)
+- **One-click "Convert to code"** — promote a chat into a real project session
 - Multi-tab parallel sessions (like browser tabs for AI coding)
-- Full extension, skill, and package management
-- GitHub integration
+- Web search built in (toggle on per chat)
+- Full extension, skill, and package management — with visual cues for extension modes (e.g. Plan Mode)
+- GitHub integration with live "needs-sync" indicator
 - Custom model configuration
+- Per-session auto-compaction so long conversations never overflow
 - Theme system with accent colors
 
 The app is **fully self-contained**. Users do not need Node.js, npm, or the Pi CLI installed to use it. The SDK runs inside the app's bundled Electron runtime.
@@ -30,22 +34,57 @@ The app is **fully self-contained**. Users do not need Node.js, npm, or the Pi C
 
 ## Key Features
 
+### Quick Chat Mode (no folder needed)
+Launches straight into a ready-to-type **Chat** — no folder picker, like Claude Desktop. A **Chat / Code** toggle in the sidebar decides what "New" creates:
+- **Chat** — instant, pure conversation. Runs in a throwaway scratch space with **no file/shell tools**, so it's safe and fast for brainstorming and questions.
+- **Code** — pick a folder for a full project session with the agent's full toolset, Git, and GitHub.
+
+Your choice is remembered between launches.
+
+### ⚡ Convert to Code
+Turn a chat into real work in one click. The **⚡ Convert to code** button (shown only in chat) lets you pick a folder; Pi Desktop then:
+- Archives the whole conversation to `<folder>/docs/chat-<timestamp>.md` for reference
+- Rebinds the session to that folder with full tools enabled
+- **Seeds the new code session with the prior conversation** so the agent keeps full context
+
+### Web Search
+Search and fetch the web right from a conversation (powered by the `pi-web-access` package):
+- A **🔍 Web** toggle in chat turns web search on/off **live** — no restart, conversation preserved
+- Works **zero-config** with Exa (no API key)
+- **Settings → Web Search** to add Exa / Perplexity / Gemini API keys and enable browser-cookie Gemini Web
+- Always available in code-mode sessions
+
+### Context & Compaction Control
+Long conversations never blow past the context window:
+- **Auto-compaction toggle** (per session) automatically summarizes old context before it overflows
+- Live **context-usage readout** (turns amber as you approach the limit)
+- **Compact now** button for manual control, or type **`/compact`** (and `/compact <instructions>`) right in the chat
+- Each session compacts independently
+
 ### Multi-Tab Sessions
-Run multiple independent Pi agent sessions simultaneously, each with its own:
-- Working directory (cwd)
-- Model and thinking level
+Run multiple independent Pi agent sessions simultaneously, each fully standalone with its own:
+- Working directory (cwd) — or scratch space, in chat mode
+- Model and thinking level (per session — switching one tab never changes another)
 - Session history and branching
+- Auto-compaction and web-search state
 - Extensions and skills context
 
 Tabs work like browser tabs - create, switch, and close freely without losing session state.
 
 ### Streaming Chat Interface
 - Real-time streaming responses with markdown rendering
-- Syntax-highlighted code blocks
+- Syntax-highlighted code blocks (compact, with a line-count hint and internal scroll — never overflows the window)
 - Collapsible tool call/output blocks
 - Diff viewer for file edits
-- Image and PDF attachment support
-- Smart auto-scroll that stays pinned while streaming or lets you scroll freely
+- Image and PDF attachment support; **web images collapse to a tidy chip** you click to reveal (no more giant raw images)
+- **True auto-scroll** — follows streaming output, but the moment you scroll up to read it stops fighting you, with a **"Jump to latest"** pill to snap back
+- **Queue management** — remove a queued steering/follow-up message without stopping the running agent
+
+### Extension UI (Plan Mode & more)
+Extensions can drive rich, on-brand UI inside the app:
+- **Plan Mode** shows a dedicated banner ("read-only · planning"), a status badge, and interactive menus
+- Any extension's status badges, banners, prompts, and notifications render with a polished **generic "stock" look** for free — no per-extension theming required
+- Interactive extension questions (select / confirm / input) appear as native modal dialogs
 
 ### Slash Commands
 Type `/` in the prompt to see all available commands from:
@@ -86,14 +125,14 @@ Arrow-key navigation with autocomplete. Commands load with retry/backoff to hand
 - Create new repos from any folder
 - Attach existing repos to local folders
 - Push/pull with visual sync status (ahead/behind counts)
-- Per-folder repo linkage
-- GitHub badge in the prompt area showing auth status
+- Per-folder repo linkage, tracked **per session**
+- GitHub badge in the prompt area that **glows when a session has uncommitted or unpushed changes** — a clear "needs sync" cue that updates automatically as the agent edits files
 
 ### Session Management
 - Resume previous sessions
 - Fork from any point in conversation history
 - Clone current branch
-- Favorites system
+- Favorites system — clicking a favorite opens it and auto-closes the Sessions panel
 - Sessions organized by working directory
 - Session tree navigation (jump to any point, continue from there)
 - In-memory message cache for instant tab switching
@@ -216,8 +255,8 @@ Install via the Packages tab or Settings.
 - **Left sidebar**: Navigation (Chat, Sessions, Extensions, Packages, Settings), version number, GitHub badge
 - **Tab bar**: Horizontal tabs like a browser, each with its own session
 - **Main area**: Chat messages with streaming, or the active settings panel
-- **Status bar**: Working directory, model name, token usage (input/output/cache), cost, context window usage
-- **Prompt area**: Auto-resizing textarea with slash command dropdown, Send/Steer/Stop buttons
+- **Status bar**: Working directory (or a "Chat" pill in chat mode), model name, token usage, cost, live context-window usage
+- **Prompt area**: Auto-resizing textarea with slash command dropdown, Send/Steer/Stop buttons, removable queue chips, and — in chat mode — the **🔍 Web** toggle and **⚡ Convert to code** button
 
 ### Logo
 Custom Pi logo SVG with two-tone coloring:
