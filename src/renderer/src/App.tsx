@@ -12,6 +12,7 @@ import { StatusBar } from "./components/StatusBar";
 import { Onboarding } from "./components/Onboarding";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { ExtensionDialog, ExtensionToasts } from "./components/extensions/ExtensionUi";
+import { PanelView } from "./components/extensions/PanelView";
 
 export default function App() {
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
@@ -31,6 +32,9 @@ export default function App() {
   const resetTabMessages = useAppStore((s) => s.resetTabMessages);
   const addDiagnostic = useAppStore((s) => s.addDiagnostic);
   const handleExtUi = useAppStore((s) => s.handleExtUi);
+  const panels = useAppStore((s) => s.panels);
+  const activePanelId = useAppStore((s) => s.activePanelId);
+  const loadAddons = useAppStore((s) => s.loadAddons);
 
   // On launch, open a ready-to-type Chat tab so the user can start immediately
   // (no folder picker). Runs once; skips if a tab already exists.
@@ -104,6 +108,10 @@ export default function App() {
     });
     const offDiag = pi.events.onDiagnostics((msg) => addDiagnostic(msg));
 
+    // Load addon contributions (panels/status items) + refresh when packages change.
+    loadAddons();
+    const offPkgChanged = pi.events.onPackagesChanged(() => loadAddons());
+
     const offExtUi = pi.events.onExtUi((message: any) => {
       const tabId = message?.tabId;
       if (tabId) handleExtUi(tabId, message);
@@ -165,11 +173,12 @@ export default function App() {
       offState();
       offQueue();
       offDiag();
+      offPkgChanged();
       offExtUi();
       offReset();
       offMenu();
     };
-  }, [handleTabAgentEvent, setTabPiState, setTabQueue, loadTabMessages, resetTabMessages, addDiagnostic, handleExtUi, addTab, setActiveView, setSidebarOpen]);
+  }, [handleTabAgentEvent, setTabPiState, setTabQueue, loadTabMessages, resetTabMessages, addDiagnostic, handleExtUi, loadAddons, addTab, setActiveView, setSidebarOpen]);
 
   // Sync active tab to backend when renderer switches tabs.
   useEffect(() => {
@@ -218,6 +227,7 @@ export default function App() {
             {activeView === "settings" && <SettingsView />}
             {activeView === "extensions" && <ExtensionsView />}
             {activeView === "packages" && <PackagesView />}
+            {activeView === "panel" && <PanelView panel={panels.find((p) => p.id === activePanelId)} />}
           </div>
           {/* Sessions panel (persistent drawer) */}
           {sessionsPanelOpen && (

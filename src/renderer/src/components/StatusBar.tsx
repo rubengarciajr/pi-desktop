@@ -22,6 +22,8 @@ export function StatusBar() {
   const queue = useAppStore((s) => s.activeTab.queue);
   const activeTabId = useAppStore((s) => s.activeTabId);
   const mode = useAppStore((s) => s.activeTab.mode);
+  const statusItems = useAppStore((s) => s.statusItems);
+  const openPanel = useAppStore((s) => s.openPanel);
   const [thinkOpen, setThinkOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -94,6 +96,17 @@ export function StatusBar() {
           <span className="text-warning">{pendingCount} queued</span>
         )}
         <ExtensionStatusBadges />
+        {statusItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => item.panelId && openPanel(item.panelId)}
+            title={`${item.label} · ${item.source}`}
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-text-muted transition-colors hover:bg-bg-hover hover:text-text"
+          >
+            {item.icon && <span>{item.icon}</span>}
+            {item.label}
+          </button>
+        ))}
         {mode === "chat" ? (
           <span className="rounded border border-border bg-bg-subtle px-1.5 py-0.5 text-[10px] text-text-faint">Chat</span>
         ) : (

@@ -193,11 +193,17 @@ const events = {
   setTheme: invoke("pi:theme:set"),
 };
 
+// Addon contributions (declarative panels + status items)
+const addons = {
+  contributions: invoke("addons:contributions"),
+};
+
 try {
   contextBridge.exposeInMainWorld("pi", {
     api,
     github,
     packages,
+    addons,
     events,
     versions: {
       app: APP_VERSION,

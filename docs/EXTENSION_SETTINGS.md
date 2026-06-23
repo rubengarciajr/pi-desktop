@@ -89,3 +89,45 @@ The panel renders Markdown from `pi.settings.docs` if set, otherwise your packag
 ## No `pi.settings`? Still useful
 
 If your package doesn't declare `pi.settings`, the panel still shows your README and tells the user to edit `settings.json` directly per your docs. A few popular packages also ship with a built-in fallback schema in Pi Desktop so they get a form immediately — declaring your own `pi.settings` always takes precedence.
+
+---
+
+# Contributing custom UI: panels & status items
+
+Beyond settings, your package can contribute its own **panel** (a sidebar entry that opens a custom view) and **status-bar items** — declaratively, still with no UI code. Add `pi.panels` / `pi.statusItems` to `package.json`.
+
+```jsonc
+"pi": {
+  "extensions": ["./src/index.ts"],
+  "panels": [{
+    "id": "dashboard",                 // unique within your package
+    "title": "My Dashboard",
+    "icon": "📊",                       // emoji
+    "sections": [
+      { "type": "markdown", "content": "## Welcome\nStatus and controls below." },
+      { "type": "fields", "key": "my-extension", "fields": [ /* same shape as pi.settings.fields */ ] },
+      { "type": "actions", "actions": [
+        { "label": "Run sync",  "command": "/my-sync" },   // runs as a chat command
+        { "label": "Summarize", "prompt": "Summarize the project" }, // sends a chat prompt
+        { "label": "Open docs", "url": "https://example.com" }       // opens in the OS browser
+      ]},
+      { "type": "list", "title": "Tips", "items": ["First tip", "Second tip"] }
+    ]
+  }],
+  "statusItems": [
+    { "id": "dash", "label": "Dashboard", "icon": "📊", "panelId": "dashboard" }
+  ]
+}
+```
+
+**Section types:**
+- `markdown` — rendered Markdown (`content`).
+- `fields` — a settings form (same field shape as `pi.settings`); `key` is the `settings.json` key it saves to. Reuses the settings form + Save.
+- `actions` — buttons. Each action has a `label` and one of: `command` (runs as a chat `/command`), `prompt` (sends a chat prompt), or `url` (opens externally).
+- `list` — a simple bulleted list (`items`, optional `title`).
+
+**Status items** appear in the status bar; clicking one opens its `panelId` panel.
+
+**Safety:** panels and status items are fully declarative — no code from your manifest executes in the app. Actions can only run a chat command/prompt, open a URL, or save config under your settings key.
+
+Panels appear in the sidebar (and status items in the status bar) as soon as your package is installed, and disappear when it's removed.

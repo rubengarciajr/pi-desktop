@@ -21,6 +21,9 @@ export function Sidebar() {
   const defaultTabMode = useAppStore((s) => s.defaultTabMode);
   const setDefaultTabMode = useAppStore((s) => s.setDefaultTabMode);
   const activeMode = useAppStore((s) => s.activeTab.mode);
+  const panels = useAppStore((s) => s.panels);
+  const activePanelId = useAppStore((s) => s.activePanelId);
+  const openPanel = useAppStore((s) => s.openPanel);
 
   if (!sidebarOpen) return null;
 
@@ -138,6 +141,30 @@ export function Sidebar() {
             </button>
           );
         })}
+
+        {/* Extension-contributed panels (addon platform Tier 2) */}
+        {panels.length > 0 && (
+          <div className="mt-2 border-t border-border pt-2">
+            {panels.map((panel) => {
+              const active = activeView === "panel" && activePanelId === panel.id;
+              return (
+                <button
+                  key={panel.id}
+                  onClick={() => openPanel(panel.id)}
+                  title={`${panel.title} · ${panel.source}`}
+                  className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    active ? "bg-bg-active text-text" : "text-text-muted hover:bg-bg-hover hover:text-text"
+                  }`}
+                >
+                  <span className="flex w-[18px] shrink-0 items-center justify-center text-[13px]">
+                    {panel.icon ?? "🧩"}
+                  </span>
+                  <span className="truncate">{panel.title}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       {/* Session info footer */}

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { PanelContribution, StatusItemContribution } from "../../../shared/ipc";
 
 export interface ContentBlock {
   type: "text" | "thinking" | "toolCall" | "toolResult";
@@ -56,7 +57,7 @@ export interface QueueState {
   followUp: string[];
 }
 
-export type View = "chat" | "model" | "settings" | "extensions" | "packages";
+export type View = "chat" | "model" | "settings" | "extensions" | "packages" | "panel";
 
 export interface ExtWidget {
   lines: string[];
@@ -129,6 +130,11 @@ interface AppState {
   extDialog: ExtDialogRequest | null;
   toasts: ExtToast[];
 
+  // Addon contributions (Tier 2: declarative panels + status items)
+  panels: PanelContribution[];
+  statusItems: StatusItemContribution[];
+  activePanelId: string | null;
+
   // Default mode for new tabs (Chat/Code toggle), persisted to localStorage.
   defaultTabMode: TabMode;
 
@@ -159,6 +165,10 @@ interface AppState {
   handleExtUi: (tabId: string, message: any) => void;
   clearExtDialog: () => void;
   dismissToast: (id: number) => void;
+
+  // Addon actions
+  loadAddons: () => void;
+  openPanel: (id: string) => void;
 
   // Favorites actions
   addFavorite: (path: string) => void;
@@ -194,6 +204,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   diagnostics: [],
   extDialog: null,
   toasts: [],
+  panels: [],
+  statusItems: [],
+  activePanelId: null,
   defaultTabMode: (() => {
     try {
       return (localStorage.getItem("pi-default-tab-mode") as TabMode) || "chat";
@@ -497,6 +510,25 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   clearExtDialog: () => set({ extDialog: null }),
   dismissToast: (id) => set((st) => ({ toasts: st.toasts.filter((t) => t.id !== id) })),
+
+  loadAddons: () => {
+    window.pi.addons
+      .contributions()
+      .then(({ panels, statusItems }) =>
+        set((st) => {
+          // If the open panel disappeared (package removed), fall back to chat.
+          const stillExists = st.activePanelId && panels.some((p) => p.id === st.activePanelId);
+          return {
+            panels,
+            statusItems,
+            ...(st.activeView === "panel" && !stillExists ? { activeView: "chat" as View, activePanelId: null } : {}),
+          };
+        }),
+      )
+      .catch(() => {});
+  },
+
+  openPanel: (id) => set({ activeView: "panel", activePanelId: id }),
 
   // Favorites
   loadFavorites: () => {

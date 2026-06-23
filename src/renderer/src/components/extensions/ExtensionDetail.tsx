@@ -127,7 +127,7 @@ export function ExtensionDetail({ source, onBack }: { source: string; onBack: ()
   );
 }
 
-function SettingField({
+export function SettingField({
   field,
   value,
   onChange,

@@ -270,6 +270,36 @@ export interface ExtensionDetail {
   values: Record<string, unknown>;
 }
 
+/** Declarative addon contributions (Tier 2: panels + status items). */
+export interface PanelActionDef {
+  label: string;
+  command?: string;
+  prompt?: string;
+  url?: string;
+}
+export type PanelSection =
+  | { type: "markdown"; content: string }
+  | { type: "fields"; key: string; fields: PiSettingsField[]; values?: Record<string, unknown> }
+  | { type: "actions"; actions: PanelActionDef[] }
+  | { type: "list"; title?: string; items: string[] };
+export interface PanelContribution {
+  id: string;
+  title: string;
+  icon?: string;
+  source: string;
+  sections: PanelSection[];
+}
+export interface StatusItemContribution {
+  id: string;
+  label: string;
+  icon?: string;
+  panelId?: string;
+  source: string;
+}
+export interface AddonsApi {
+  contributions: () => Promise<{ panels: PanelContribution[]; statusItems: StatusItemContribution[] }>;
+}
+
 /** Packages API surface. */
 export interface PackagesApi {
   search: () => Promise<PackageInfo[]>;
@@ -330,6 +360,7 @@ export interface PiDesktopGlobal {
   api: PiApi;
   github: GitHubApi;
   packages: PackagesApi;
+  addons: AddonsApi;
   events: PiEventApi;
   versions: { app: string; electron: string; chrome: string; node: string; pi: string };
 }

@@ -23,6 +23,7 @@ import { searchPackages, getDownloadCounts } from "./packages";
 import { listCustomModels, addCustomModel, removeCustomModel, getModelsPath } from "./models";
 import { getWebSearchStatus, setWebSearchConfig } from "./webSearch";
 import { getExtensionDetail, setExtensionConfig } from "./extensionDetail";
+import { getAddonContributions } from "./addonContributions";
 import { shell } from "electron";
 
 /**
@@ -101,6 +102,9 @@ export function registerIpc(
   // --- Extension detail + settings (per-extension panel) ---
   handle("packages:detail", (a) => getExtensionDetail(a?.source));
   handle("packages:settings.set", (a) => setExtensionConfig(a?.key, a?.values ?? {}));
+
+  // --- Addon contributions (declarative panels + status items) ---
+  handle("addons:contributions", () => getAddonContributions());
 
   // --- Session (per-tab) ---
   handle("pi:session.new", async (a) => { const m = await mgr(a); return m.newSession(a?.parentSession, a?.cwd); });
