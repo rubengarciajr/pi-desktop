@@ -1,6 +1,6 @@
 import { useAppStore } from "../store/useAppStore";
 import { PlusIcon, FolderIcon } from "./Icons";
-import { GitRepoBadge } from "./GitRepoBadge";
+import { GitDirtyDot } from "./GitRepoBadge";
 
 export function TabBar() {
   const tabs = useAppStore((s) => s.tabs);
@@ -51,8 +51,8 @@ export function TabBar() {
                 <span className="h-1.5 w-1.5 animate-pulse-subtle rounded-full bg-accent" />
               )}
               <FolderIcon size={11} className="text-text-faint" />
+              {active && tab.cwd && <GitDirtyDot cwd={tab.cwd} tabId={tab.id} />}
               <span className="max-w-[100px] truncate" style={{ padding: "1px 2px", background: active ? "var(--color-bg)" : "var(--color-bg-subtle)" }}>{tab.title}</span>
-              {active && tab.cwd && <GitRepoBadge cwd={tab.cwd} tabId={tab.id} />}
               <button
                 onClick={(e) => {
                   e.stopPropagation();

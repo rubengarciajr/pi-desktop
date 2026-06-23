@@ -441,7 +441,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSidebarOpen: (o) => set({ sidebarOpen: o }),
   setSessionsPanelOpen: (o) => set({ sessionsPanelOpen: o }),
   addDiagnostic: (msg) =>
-    set((st) => ({ diagnostics: [...st.diagnostics.slice(-50), msg] })),
+    set((st) => {
+      // Surface diagnostics as readable, auto-dismissing toasts (not just the
+      // tiny status bar). Infer severity from the text.
+      const level: ExtToast["level"] = /error|fail|unable|couldn'?t|denied/i.test(msg) ? "error" : "info";
+      const toast: ExtToast = { id: ++toastSeq, message: msg, level };
+      return {
+        diagnostics: [...st.diagnostics.slice(-50), msg],
+        toasts: [...st.toasts.slice(-4), toast],
+      };
+    }),
 
   handleExtUi: (tabId, message) =>
     set((st) => {

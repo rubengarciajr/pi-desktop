@@ -20,7 +20,6 @@ export function StatusBar() {
     if (tid) useAppStore.getState().setTabPiState(tid, s);
   };
   const queue = useAppStore((s) => s.activeTab.queue);
-  const diagnostics = useAppStore((s) => s.diagnostics);
   const activeTabId = useAppStore((s) => s.activeTabId);
   const mode = useAppStore((s) => s.activeTab.mode);
   const [thinkOpen, setThinkOpen] = useState(false);
@@ -30,7 +29,6 @@ export function StatusBar() {
   const modelRef = useRef<HTMLDivElement>(null);
 
   const pendingCount = queue.steering.length + queue.followUp.length;
-  const lastDiag = diagnostics[diagnostics.length - 1];
   const currentLevel = piState.thinkingLevel ?? "off";
 
   // Fetch models when the model menu opens.
@@ -215,7 +213,6 @@ export function StatusBar() {
           )}
         </div>
 
-        <span className="truncate max-w-xs">{lastDiag}</span>
         <span className="text-text-faint">Pi Desktop</span>
       </div>
     </footer>

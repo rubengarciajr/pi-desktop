@@ -262,14 +262,14 @@ export function GitHubBadge() {
                   <button
                     onClick={handlePush}
                     disabled={syncing || !syncState?.ahead}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-text-muted transition-colors hover:bg-bg-hover disabled:opacity-40"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-text transition-colors hover:bg-bg-hover disabled:text-text-faint disabled:cursor-default disabled:hover:bg-transparent"
                   >
                     <ArrowUpIcon size={12} /> Push changes
                   </button>
                   <button
                     onClick={handlePull}
                     disabled={syncing || !syncState?.behind}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-text-muted transition-colors hover:bg-bg-hover disabled:opacity-40"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-text transition-colors hover:bg-bg-hover disabled:text-text-faint disabled:cursor-default disabled:hover:bg-transparent"
                   >
                     <ArrowDownIcon size={12} /> Pull latest
                   </button>

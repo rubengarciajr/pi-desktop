@@ -1,5 +1,49 @@
 import { useState, useEffect } from "react";
 import type { GitRepoInfo } from "../../../shared/ipc";
+import { useAppStore } from "../store/useAppStore";
+
+/**
+ * A tiny glowing dot shown in a tab after the folder icon when the repo has
+ * pending changes (uncommitted/untracked, or commits to push/pull). Clears
+ * itself once everything is committed & synced. Polls cheaply and refreshes the
+ * moment the agent finishes a turn (when it's most likely to have edited files).
+ */
+export function GitDirtyDot({ cwd, tabId }: { cwd?: string; tabId?: string }) {
+  const [info, setInfo] = useState<GitRepoInfo | null>(null);
+  const isStreaming = useAppStore((s) => s.activeTab.piState.isStreaming);
+
+  useEffect(() => {
+    if (!cwd) {
+      setInfo(null);
+      return;
+    }
+    let cancelled = false;
+    const load = () =>
+      window.pi.api.getGitInfo({ tabId }).then((d) => { if (!cancelled) setInfo(d); }).catch(() => {});
+    load();
+    const interval = setInterval(load, 5000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [cwd, tabId]);
+
+  // Refresh as soon as a turn ends — the agent likely just changed files.
+  useEffect(() => {
+    if (isStreaming || !cwd) return;
+    window.pi.api.getGitInfo({ tabId }).then(setInfo).catch(() => {});
+  }, [isStreaming, cwd, tabId]);
+
+  if (!info || !info.isRepo) return null;
+  const pending =
+    (info.unstagedCount || 0) + (info.stagedCount || 0) + (info.untrackedCount || 0) +
+    (info.ahead || 0) + (info.behind || 0);
+  if (pending === 0) return null;
+
+  return (
+    <span
+      className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning animate-glow"
+      title={`${pending} pending change${pending !== 1 ? "s" : ""} — commit & sync`}
+    />
+  );
+}
 
 export function GitRepoBadge({ cwd, tabId }: { cwd?: string; tabId?: string }) {
   const [info, setInfo] = useState<GitRepoInfo | null>(null);

@@ -301,7 +301,7 @@ export function ExtensionToasts() {
   const toasts = useAppStore((s) => s.toasts);
   if (toasts.length === 0) return null;
   return (
-    <div className="pointer-events-none fixed bottom-12 right-4 z-50 flex flex-col gap-2">
+    <div className="pointer-events-none fixed right-4 top-16 z-50 flex flex-col gap-2">
       {toasts.map((t) => (
         <Toast key={t.id} id={t.id} message={t.message} level={t.level} />
       ))}
@@ -320,23 +320,23 @@ function Toast({
 }) {
   const dismiss = useAppStore((s) => s.dismissToast);
   useEffect(() => {
-    const timer = setTimeout(() => dismiss(id), 4500);
+    const timer = setTimeout(() => dismiss(id), 6000);
     return () => clearTimeout(timer);
   }, [id, dismiss]);
 
-  const accent =
-    level === "error"
-      ? "border-danger/40 text-danger"
-      : level === "warning"
-        ? "border-warning/40 text-warning"
-        : "border-accent/40 text-accent";
+  const border =
+    level === "error" ? "border-danger/40" : level === "warning" ? "border-warning/40" : "border-accent/40";
+  const dot =
+    level === "error" ? "bg-danger" : level === "warning" ? "bg-warning" : "bg-accent";
 
   return (
     <div
       onClick={() => dismiss(id)}
-      className={`pointer-events-auto max-w-sm cursor-pointer rounded-lg border bg-bg-subtle px-3 py-2 text-xs shadow-lg animate-slide-up ${accent}`}
+      className={`pointer-events-auto flex max-w-md cursor-pointer items-start gap-2.5 rounded-xl border bg-bg-active px-4 py-3 text-sm text-text shadow-2xl backdrop-blur-xl animate-slide-up ${border}`}
+      title="Click to dismiss"
     >
-      <span className="text-text-muted">{message}</span>
+      <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${dot}`} />
+      <span className="leading-snug">{message}</span>
     </div>
   );
 }

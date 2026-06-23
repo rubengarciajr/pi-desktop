@@ -265,8 +265,10 @@ function SettingsPanel() {
         <div className="flex gap-2">
           <button
             onClick={async () => {
-              const res = await window.pi.api.compact({ tabId: useAppStore.getState().activeTabId ?? undefined });
-              if (res?.tokensBefore != null && res?.estimatedTokensAfter != null) {
+              const res: any = await window.pi.api.compact({ tabId: useAppStore.getState().activeTabId ?? undefined });
+              if (res && res.success === false) {
+                setCompactResult(res.error || "Nothing to compact.");
+              } else if (res?.tokensBefore != null && res?.estimatedTokensAfter != null) {
                 const pct = res.tokensBefore > 0 ? Math.round((1 - res.estimatedTokensAfter / res.tokensBefore) * 100) : 0;
                 setCompactResult(`Compacted: ${res.tokensBefore.toLocaleString()} → ${res.estimatedTokensAfter.toLocaleString()} tokens (-${pct}%)`);
               } else {

@@ -823,13 +823,19 @@ export class PiSessionManager {
 
   async compact(customInstructions?: string) {
     if (!this.session) throw new Error("Session not initialized");
-    const res: any = await this.session.compact(customInstructions);
-    return {
-      success: true,
-      summary: res?.summary,
-      tokensBefore: res?.tokensBefore,
-      estimatedTokensAfter: res?.estimatedTokensAfter,
-    };
+    try {
+      const res: any = await this.session.compact(customInstructions);
+      return {
+        success: true,
+        summary: res?.summary,
+        tokensBefore: res?.tokensBefore,
+        estimatedTokensAfter: res?.estimatedTokensAfter,
+      };
+    } catch (err: any) {
+      // e.g. "Nothing to compact (session too short)" — return gracefully so the
+      // IPC layer doesn't surface a scary "Error in pi:compact".
+      return { success: false, error: err?.message ?? String(err) };
+    }
   }
 
   abortCompaction() {

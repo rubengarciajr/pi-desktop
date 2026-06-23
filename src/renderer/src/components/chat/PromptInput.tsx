@@ -180,7 +180,14 @@ export function PromptInput() {
       setText("");
       setDropdownDismissed(false);
       const customInstructions = message.replace(/^\/compact\s*/i, "").trim() || undefined;
-      window.pi.api.compact({ customInstructions, tabId }).catch(() => {});
+      window.pi.api
+        .compact({ customInstructions, tabId })
+        .then((res: any) => {
+          const note = useAppStore.getState().addDiagnostic;
+          if (res?.success) note("Context compacted.");
+          else if (res?.error) note(res.error);
+        })
+        .catch(() => {});
       return;
     }
 
