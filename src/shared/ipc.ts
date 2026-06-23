@@ -126,6 +126,7 @@ export interface PiApi {
   abort: (args?: { tabId?: string }) => Promise<{ success: boolean }>;
   removeQueued: (args: { kind: "steering" | "followUp"; index: number; tabId?: string }) => Promise<{ success: boolean }>;
   setChatWeb: (args: { enabled: boolean; tabId?: string }) => Promise<{ success: boolean; webEnabled?: boolean; available?: boolean }>;
+  setChatTools: (args: { enabled: boolean; tabId?: string }) => Promise<{ success: boolean; toolsEnabled?: boolean }>;
   getWebSearchStatus: () => Promise<{ exa: boolean; perplexity: boolean; gemini: boolean; allowBrowserCookies: boolean; curator: boolean; webAccessInstalled: boolean }>;
   setWebSearchConfig: (args: { exaApiKey?: string; perplexityApiKey?: string; geminiApiKey?: string; allowBrowserCookies?: boolean; workflow?: "none" | "summary-review" }) => Promise<{ success: boolean }>;
 

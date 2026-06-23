@@ -30,6 +30,7 @@ export function PromptInput() {
   const activeTabId = useAppStore((s) => s.activeTabId);
   const mode = useAppStore((s) => s.activeTab.mode);
   const webEnabled = useAppStore((s) => s.activeTab.piState.webEnabled);
+  const toolsEnabled = useAppStore((s) => s.activeTab.piState.toolsEnabled);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -40,6 +41,15 @@ export function PromptInput() {
     const next = !webEnabled;
     useAppStore.getState().setTabPiState(tabId, { webEnabled: next });
     window.pi.api.setChatWeb({ tabId, enabled: next }).catch(() => {});
+  };
+
+  // Toggle native Pi tools (read/bash/edit/…) in a chat (live).
+  const toggleTools = () => {
+    const tabId = useAppStore.getState().activeTabId;
+    if (!tabId) return;
+    const next = !toolsEnabled;
+    useAppStore.getState().setTabPiState(tabId, { toolsEnabled: next });
+    window.pi.api.setChatTools({ tabId, enabled: next }).catch(() => {});
   };
 
   // Chat → code: pick a folder, archive the chat to docs/, rebind with tools.
@@ -302,8 +312,8 @@ export function PromptInput() {
             placeholder={
               isStreaming
                 ? "Queue a steering message... (Enter to steer, Cmd+Shift+Enter for follow-up)"
-                : mode === "chat" && webEnabled
-                  ? "🔍 Web search on — ask about anything current or specific"
+                : mode === "chat" && (webEnabled || toolsEnabled)
+                  ? `${[toolsEnabled && "🛠 Tools", webEnabled && "🔍 Web"].filter(Boolean).join(" + ")} on — ask away`
                   : "Message Pi Desktop (Enter to send) or type / for commands"
             }
             rows={1}
@@ -323,6 +333,20 @@ export function PromptInput() {
             <div className="flex-1" />
             <div className="flex items-center gap-2">
               {mode !== "chat" && <GitHubBadge />}
+              {mode === "chat" && (
+                <button
+                  onClick={toggleTools}
+                  title={toolsEnabled ? "Tools ON — agent can read/write files & run commands" : "Tools OFF — pure conversation"}
+                  className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    toolsEnabled
+                      ? "border-accent/40 bg-accent/15 text-accent"
+                      : "border-border bg-bg-subtle text-text-faint hover:text-text-muted"
+                  }`}
+                >
+                  <WrenchIcon size={12} />
+                  Tools
+                </button>
+              )}
               {mode === "chat" && (
                 <button
                   onClick={toggleWeb}
@@ -386,6 +410,14 @@ function SearchIcon({ size = 12 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
       <circle cx="11" cy="11" r="7" />
       <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+
+function WrenchIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6z" />
     </svg>
   );
 }

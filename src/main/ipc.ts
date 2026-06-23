@@ -92,6 +92,7 @@ export function registerIpc(
   handle("pi:queue.remove", async (a) => { const m = await mgr(a); return m.removeQueuedItem(a.kind, a.index); });
   handle("pi:convertToCode", async (a) => { const m = await mgr(a); return m.convertToCode(a.cwd); });
   handle("pi:chat.setWeb", async (a) => { const m = await mgr(a); return m.setWebEnabled(!!a.enabled); });
+  handle("pi:chat.setTools", async (a) => { const m = await mgr(a); return m.setToolsEnabled(!!a.enabled); });
 
   // --- Web search config (~/.pi/web-search.json) ---
   handle("pi:webSearch.status", () => getWebSearchStatus());

@@ -32,6 +32,8 @@ export interface PiState {
   isStreaming?: boolean;
   /** Chat-mode 🔍 web-search toggle (chat tabs only). */
   webEnabled?: boolean;
+  /** Chat-mode native-tools toggle (read/bash/edit/…). */
+  toolsEnabled?: boolean;
   /** Per-session auto-compaction toggle. */
   autoCompactionEnabled?: boolean;
   modelId?: string;

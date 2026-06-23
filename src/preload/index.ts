@@ -25,6 +25,7 @@ const api = {
   abort: invoke("pi:abort"),
   removeQueued: invoke("pi:queue.remove"),
   setChatWeb: invoke("pi:chat.setWeb"),
+  setChatTools: invoke("pi:chat.setTools"),
 
   // Web search config
   getWebSearchStatus: invoke("pi:webSearch.status"),

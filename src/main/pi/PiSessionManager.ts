@@ -46,6 +46,9 @@ const PI_VERSION = "0.79.10";
  *  the 🔍 Web toggle is on. Unknown names are harmless no-ops if the package
  *  isn't installed. */
 const CHAT_WEB_TOOLS = ["web_search", "fetch_content", "get_search_content", "code_search"];
+
+/** Built-in Pi tools enabled in chat when the "Tools" toggle is on. */
+const CHAT_NATIVE_TOOLS = ["read", "bash", "edit", "write", "grep", "find", "ls"];
 const DEFAULT_HTTP_IDLE_TIMEOUT_MS = 300_000;
 
 /**
@@ -214,6 +217,8 @@ export class PiSessionManager {
   chatMode = false;
   /** In chat mode, whether the web-search tools are enabled (🔍 toggle). */
   webEnabled = false;
+  /** In chat mode, whether the native Pi tools (read/bash/edit/…) are enabled. */
+  toolsEnabled = false;
 
   get isReady() {
     return this.initialized;
@@ -221,13 +226,16 @@ export class PiSessionManager {
 
   private webNudgeInjected = false;
 
-  /** Apply the chat-mode tool policy live (no rebuild): web tools or none. */
+  /** Apply the chat-mode tool policy live (no rebuild): native and/or web tools. */
   private applyChatTools() {
     if (!this.chatMode || !this.session) return;
     try {
-      // Only enable web tools that are actually registered (e.g. pi-web-access
-      // installed); unknown names are skipped by the SDK but we log if missing.
-      const tools = this.webEnabled ? CHAT_WEB_TOOLS : [];
+      // Combine the toggled-on tool sets. Unknown names (e.g. web tools when
+      // pi-web-access isn't installed) are skipped by the SDK.
+      const tools = [
+        ...(this.toolsEnabled ? CHAT_NATIVE_TOOLS : []),
+        ...(this.webEnabled ? CHAT_WEB_TOOLS : []),
+      ];
       (this.session as any).setActiveToolsByName?.(tools);
     } catch (err) {
       console.error("[pi-desktop] Failed to apply chat tools:", err);
@@ -248,6 +256,14 @@ export class PiSessionManager {
     } catch (err) {
       console.error("[pi-desktop] web nudge failed:", err);
     }
+  }
+
+  /** Toggle the native Pi tools (read/bash/edit/…) in a chat session live. */
+  setToolsEnabled(enabled: boolean) {
+    this.toolsEnabled = enabled;
+    this.applyChatTools();
+    this.emitState();
+    return { success: true, toolsEnabled: enabled };
   }
 
   /** Toggle the web-search tools in a chat session without losing context. */
@@ -490,6 +506,7 @@ export class PiSessionManager {
       autoCompactionEnabled: (s as any).autoCompactionEnabled ?? true,
       chatMode: this.chatMode,
       webEnabled: this.webEnabled,
+      toolsEnabled: this.toolsEnabled,
       modelId: model?.id,
       modelName: model?.name,
       provider: model?.provider,
@@ -726,6 +743,7 @@ export class PiSessionManager {
       autoCompactionEnabled: (s as any).autoCompactionEnabled ?? true,
       chatMode: this.chatMode,
       webEnabled: this.webEnabled,
+      toolsEnabled: this.toolsEnabled,
       modelId: model?.id,
       modelName: model?.name,
       provider: model?.provider,
