@@ -114,9 +114,10 @@ export interface PiCommandInfo {
 /** Canonical IPC channel map. Keys are the request channel names. */
 export interface PiApi {
   // Tab management
-  createTab: (args: { tabId: string; cwd?: string }) => Promise<{ tabId: string; success: boolean }>;
+  createTab: (args: { tabId: string; cwd?: string; mode?: "chat" | "code" }) => Promise<{ tabId: string; success: boolean }>;
   setActiveTab: (args: { tabId: string }) => Promise<{ success: boolean }>;
   removeTab: (args: { tabId: string }) => Promise<{ success: boolean }>;
+  convertToCode: (args: { tabId?: string; cwd: string }) => Promise<{ success: boolean; mdPath?: string; cwd?: string; error?: string }>;
 
   // Prompting
   prompt: (args: { message: string; images?: PiImage[]; streamingBehavior?: "steer" | "followUp"; tabId?: string }) => Promise<{ success: boolean }>;
@@ -124,6 +125,9 @@ export interface PiApi {
   followUp: (args: { message: string; images?: PiImage[]; tabId?: string }) => Promise<{ success: boolean }>;
   abort: (args?: { tabId?: string }) => Promise<{ success: boolean }>;
   removeQueued: (args: { kind: "steering" | "followUp"; index: number; tabId?: string }) => Promise<{ success: boolean }>;
+  setChatWeb: (args: { enabled: boolean; tabId?: string }) => Promise<{ success: boolean; webEnabled?: boolean; available?: boolean }>;
+  getWebSearchStatus: () => Promise<{ exa: boolean; perplexity: boolean; gemini: boolean; allowBrowserCookies: boolean; curator: boolean }>;
+  setWebSearchConfig: (args: { exaApiKey?: string; perplexityApiKey?: string; geminiApiKey?: string; allowBrowserCookies?: boolean; workflow?: "none" | "summary-review" }) => Promise<{ success: boolean }>;
 
   // Session
   newSession: (args?: { parentSession?: string; name?: string; cwd?: string; tabId?: string }) => Promise<{ success: boolean; cancelled?: boolean }>;
@@ -150,7 +154,7 @@ export interface PiApi {
   // Compaction
   compact: (args?: { customInstructions?: string; tabId?: string }) => Promise<{ success: boolean; summary?: string; tokensBefore?: number; estimatedTokensAfter?: number }>;
   abortCompaction: (args?: { tabId?: string }) => Promise<{ success: boolean }>;
-  setAutoCompaction: (args: { enabled: boolean }) => Promise<{ success: boolean }>;
+  setAutoCompaction: (args: { enabled: boolean; tabId?: string }) => Promise<{ success: boolean; autoCompactionEnabled?: boolean }>;
 
   // Auth
   getAuthStatus: () => Promise<PiAuthStatus[]>;
@@ -195,7 +199,7 @@ export interface GitHubApi {
   getAuthStatus: (args?: any) => Promise<GitHubAuthState>;
   verifyToken: (args: { token: string }) => Promise<GitHubAuthState>;
   logout: () => Promise<{ success: boolean }>;
-  getSyncState: (args?: { tabId?: string }) => Promise<GitHubSyncState>;
+  getSyncState: (args?: { tabId?: string; fetch?: boolean }) => Promise<GitHubSyncState>;
   push: (args?: { tabId?: string }) => Promise<{ success: boolean; error?: string }>;
   pull: (args?: { tabId?: string }) => Promise<{ success: boolean; error?: string }>;
   createRepo: (args: { name?: string; private?: boolean; description?: string; tabId?: string }) => Promise<{ success: boolean; repoUrl?: string; error?: string }>;
@@ -220,6 +224,8 @@ export interface GitHubSyncState {
   repoOwner?: string;
   branch?: string;
   lastSync?: number;
+  dirty?: boolean;
+  changedFiles?: number;
 }
 
 /** Package catalog types. */

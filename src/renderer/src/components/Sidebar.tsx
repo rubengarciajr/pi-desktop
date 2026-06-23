@@ -18,15 +18,24 @@ export function Sidebar() {
   const sessionsPanelOpen = useAppStore((s) => s.sessionsPanelOpen);
   const setSessionsPanelOpen = useAppStore((s) => s.setSessionsPanelOpen);
   const piState = useAppStore((s) => s.activeTab.piState);
+  const defaultTabMode = useAppStore((s) => s.defaultTabMode);
+  const setDefaultTabMode = useAppStore((s) => s.setDefaultTabMode);
+  const activeMode = useAppStore((s) => s.activeTab.mode);
 
   if (!sidebarOpen) return null;
 
   const handleNewSession = async () => {
+    const tabId = `tab-${Date.now()}`;
+    if (defaultTabMode === "chat") {
+      // Quick chat — no folder picker, runs in a scratch dir with no tools.
+      await window.pi.api.createTab({ tabId, mode: "chat" });
+      useAppStore.getState().addTab({ id: tabId, title: "Chat", mode: "chat" });
+      return;
+    }
     const cwd = await window.pi.api.pickDirectory();
     if (!cwd) return;
-    const tabId = `tab-${Date.now()}`;
-    await window.pi.api.createTab({ tabId, cwd });
-    useAppStore.getState().addTab({ id: tabId, title: cwd.split("/").pop() || cwd, cwd });
+    await window.pi.api.createTab({ tabId, cwd, mode: "code" });
+    useAppStore.getState().addTab({ id: tabId, title: cwd.split("/").pop() || cwd, cwd, mode: "code" });
   };
 
   const handlePickFolder = async () => {
@@ -50,6 +59,28 @@ export function Sidebar() {
         </div>
       </div>
 
+      {/* Chat / Code mode toggle */}
+      <div className="no-drag px-3 pb-2">
+        <div className="flex rounded-lg border border-border bg-bg p-0.5 text-xs font-medium">
+          <button
+            onClick={() => setDefaultTabMode("chat")}
+            className={`flex-1 rounded-md px-2 py-1 transition-colors ${
+              defaultTabMode === "chat" ? "bg-bg-active text-text" : "text-text-faint hover:text-text-muted"
+            }`}
+          >
+            Chat
+          </button>
+          <button
+            onClick={() => setDefaultTabMode("code")}
+            className={`flex-1 rounded-md px-2 py-1 transition-colors ${
+              defaultTabMode === "code" ? "bg-bg-active text-text" : "text-text-faint hover:text-text-muted"
+            }`}
+          >
+            Code
+          </button>
+        </div>
+      </div>
+
       {/* New session */}
       <div className="px-3 pb-3">
         <button
@@ -57,25 +88,27 @@ export function Sidebar() {
           className="no-drag flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-bg-hover px-3 py-2 text-sm font-medium text-text transition-colors hover:border-border-strong hover:bg-bg-active"
         >
           <PlusIcon size={15} />
-          New Session
+          {defaultTabMode === "chat" ? "New Chat" : "New Session"}
         </button>
       </div>
 
-      {/* Working folder selector */}
-      <div className="px-3 pb-3">
-        <button
-          onClick={handlePickFolder}
-          className="no-drag flex w-full items-center gap-2 rounded-lg border border-border bg-bg-subtle px-3 py-2 text-left transition-colors hover:border-border-strong hover:bg-bg-hover"
-        >
-          <FolderIcon size={15} className="shrink-0 text-text-faint" />
-          <div className="min-w-0 flex-1">
-            <div className="text-[10px] uppercase tracking-wider text-text-faint">Working folder</div>
-            <div className="truncate text-xs font-mono text-text-muted">
-              {piState.cwd ? piState.cwd.split("/").pop() || piState.cwd : "Not set"}
+      {/* Working folder selector — hidden in chat mode (no real folder) */}
+      {activeMode !== "chat" && (
+        <div className="px-3 pb-3">
+          <button
+            onClick={handlePickFolder}
+            className="no-drag flex w-full items-center gap-2 rounded-lg border border-border bg-bg-subtle px-3 py-2 text-left transition-colors hover:border-border-strong hover:bg-bg-hover"
+          >
+            <FolderIcon size={15} className="shrink-0 text-text-faint" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase tracking-wider text-text-faint">Working folder</div>
+              <div className="truncate text-xs font-mono text-text-muted">
+                {piState.cwd ? piState.cwd.split("/").pop() || piState.cwd : "Not set"}
+              </div>
             </div>
-          </div>
-        </button>
-      </div>
+          </button>
+        </div>
+      )}
 
       {/* Nav */}
       <nav className="no-drag flex flex-1 flex-col gap-0.5 px-2 py-1">

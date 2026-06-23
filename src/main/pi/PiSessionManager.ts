@@ -6,6 +6,8 @@
  * Re-subscribes internally; renderer never re-subscribes.
  */
 import { EventEmitter } from "node:events";
+import { mkdirSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import * as undici from "undici";
@@ -25,6 +27,7 @@ import {
   type ExtUiDialogRequest,
   type ExtUiDialogResponse,
 } from "./ExtensionUiBridge";
+import { createNativeWebSearchTool } from "../webSearchTool";
 
 /** Model type lives in @earendil-works/pi-ai; use a structural alias here. */
 type Model = {
@@ -38,6 +41,11 @@ type Model = {
 };
 
 const PI_VERSION = "0.79.10";
+
+/** Web-search tools (from the pi-web-access package) allowed in chat mode when
+ *  the 🔍 Web toggle is on. Unknown names are harmless no-ops if the package
+ *  isn't installed. */
+const CHAT_WEB_TOOLS = ["web_search", "fetch_content", "get_search_content", "code_search"];
 const DEFAULT_HTTP_IDLE_TIMEOUT_MS = 300_000;
 
 /**
@@ -71,6 +79,68 @@ export interface PiManagerDeps {
   authStorage: AuthStorage;
   modelRegistry: ModelRegistry;
   settingsManager: PiSettingsManagerType;
+}
+
+// --- Chat → code conversion helpers ------------------------------------------
+
+/** Flatten an AgentMessage's content to plain text (text blocks only). */
+function contentToText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((c: any) => c?.type === "text" && typeof c.text === "string")
+      .map((c: any) => c.text)
+      .join("\n");
+  }
+  return "";
+}
+
+/** Human-readable Markdown transcript written to <folder>/docs/chat-<ts>.md. */
+function serializeTranscript(messages: any[], cwd: string, timestamp: string): string {
+  const lines: string[] = [
+    "# Chat Transcript",
+    "",
+    `- Exported: ${timestamp}`,
+    `- Converted to code session in: \`${cwd}\``,
+    "",
+    "---",
+    "",
+  ];
+  for (const m of messages) {
+    if (m?.role === "user") {
+      const text = contentToText(m.content);
+      if (text.trim()) lines.push("## User", "", text, "");
+    } else if (m?.role === "assistant") {
+      const text = contentToText(m.content);
+      if (text.trim()) lines.push("## Assistant", "", text, "");
+    }
+  }
+  return lines.join("\n");
+}
+
+/** Compact context primer seeded into the new code session so the agent
+ *  remembers the chat (chat mode is text-only, so this is just user/assistant
+ *  turns). */
+function buildSeedContextMessage(messages: any[], mdPath: string): string {
+  const body = messages
+    .map((m: any) =>
+      m?.role === "user"
+        ? `User: ${contentToText(m.content)}`
+        : m?.role === "assistant"
+          ? `Assistant: ${contentToText(m.content)}`
+          : "",
+    )
+    .filter((s) => s.trim())
+    .join("\n\n");
+  return [
+    "We are continuing a conversation that started in chat mode and is now a code session in this folder.",
+    `The full transcript is saved at ${mdPath}.`,
+    "Use the conversation below as context. Do not repeat it back unless asked.",
+    "",
+    "--- BEGIN PRIOR CONVERSATION ---",
+    body,
+    "--- END PRIOR CONVERSATION ---",
+  ].join("\n");
 }
 
 export class PiSessionManager {
@@ -140,18 +210,98 @@ export class PiSessionManager {
     this.pendingDialogs.clear();
   }
 
+  /** Chat mode = pure conversation: no file/bash tools, runs in a scratch dir. */
+  chatMode = false;
+  /** In chat mode, whether the web-search tools are enabled (🔍 toggle). */
+  webEnabled = false;
+
   get isReady() {
     return this.initialized;
+  }
+
+  private webNudgeInjected = false;
+
+  /** Apply the chat-mode tool policy live (no rebuild): web tools or none. */
+  private applyChatTools() {
+    if (!this.chatMode || !this.session) return;
+    try {
+      // Only enable web tools that are actually registered (e.g. pi-web-access
+      // installed); unknown names are skipped by the SDK but we log if missing.
+      const tools = this.webEnabled ? CHAT_WEB_TOOLS : [];
+      (this.session as any).setActiveToolsByName?.(tools);
+    } catch (err) {
+      console.error("[pi-desktop] Failed to apply chat tools:", err);
+    }
+  }
+
+  /** Inject a one-time context note nudging the model to actually search. */
+  private injectWebNudge() {
+    if (this.webNudgeInjected || !this.session) return;
+    try {
+      const sm = (this.session as any).sessionManager ?? this.sessionManager;
+      sm?.appendCustomMessageEntry?.(
+        "web-search-hint",
+        "Web search is enabled for this conversation via the web_search tool. When the user asks about specific people, places, organizations, businesses, products, prices, recent/current events, or anything you are not certain of from training, CALL web_search to look it up. Do NOT answer from memory when unsure, and do NOT tell the user to search it themselves — search it for them.",
+        false,
+      );
+      this.webNudgeInjected = true;
+    } catch (err) {
+      console.error("[pi-desktop] web nudge failed:", err);
+    }
+  }
+
+  /** Toggle the web-search tools in a chat session without losing context. */
+  setWebEnabled(enabled: boolean) {
+    this.webEnabled = enabled;
+    this.applyChatTools();
+    if (enabled) {
+      this.injectWebNudge();
+      if (!this.isWebSearchAvailable()) {
+        this.events.emit(this.DIAG_EVENT, "Web search is unavailable in this session.");
+      }
+    }
+    this.emitState();
+    return { success: true, webEnabled: enabled, available: this.isWebSearchAvailable() };
+  }
+
+  /** Whether the pi-web-access package is configured (then it owns web_search). */
+  private isWebAccessInstalled(): boolean {
+    try {
+      const sm: any = this._deps?.settingsManager;
+      const pkgs = [...(sm?.getPackages?.() ?? []), ...(sm?.getProjectPackages?.() ?? [])];
+      return pkgs.some((p: any) => String(p).includes("pi-web-access"));
+    } catch {
+      return false;
+    }
+  }
+
+  /** Whether a web_search tool is registered (native or pi-web-access). */
+  isWebSearchAvailable(): boolean {
+    try {
+      const names = new Set(((this.session as any)?.getAllTools?.() ?? []).map((t: any) => t.name));
+      return CHAT_WEB_TOOLS.some((n) => names.has(n));
+    } catch {
+      return false;
+    }
   }
 
   get deps() {
     return this._deps;
   }
 
-  async init(cwd?: string) {
-    if (cwd) this.cwd = cwd;
-    else this.cwd = homedir();
+  /** Throwaway working dir for chat-mode sessions (~/.pi/chat). */
+  private resolveChatCwd(pi: typeof import("@earendil-works/pi-coding-agent")): string {
+    const dir = join(homedir(), pi.CONFIG_DIR_NAME, "chat");
+    try { mkdirSync(dir, { recursive: true }); } catch {}
+    return dir;
+  }
+
+  async init(cwd?: string, opts?: { chatMode?: boolean }) {
     const pi = await import("@earendil-works/pi-coding-agent");
+    this.chatMode = opts?.chatMode ?? false;
+    if (cwd) this.cwd = cwd;
+    else if (this.chatMode) this.cwd = this.resolveChatCwd(pi);
+    else this.cwd = homedir();
     // Use CONFIG_DIR_NAME from the SDK instead of hardcoding ".pi".
     this.agentDir = join(homedir(), pi.CONFIG_DIR_NAME, "agent");
 
@@ -189,11 +339,18 @@ export class PiSessionManager {
       if (this._deps && services.modelRegistry) {
         this._deps.modelRegistry = services.modelRegistry;
       }
+      // Register our native headless web_search ONLY when the pi-web-access
+      // package isn't installed — that package's richer web_search takes priority.
+      const customTools = this.isWebAccessInstalled() ? undefined : [createNativeWebSearchTool()];
       const result = await pi.createAgentSessionFromServices({
         services,
         sessionManager,
         sessionStartEvent,
+        ...(customTools ? { customTools } : {}),
       });
+      // Chat mode restricts tools via setActiveToolsByName in attachSession
+      // (NOT noTools:"all" — that policy filters tools back out on every turn's
+      // rebuild, so toggled-on web tools would never actually be callable).
       return { ...result, services, diagnostics: services.diagnostics };
     };
   }
@@ -242,6 +399,7 @@ export class PiSessionManager {
     if (this.unsubscribe) this.unsubscribe();
     this.session = session;
     this.isCompacting = false; // a fresh/replaced session is never mid-compaction
+    this.webNudgeInjected = false; // re-inject the web hint for the new session
     // Drop stale extension UI from the previous session and cancel any open
     // dialog, then clear the renderer's badges/widgets for this tab.
     this.cancelPendingDialogs();
@@ -257,6 +415,8 @@ export class PiSessionManager {
     this.unsubscribe = session.subscribe((event: AgentSessionEvent) => {
       this.onAgentEvent(event);
     });
+    // Chat sessions start tool-less (noTools:"all"); re-apply the web toggle.
+    this.applyChatTools();
     // Dispose the outgoing session the runtime just swapped out (new/fork/
     // switch/clone). Guarded so we never touch the session we just attached.
     if (previous && previous !== session) {
@@ -327,6 +487,9 @@ export class PiSessionManager {
     this.events.emit(this.STATE_EVENT, {
       isStreaming: s.isStreaming,
       isCompacting: this.isCompacting,
+      autoCompactionEnabled: (s as any).autoCompactionEnabled ?? true,
+      chatMode: this.chatMode,
+      webEnabled: this.webEnabled,
       modelId: model?.id,
       modelName: model?.name,
       provider: model?.provider,
@@ -399,7 +562,8 @@ export class PiSessionManager {
     if (cwd && cwd !== this.cwd) {
       await this.rebuildForCwd(cwd);
     }
-    await this.runtime.newSession(parentSession as any);
+    // SDK expects an options object, not a positional arg.
+    await this.runtime.newSession({ parentSession } as any);
     this.attachSession(this.runtime.session);
     return { success: true, cancelled: false };
   }
@@ -447,6 +611,56 @@ export class PiSessionManager {
     }
   }
 
+  /**
+   * Promote a chat-mode session into a real code session bound to `cwd`:
+   * archive the conversation to <cwd>/docs/chat-<ts>.md, rebuild the runtime in
+   * that folder WITH tools, and seed the new session with the prior chat so the
+   * agent keeps context.
+   */
+  async convertToCode(cwd: string): Promise<{ success: boolean; mdPath?: string; cwd?: string; error?: string }> {
+    if (!this.runtime) throw new Error("Runtime not initialized");
+
+    // Capture the conversation BEFORE any rebuild replaces the session.
+    const prior = this.getMessages();
+
+    // 1. Archive the transcript. If this fails, keep the chat intact (don't convert).
+    let mdPath: string;
+    try {
+      const docsDir = join(cwd, "docs");
+      await mkdir(docsDir, { recursive: true });
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      mdPath = join(docsDir, `chat-${ts}.md`);
+      await writeFile(mdPath, serializeTranscript(prior, cwd, ts), "utf-8");
+    } catch (err: any) {
+      return { success: false, error: `Could not write transcript: ${err?.message ?? String(err)}` };
+    }
+
+    // 2. Rebuild bound to the folder with tools (chatMode off → factory omits noTools).
+    this.chatMode = false;
+    await this.rebuildForCwd(cwd);
+
+    // 3. Seed the fresh code session with the prior conversation as context.
+    if (prior.length > 0) {
+      try {
+        await (this.runtime as any).newSession({
+          setup: async (sm: any) => {
+            sm.appendMessage({
+              role: "user",
+              content: buildSeedContextMessage(prior, mdPath),
+              timestamp: Date.now(),
+            });
+          },
+        });
+        this.attachSession(this.runtime.session);
+      } catch (err) {
+        // Seeding is best-effort; the converted (empty) code session still works.
+        console.error("[pi-desktop] convertToCode seed failed:", err);
+      }
+    }
+
+    return { success: true, mdPath, cwd };
+  }
+
   // --- Session listing & tree --------------------------------------------
 
   async listSessions() {
@@ -458,16 +672,20 @@ export class PiSessionManager {
     // listAll() takes no cwd argument - it lists across ALL project directories.
     const pi = await import("@earendil-works/pi-coding-agent");
     const sessions = await pi.SessionManager.listAll();
+    // Hide throwaway chat-mode sessions (they live in the scratch dir).
+    const chatDir = join(homedir(), pi.CONFIG_DIR_NAME, "chat");
     // Map to include cwd for the renderer.
-    return sessions.map((s: any) => ({
-      id: s.id,
-      file: s.path,
-      name: s.name,
-      cwd: s.cwd,
-      timestamp: s.modified?.getTime?.() ?? (s.modified as any),
-      messageCount: s.messageCount,
-      firstMessage: s.firstMessage,
-    }));
+    return sessions
+      .filter((s: any) => s.cwd !== chatDir)
+      .map((s: any) => ({
+        id: s.id,
+        file: s.path,
+        name: s.name,
+        cwd: s.cwd,
+        timestamp: s.modified?.getTime?.() ?? (s.modified as any),
+        messageCount: s.messageCount,
+        firstMessage: s.firstMessage,
+      }));
   }
 
   async getSessionTree() {
@@ -505,6 +723,9 @@ export class PiSessionManager {
     return {
       isStreaming: s.isStreaming,
       isCompacting: this.isCompacting,
+      autoCompactionEnabled: (s as any).autoCompactionEnabled ?? true,
+      chatMode: this.chatMode,
+      webEnabled: this.webEnabled,
       modelId: model?.id,
       modelName: model?.name,
       provider: model?.provider,
@@ -615,6 +836,18 @@ export class PiSessionManager {
     if (!this.session) throw new Error("Session not initialized");
     this.session.abortCompaction();
     return { success: true };
+  }
+
+  /** Enable/disable per-session auto-compaction (keeps context from overflowing). */
+  setAutoCompaction(enabled: boolean) {
+    if (!this.session) throw new Error("Session not initialized");
+    try {
+      (this.session as any).setAutoCompactionEnabled?.(enabled);
+    } catch (err) {
+      console.error("[pi-desktop] setAutoCompaction failed:", err);
+    }
+    this.emitState();
+    return { success: true, autoCompactionEnabled: enabled };
   }
 
   // --- Package management (SDK-based, no pi CLI needed) ------------------

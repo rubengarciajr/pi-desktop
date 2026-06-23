@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "./store/useAppStore";
 import { Sidebar } from "./components/Sidebar";
 import { TabBar } from "./components/TabBar";
@@ -31,6 +31,20 @@ export default function App() {
   const resetTabMessages = useAppStore((s) => s.resetTabMessages);
   const addDiagnostic = useAppStore((s) => s.addDiagnostic);
   const handleExtUi = useAppStore((s) => s.handleExtUi);
+
+  // On launch, open a ready-to-type Chat tab so the user can start immediately
+  // (no folder picker). Runs once; skips if a tab already exists.
+  const bootstrapped = useRef(false);
+  useEffect(() => {
+    if (bootstrapped.current) return;
+    bootstrapped.current = true;
+    if (useAppStore.getState().tabs.length > 0) return;
+    const tabId = `tab-${Date.now()}`;
+    window.pi.api
+      .createTab({ tabId, mode: "chat" })
+      .then(() => addTab({ id: tabId, title: "Chat", mode: "chat" }))
+      .catch(() => {});
+  }, [addTab]);
 
   // The app runs the pi agent SDK in-process and does NOT require the pi CLI.
   // Skip onboarding entirely - users can optionally install the CLI from System tab.
@@ -107,11 +121,16 @@ export default function App() {
     const offMenu = pi.events.onMenu(async (action) => {
       switch (action) {
         case "newSession": {
+          const tabId = `tab-${Date.now()}`;
+          if (useAppStore.getState().defaultTabMode === "chat") {
+            await window.pi.api.createTab({ tabId, mode: "chat" });
+            addTab({ id: tabId, title: "Chat", mode: "chat" });
+            break;
+          }
           const cwd = await window.pi.api.pickDirectory();
           if (!cwd) return;
-          const tabId = `tab-${Date.now()}`;
-          await window.pi.api.createTab({ tabId, cwd });
-          addTab({ id: tabId, title: cwd.split("/").pop() || cwd, cwd });
+          await window.pi.api.createTab({ tabId, cwd, mode: "code" });
+          addTab({ id: tabId, title: cwd.split("/").pop() || cwd, cwd, mode: "code" });
           break;
         }
         case "switchSession":

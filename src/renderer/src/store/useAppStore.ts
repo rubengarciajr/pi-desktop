@@ -30,6 +30,10 @@ export interface ToolExecution {
 
 export interface PiState {
   isStreaming?: boolean;
+  /** Chat-mode 🔍 web-search toggle (chat tabs only). */
+  webEnabled?: boolean;
+  /** Per-session auto-compaction toggle. */
+  autoCompactionEnabled?: boolean;
   modelId?: string;
   modelName?: string;
   provider?: string;
@@ -74,10 +78,14 @@ export interface ExtToast {
   level: "info" | "warning" | "error";
 }
 
+export type TabMode = "chat" | "code";
+
 export interface TabState {
   id: string;
   title: string;
   cwd?: string;
+  /** "chat" = quick conversation, no folder/tools; "code" = folder-bound session. */
+  mode: TabMode;
   messages: ChatMessage[];
   tools: Record<string, ToolExecution>;
   piState: PiState;
@@ -92,6 +100,7 @@ export interface Tab {
   id: string;
   title: string;
   cwd?: string;
+  mode?: TabMode;
 }
 
 export interface Favorite {
@@ -118,6 +127,9 @@ interface AppState {
   extDialog: ExtDialogRequest | null;
   toasts: ExtToast[];
 
+  // Default mode for new tabs (Chat/Code toggle), persisted to localStorage.
+  defaultTabMode: TabMode;
+
   // Derived (from active tab)
   activeTab: TabState;
 
@@ -126,6 +138,7 @@ interface AppState {
   removeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   updateTab: (id: string, patch: Partial<Tab>) => void;
+  setDefaultTabMode: (mode: TabMode) => void;
 
   // Per-tab state actions
   setTabPiState: (tabId: string, s: Partial<PiState>) => void;
@@ -151,11 +164,12 @@ interface AppState {
   loadFavorites: () => void;
 }
 
-function emptyTabState(id: string, title: string, cwd?: string): TabState {
+function emptyTabState(id: string, title: string, cwd?: string, mode: TabMode = "code"): TabState {
   return {
     id,
     title,
     cwd,
+    mode,
     messages: [],
     tools: {},
     piState: { cwd },
@@ -178,6 +192,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   diagnostics: [],
   extDialog: null,
   toasts: [],
+  defaultTabMode: (() => {
+    try {
+      return (localStorage.getItem("pi-default-tab-mode") as TabMode) || "chat";
+    } catch {
+      return "chat";
+    }
+  })(),
   activeTab: emptyTabState("", ""),
 
   addTab: (tab) =>
@@ -185,7 +206,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       tabs: [...st.tabs, tab],
       tabStates: {
         ...st.tabStates,
-        [tab.id]: emptyTabState(tab.id, tab.title, tab.cwd),
+        [tab.id]: emptyTabState(tab.id, tab.title, tab.cwd, tab.mode ?? "code"),
       },
       activeTabId: tab.id,
       activeView: "chat",
@@ -215,15 +236,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
 
   updateTab: (id, patch) =>
-    set((st) => ({
-      tabs: st.tabs.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-      tabStates: {
-        ...st.tabStates,
-        [id]: st.tabStates[id]
-          ? { ...st.tabStates[id], title: patch.title ?? st.tabStates[id].title, cwd: patch.cwd ?? st.tabStates[id].cwd }
-          : st.tabStates[id],
-      },
-    })),
+    set((st) => {
+      const updatedState = st.tabStates[id]
+        ? {
+            ...st.tabStates[id],
+            title: patch.title ?? st.tabStates[id].title,
+            cwd: patch.cwd ?? st.tabStates[id].cwd,
+            mode: patch.mode ?? st.tabStates[id].mode,
+          }
+        : st.tabStates[id];
+      return {
+        tabs: st.tabs.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+        tabStates: { ...st.tabStates, [id]: updatedState },
+        activeTab: st.activeTabId === id && updatedState ? updatedState : st.activeTab,
+      };
+    }),
+
+  setDefaultTabMode: (mode) =>
+    set(() => {
+      try { localStorage.setItem("pi-default-tab-mode", mode); } catch {}
+      return { defaultTabMode: mode };
+    }),
 
   setTabPiState: (tabId, s) => {
     // Never let state events override isStreaming.

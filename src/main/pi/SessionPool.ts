@@ -62,7 +62,11 @@ export class SessionPool {
   }
 
   /** Create a new manager for a tab with a specific cwd. */
-  async createForTab(tabId: string, cwd?: string): Promise<PiSessionManager> {
+  async createForTab(
+    tabId: string,
+    cwd?: string,
+    opts?: { chatMode?: boolean },
+  ): Promise<PiSessionManager> {
     // Remove old manager if exists
     const old = this.pools.get(tabId);
     if (old) {
@@ -73,7 +77,7 @@ export class SessionPool {
     const mgr = new PiSessionManager();
     this.attachEvents(tabId, mgr);
     this.pools.set(tabId, mgr);
-    await mgr.init(cwd);
+    await mgr.init(cwd, opts);
     return mgr;
   }
 

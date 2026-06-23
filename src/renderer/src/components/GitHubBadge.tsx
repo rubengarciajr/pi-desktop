@@ -15,6 +15,8 @@ interface SyncState {
   repoName?: string;
   repoOwner?: string;
   branch?: string;
+  dirty?: boolean;
+  changedFiles?: number;
 }
 
 interface RepoListItem {
@@ -49,22 +51,46 @@ export function GitHubBadge() {
   const menuRef = useRef<HTMLDivElement>(null);
   const activeTabId = useAppStore((s) => s.activeTabId);
   const cwd = useAppStore((s) => s.activeTab.piState.cwd);
+  const isStreaming = useAppStore((s) => s.activeTab.piState.isStreaming);
 
   useEffect(() => {
     window.pi.github.getAuthStatus().then((s: AuthState) => setAuth(s)).catch(() => {});
   }, []);
 
+  // Per-session sync state: a full refresh (with network fetch) on tab/cwd
+  // change, then cheap local polling so file changes the agent makes show up
+  // (and the glow turns on) without waiting for a tab switch.
   useEffect(() => {
     if (!cwd) {
       setSyncState(null);
       return;
     }
     let cancelled = false;
-    window.pi.github.getSyncState({ tabId: activeTabId ?? undefined }).then((s: SyncState) => {
-      if (!cancelled) setSyncState(s);
-    }).catch(() => {});
-    return () => { cancelled = true; };
+    const load = (fetch: boolean) => {
+      window.pi.github
+        .getSyncState({ tabId: activeTabId ?? undefined, fetch })
+        .then((s: SyncState) => {
+          if (!cancelled) setSyncState(s);
+        })
+        .catch(() => {});
+    };
+    load(true);
+    const interval = setInterval(() => load(false), 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [cwd, activeTabId]);
+
+  // The agent just finished a turn — it likely touched files. Refresh now so the
+  // glow appears immediately rather than on the next poll tick.
+  useEffect(() => {
+    if (isStreaming || !cwd) return;
+    window.pi.github
+      .getSyncState({ tabId: activeTabId ?? undefined, fetch: false })
+      .then((s: SyncState) => setSyncState(s))
+      .catch(() => {});
+  }, [isStreaming, cwd, activeTabId]);
 
   useEffect(() => {
     if (!showMenu) return;
@@ -82,11 +108,17 @@ export function GitHubBadge() {
   if (!cwd || !auth.authenticated) return null;
 
   const hasRepo = syncState?.hasRemote;
-  const totalChanges = (syncState?.ahead ?? 0) + (syncState?.behind ?? 0);
+  const ahead = syncState?.ahead ?? 0;
+  const behind = syncState?.behind ?? 0;
+  const totalChanges = ahead + behind;
+  const dirty = !!syncState?.dirty;
+  const changedFiles = syncState?.changedFiles ?? 0;
+  // Glow when there's something to sync: uncommitted edits or commits to push.
+  const needsAttention = !!hasRepo && (dirty || ahead > 0);
   const iconColor = hasRepo ? "#a855f7" : "#666666";
 
   const refreshSyncState = async () => {
-    const s: SyncState = await window.pi.github.getSyncState({ tabId: activeTabId ?? undefined });
+    const s: SyncState = await window.pi.github.getSyncState({ tabId: activeTabId ?? undefined, fetch: true });
     setSyncState(s);
   };
 
@@ -173,16 +205,36 @@ export function GitHubBadge() {
   return (
     <div ref={menuRef} className="relative">
       <button
-        onClick={() => { setShowMenu(!showMenu); setMenuView("main"); }}
-        title={hasRepo ? `${syncState?.repoOwner}/${syncState?.repoName}` : "Link this folder to GitHub"}
-        className="relative flex items-center justify-center rounded p-1 transition-colors hover:bg-bg-hover"
+        onClick={() => {
+          const opening = !showMenu;
+          setShowMenu(opening);
+          setMenuView("main");
+          if (opening) refreshSyncState();
+        }}
+        title={
+          hasRepo
+            ? `${syncState?.repoOwner}/${syncState?.repoName}` +
+              (dirty
+                ? ` — ${changedFiles} uncommitted change${changedFiles === 1 ? "" : "s"}`
+                : ahead > 0
+                  ? ` — ${ahead} to push`
+                  : " — up to date")
+            : "Link this folder to GitHub"
+        }
+        className={`relative flex items-center justify-center rounded p-1 transition-colors hover:bg-bg-hover ${
+          needsAttention ? "animate-glow ring-1 ring-warning/40" : ""
+        }`}
       >
         <GitHubIcon size={15} color={iconColor} />
-        {totalChanges > 0 && hasRepo && (
+        {hasRepo && dirty ? (
+          <span className="absolute -right-0.5 -top-0.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-warning px-0.5 text-[8px] font-bold text-black">
+            {changedFiles > 9 ? "9+" : changedFiles}
+          </span>
+        ) : hasRepo && totalChanges > 0 ? (
           <span className="absolute -right-0.5 -top-0.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-accent px-0.5 text-[8px] font-bold text-white">
             {totalChanges}
           </span>
-        )}
+        ) : null}
       </button>
 
       {showMenu && (
@@ -196,11 +248,17 @@ export function GitHubBadge() {
                     <div className="text-xs font-medium text-text">{syncState?.repoOwner}/{syncState?.repoName}</div>
                     <div className="text-[10px] text-text-faint font-mono">{syncState?.branch}</div>
                   </div>
-                  <div className="flex items-center gap-3 px-3 py-1.5 text-xs">
-                    {syncState?.ahead ? <span className="text-accent">{syncState.ahead} to push</span> : null}
-                    {syncState?.behind ? <span className="text-warning">{syncState.behind} to pull</span> : null}
-                    {!syncState?.ahead && !syncState?.behind ? <span className="text-text-faint">Up to date</span> : null}
+                  <div className="flex flex-wrap items-center gap-3 px-3 py-1.5 text-xs">
+                    {dirty ? <span className="text-warning">{changedFiles} uncommitted</span> : null}
+                    {ahead ? <span className="text-accent">{ahead} to push</span> : null}
+                    {behind ? <span className="text-warning">{behind} to pull</span> : null}
+                    {!ahead && !behind && !dirty ? <span className="text-text-faint">Up to date</span> : null}
                   </div>
+                  {dirty && ahead === 0 && (
+                    <p className="px-3 pb-1 text-[10px] text-text-faint">
+                      Uncommitted edits — commit them (ask Pi) to push to GitHub.
+                    </p>
+                  )}
                   <button
                     onClick={handlePush}
                     disabled={syncing || !syncState?.ahead}

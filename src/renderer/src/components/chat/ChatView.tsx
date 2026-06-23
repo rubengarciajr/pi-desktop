@@ -117,29 +117,40 @@ export function ChatView() {
 function EmptyState() {
   const addTab = useAppStore((s) => s.addTab);
   const setActiveView = useAppStore((s) => s.setActiveView);
+  const defaultTabMode = useAppStore((s) => s.defaultTabMode);
 
   const handleNewSession = async () => {
     const cwd = await window.pi.api.pickDirectory();
     if (!cwd) return;
     const tabId = `tab-${Date.now()}`;
-    await window.pi.api.createTab({ tabId, cwd });
-    addTab({ id: tabId, title: cwd.split("/").pop() || cwd, cwd });
+    await window.pi.api.createTab({ tabId, cwd, mode: "code" });
+    addTab({ id: tabId, title: cwd.split("/").pop() || cwd, cwd, mode: "code" });
     setActiveView("chat");
   };
+
+  const handleNewChat = async () => {
+    const tabId = `tab-${Date.now()}`;
+    await window.pi.api.createTab({ tabId, mode: "chat" });
+    addTab({ id: tabId, title: "Chat", mode: "chat" });
+    setActiveView("chat");
+  };
+
+  const chat = defaultTabMode === "chat";
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
       <PiLogoIcon size={56} />
       <h1 className="mb-2 mt-4 text-xl font-semibold tracking-tight text-text">Pi Desktop</h1>
       <p className="mb-8 max-w-md text-sm text-text-muted">
-        A full-featured desktop client for the Pi coding agent. Pick a working folder
-        or drag one onto the tab bar to begin.
+        {chat
+          ? "Start a quick chat — no folder needed. Convert it to a code session anytime with the ⚡ button."
+          : "A full-featured desktop client for the Pi coding agent. Pick a working folder or drag one onto the tab bar to begin."}
       </p>
       <button
-        onClick={handleNewSession}
+        onClick={chat ? handleNewChat : handleNewSession}
         className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
       >
-        Select Working Folder
+        {chat ? "Start Chatting" : "Select Working Folder"}
       </button>
       <div className="mt-8 grid grid-cols-2 gap-3 text-sm">
         <Example text="Explain this codebase" />

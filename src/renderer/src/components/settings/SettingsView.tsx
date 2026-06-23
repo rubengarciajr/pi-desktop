@@ -226,7 +226,42 @@ function SettingsPanel() {
         )}
       </Section>
 
+      <WebSearchSection />
+
       <Section title="Compaction">
+        {/* Auto-compaction toggle (per session) */}
+        <label className="mb-3 flex items-center justify-between rounded-lg border border-border bg-bg-subtle px-4 py-2.5">
+          <div>
+            <div className="text-sm text-text">Auto-compaction</div>
+            <div className="text-[11px] text-text-faint">
+              Automatically summarize old context before the window overflows. Recommended.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={piState.autoCompactionEnabled ?? true}
+            onChange={(e) => {
+              const enabled = e.target.checked;
+              const tabId = useAppStore.getState().activeTabId ?? undefined;
+              window.pi.api.setAutoCompaction({ enabled, tabId }).catch(() => {});
+              if (tabId) useAppStore.getState().setTabPiState(tabId, { autoCompactionEnabled: enabled });
+            }}
+            className="h-4 w-4 accent-accent"
+          />
+        </label>
+
+        {/* Context usage readout */}
+        {piState.contextWindow != null && piState.contextTokens != null && (
+          <div className="mb-3 text-xs text-text-muted">
+            Context: {piState.contextTokens.toLocaleString()} / {piState.contextWindow.toLocaleString()} tokens
+            {piState.contextWindow > 0 && (
+              <span className={`ml-1 ${piState.contextTokens / piState.contextWindow > 0.9 ? "text-warning" : "text-text-faint"}`}>
+                ({Math.round((piState.contextTokens / piState.contextWindow) * 100)}%)
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="flex gap-2">
           <button
             onClick={async () => {
@@ -254,8 +289,8 @@ function SettingsPanel() {
           <p className="mt-1.5 text-xs text-accent">{compactResult}</p>
         )}
         <p className="mt-2 text-xs text-text-faint">
-          Manually compact context to reduce token usage. Auto-compaction runs
-          when the context window is nearly full.
+          Manually compact context, or type <span className="font-mono">/compact</span> in the chat.
+          Each session compacts independently.
         </p>
       </Section>
 
@@ -267,6 +302,113 @@ function SettingsPanel() {
         </div>
       </Section>
     </div>
+  );
+}
+
+interface WebSearchStatus {
+  exa: boolean;
+  perplexity: boolean;
+  gemini: boolean;
+  allowBrowserCookies: boolean;
+  curator: boolean;
+}
+
+const WEB_PROVIDERS = [
+  { key: "exaApiKey" as const, label: "Exa", statusKey: "exa" as const, placeholder: "exa-…" },
+  { key: "perplexityApiKey" as const, label: "Perplexity", statusKey: "perplexity" as const, placeholder: "pplx-…" },
+  { key: "geminiApiKey" as const, label: "Gemini", statusKey: "gemini" as const, placeholder: "AIza…" },
+];
+
+function WebSearchSection() {
+  const [status, setStatus] = useState<WebSearchStatus | null>(null);
+  const [keys, setKeys] = useState<Record<string, string>>({});
+  const [saved, setSaved] = useState(false);
+
+  const refresh = () =>
+    window.pi.api.getWebSearchStatus().then((s: WebSearchStatus) => setStatus(s)).catch(() => {});
+  useEffect(() => { refresh(); }, []);
+
+  const saveKey = async (key: string, value: string) => {
+    await window.pi.api.setWebSearchConfig({ [key]: value.trim() } as any).catch(() => {});
+    setKeys((k) => ({ ...k, [key]: "" }));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+    refresh();
+  };
+
+  const toggleCookies = async (enabled: boolean) => {
+    await window.pi.api.setWebSearchConfig({ allowBrowserCookies: enabled }).catch(() => {});
+    refresh();
+  };
+
+  return (
+    <Section title="Web Search">
+      <div className="rounded-lg border border-border bg-bg-subtle px-4 py-3">
+        <p className="mb-3 text-xs text-text-faint">
+          Built-in web search works with no key (DuckDuckGo). Add an Exa or Perplexity key below for
+          higher-quality results. Enable the 🔍 Web toggle in a chat to use it. If the{" "}
+          <span className="font-mono">pi-web-access</span> package is installed, it takes over with richer search.
+        </p>
+        <div className="space-y-2">
+          {WEB_PROVIDERS.map((p) => (
+            <div key={p.key} className="flex items-center gap-2">
+              <span className="w-20 shrink-0 text-xs text-text-muted">{p.label}</span>
+              <input
+                type="password"
+                placeholder={status?.[p.statusKey] ? "•••••••• (set)" : p.placeholder}
+                value={keys[p.key] ?? ""}
+                onChange={(e) => setKeys((k) => ({ ...k, [p.key]: e.target.value }))}
+                className="flex-1 rounded-lg border border-border bg-bg px-3 py-1.5 text-xs font-mono text-text focus:border-accent/50 focus:outline-none selectable"
+              />
+              <button
+                onClick={() => saveKey(p.key, keys[p.key] ?? "")}
+                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover"
+              >
+                Save
+              </button>
+              {status?.[p.statusKey] && (
+                <button
+                  onClick={() => saveKey(p.key, "")}
+                  className="rounded-lg border border-danger/30 bg-danger/10 px-2.5 py-1.5 text-xs text-danger hover:bg-danger/20"
+                  title="Clear key"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        <label className="mt-3 flex items-center gap-2 text-xs text-text-muted">
+          <input
+            type="checkbox"
+            checked={status?.allowBrowserCookies ?? false}
+            onChange={(e) => toggleCookies(e.target.checked)}
+            className="accent-accent"
+          />
+          Allow browser cookies (enables Gemini Web search)
+        </label>
+        <label className="mt-2 flex items-start gap-2 text-xs text-text-muted">
+          <input
+            type="checkbox"
+            checked={status?.curator ?? false}
+            onChange={async (e) => {
+              await window.pi.api
+                .setWebSearchConfig({ workflow: e.target.checked ? "summary-review" : "none" })
+                .catch(() => {});
+              refresh();
+            }}
+            className="mt-0.5 accent-accent"
+          />
+          <span>
+            Review results in a browser (curator)
+            <span className="mt-0.5 block text-[10px] text-text-faint">
+              Off (recommended): searches run in the background and return to the chat. On: opens an interactive result picker in your browser.
+            </span>
+          </span>
+        </label>
+        {saved && <p className="mt-2 text-[10px] text-success">Saved.</p>}
+      </div>
+    </Section>
   );
 }
 

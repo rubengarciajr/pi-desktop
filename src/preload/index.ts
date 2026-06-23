@@ -16,6 +16,7 @@ const api = {
   createTab: invoke("pi:tab.create"),
   setActiveTab: invoke("pi:tab.setActive"),
   removeTab: invoke("pi:tab.remove"),
+  convertToCode: invoke("pi:convertToCode"),
 
   // Prompting
   prompt: invoke("pi:prompt"),
@@ -23,6 +24,11 @@ const api = {
   followUp: invoke("pi:followUp"),
   abort: invoke("pi:abort"),
   removeQueued: invoke("pi:queue.remove"),
+  setChatWeb: invoke("pi:chat.setWeb"),
+
+  // Web search config
+  getWebSearchStatus: invoke("pi:webSearch.status"),
+  setWebSearchConfig: invoke("pi:webSearch.set"),
 
   // Session
   newSession: invoke("pi:session.new"),

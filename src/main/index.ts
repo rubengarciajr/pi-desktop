@@ -13,6 +13,7 @@ import { createTray } from "./tray";
 import { registerShortcuts, unregisterShortcuts } from "./shortcuts";
 import { initAutoUpdater } from "./updater";
 import { SessionPool } from "./pi/SessionPool";
+import { ensureHeadlessDefault } from "./webSearch";
 
 let mainWindow: BrowserWindow | null = null;
 const pool = new SessionPool();
@@ -40,6 +41,9 @@ app.whenReady().then(async () => {
 
   registerIpc(pool, () => mainWindow);
   initAutoUpdater(() => mainWindow);
+
+  // Default web search to headless (no browser curator) unless the user opted in.
+  ensureHeadlessDefault();
 
   // Initialize session pool AFTER window is created and showing.
   try {

@@ -21,6 +21,7 @@ import {
 } from "./github";
 import { searchPackages, getDownloadCounts } from "./packages";
 import { listCustomModels, addCustomModel, removeCustomModel, getModelsPath } from "./models";
+import { getWebSearchStatus, setWebSearchConfig } from "./webSearch";
 import { shell } from "electron";
 
 /**
@@ -69,7 +70,7 @@ export function registerIpc(
   // --- Tab management ---
   handle("pi:tab.create", async (a) => {
     const tabId = a.tabId ?? `tab-${Date.now()}`;
-    await pool.createForTab(tabId, a.cwd);
+    await pool.createForTab(tabId, a.cwd, { chatMode: a.mode === "chat" });
     pool.setActiveTab(tabId);
     return { tabId, success: true };
   });
@@ -88,6 +89,12 @@ export function registerIpc(
   handle("pi:followUp", async (a) => { const m = await mgr(a); return m.followUp(a.message, a.images); });
   handle("pi:abort", async (a) => { const m = await mgr(a); return m.abort(); });
   handle("pi:queue.remove", async (a) => { const m = await mgr(a); return m.removeQueuedItem(a.kind, a.index); });
+  handle("pi:convertToCode", async (a) => { const m = await mgr(a); return m.convertToCode(a.cwd); });
+  handle("pi:chat.setWeb", async (a) => { const m = await mgr(a); return m.setWebEnabled(!!a.enabled); });
+
+  // --- Web search config (~/.pi/web-search.json) ---
+  handle("pi:webSearch.status", () => getWebSearchStatus());
+  handle("pi:webSearch.set", (a) => setWebSearchConfig(a ?? {}));
 
   // --- Session (per-tab) ---
   handle("pi:session.new", async (a) => { const m = await mgr(a); return m.newSession(a?.parentSession, a?.cwd); });
@@ -153,6 +160,7 @@ export function registerIpc(
   // --- Compaction (per-tab) ---
   handle("pi:compact", async (a) => { const m = await mgr(a); return m.compact(a?.customInstructions); });
   handle("pi:compact.abort", async (a) => { const m = await mgr(a); return m.abortCompaction(); });
+  handle("pi:autoCompaction", async (a) => { const m = await mgr(a); return m.setAutoCompaction(!!a?.enabled); });
 
   // --- Auth (shared, not per-tab) ---
   handle("pi:auth.status", async () => {
@@ -288,7 +296,8 @@ export function registerIpc(
   handle("github:sync.state", async (a) => {
     const m = await mgr(a);
     const cwd = m.getCwd();
-    return getSyncState(cwd);
+    // fetch defaults to true; renderer passes fetch:false for cheap local polling.
+    return getSyncState(cwd, a?.fetch !== false);
   });
 
   handle("github:sync.push", async (a) => {

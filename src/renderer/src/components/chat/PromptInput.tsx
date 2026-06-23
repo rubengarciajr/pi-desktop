@@ -24,11 +24,44 @@ export function PromptInput() {
   const [commands, setCommands] = useState<CommandItem[]>([]);
   const [slashIndex, setSlashIndex] = useState(0);
   const [dropdownDismissed, setDropdownDismissed] = useState(false);
+  const [converting, setConverting] = useState(false);
   const isStreaming = useAppStore((s) => s.activeTab.piState.isStreaming);
   const queue = useAppStore((s) => s.activeTab.queue);
   const activeTabId = useAppStore((s) => s.activeTabId);
+  const mode = useAppStore((s) => s.activeTab.mode);
+  const webEnabled = useAppStore((s) => s.activeTab.piState.webEnabled);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Toggle web-search tools in a chat (live — no rebuild, keeps the conversation).
+  const toggleWeb = () => {
+    const tabId = useAppStore.getState().activeTabId;
+    if (!tabId) return;
+    const next = !webEnabled;
+    useAppStore.getState().setTabPiState(tabId, { webEnabled: next });
+    window.pi.api.setChatWeb({ tabId, enabled: next }).catch(() => {});
+  };
+
+  // Chat → code: pick a folder, archive the chat to docs/, rebind with tools.
+  const handleConvertToCode = async () => {
+    const cwd = await window.pi.api.pickDirectory();
+    if (!cwd) return;
+    const tabId = useAppStore.getState().activeTabId ?? undefined;
+    setConverting(true);
+    try {
+      const res: any = await window.pi.api.convertToCode({ tabId, cwd });
+      if (res?.success && tabId) {
+        useAppStore.getState().updateTab(tabId, { mode: "code", cwd, title: cwd.split("/").pop() || cwd });
+        if (res.mdPath) useAppStore.getState().addDiagnostic(`Converted to code session — chat saved to ${res.mdPath}`);
+      } else if (res?.error) {
+        useAppStore.getState().addDiagnostic(`Convert failed: ${res.error}`);
+      }
+    } catch (e: any) {
+      useAppStore.getState().addDiagnostic(`Convert failed: ${e?.message ?? String(e)}`);
+    } finally {
+      setConverting(false);
+    }
+  };
 
   // Fetch commands when tab changes or session becomes ready.
   // Extensions load asynchronously during session init, so we retry with
@@ -140,9 +173,19 @@ export function PromptInput() {
   const handleSubmit = async (streamingBehavior?: "steer" | "followUp") => {
     const message = text.trim();
     if (!message) return;
+    const tabId = useAppStore.getState().activeTabId ?? undefined;
+
+    // Built-in commands that map to app actions (the terminal's slash commands).
+    if (/^\/compact(\s|$)/i.test(message)) {
+      setText("");
+      setDropdownDismissed(false);
+      const customInstructions = message.replace(/^\/compact\s*/i, "").trim() || undefined;
+      window.pi.api.compact({ customInstructions, tabId }).catch(() => {});
+      return;
+    }
+
     setText("");
     setDropdownDismissed(false);
-    const tabId = useAppStore.getState().activeTabId ?? undefined;
     try {
       if (isStreaming && !streamingBehavior) {
         await window.pi.api.prompt({ message, streamingBehavior: "steer", tabId });
@@ -249,7 +292,13 @@ export function PromptInput() {
             value={text}
             onChange={(e) => { setText(e.target.value); setDropdownDismissed(false); }}
             onKeyDown={handleKeyDown}
-            placeholder={isStreaming ? "Queue a steering message... (Enter to steer, Cmd+Shift+Enter for follow-up)" : "Message Pi Desktop (Enter to send) or type / for commands"}
+            placeholder={
+              isStreaming
+                ? "Queue a steering message... (Enter to steer, Cmd+Shift+Enter for follow-up)"
+                : mode === "chat" && webEnabled
+                  ? "🔍 Web search on — ask about anything current or specific"
+                  : "Message Pi Desktop (Enter to send) or type / for commands"
+            }
             rows={1}
             className="block w-full resize-none bg-transparent px-4 py-3 text-sm text-text placeholder:text-text-faint focus:outline-none selectable"
           />
@@ -266,7 +315,32 @@ export function PromptInput() {
             </div>
             <div className="flex-1" />
             <div className="flex items-center gap-2">
-              <GitHubBadge />
+              {mode !== "chat" && <GitHubBadge />}
+              {mode === "chat" && (
+                <button
+                  onClick={toggleWeb}
+                  title={webEnabled ? "Web search ON — agent can search & fetch the web" : "Web search OFF — pure conversation"}
+                  className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    webEnabled
+                      ? "border-accent/40 bg-accent/15 text-accent"
+                      : "border-border bg-bg-subtle text-text-faint hover:text-text-muted"
+                  }`}
+                >
+                  <SearchIcon size={12} />
+                  Web
+                </button>
+              )}
+              {mode === "chat" && !isStreaming && (
+                <button
+                  onClick={handleConvertToCode}
+                  disabled={converting}
+                  title="Convert to a code session — pick a folder; this chat is saved to docs/ and continues with full tools"
+                  className="flex items-center gap-1.5 rounded-lg border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-40"
+                >
+                  <BoltIcon size={12} />
+                  {converting ? "Converting…" : "Convert to code"}
+                </button>
+              )}
               <button
                 onClick={() => handleSubmit()}
                 disabled={!text.trim()}
@@ -289,5 +363,22 @@ export function PromptInput() {
         </div>
       </div>
     </div>
+  );
+}
+
+function BoltIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
+      <path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5z" />
+    </svg>
+  );
+}
+
+function SearchIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
   );
 }

@@ -20,6 +20,10 @@ export interface GitHubSyncState {
   repoOwner?: string;
   branch?: string;
   lastSync?: number;
+  /** Working tree has uncommitted/untracked changes. */
+  dirty?: boolean;
+  /** Number of changed (staged + unstaged + untracked) entries. */
+  changedFiles?: number;
 }
 
 /** Securely store GitHub token using Electron safeStorage. */
@@ -81,8 +85,12 @@ export async function getGitHubAuthStatus(): Promise<GitHubAuthState> {
   return verifyToken(token);
 }
 
-/** Get sync state for a working directory, including linkage file. */
-export function getSyncState(cwd: string): GitHubSyncState {
+/**
+ * Get sync state for a working directory, including linkage file.
+ * `fetchRemote` controls the (network) `git fetch` — pass false for cheap,
+ * frequent local polling (dirty + ahead), true to also refresh `behind`.
+ */
+export function getSyncState(cwd: string, fetchRemote = true): GitHubSyncState {
   const state: GitHubSyncState = { ahead: 0, behind: 0, hasRemote: false };
 
   // First check if there's a git remote.
@@ -109,8 +117,8 @@ export function getSyncState(cwd: string): GitHubSyncState {
 
   state.branch = tryExecFile("git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd) || "main";
 
-  // Fetch quietly to update ahead/behind.
-  tryExecFile("git", ["fetch", "--quiet"], cwd);
+  // Fetch quietly to update ahead/behind (network — only on explicit refresh).
+  if (fetchRemote) tryExecFile("git", ["fetch", "--quiet"], cwd);
 
   const tracking = tryExecFile("git", ["rev-list", "--left-right", "--count", "HEAD...@{upstream}"], cwd);
   if (tracking) {
@@ -118,6 +126,12 @@ export function getSyncState(cwd: string): GitHubSyncState {
     state.ahead = parseInt(parts[0], 10) || 0;
     state.behind = parseInt(parts[1], 10) || 0;
   }
+
+  // Uncommitted/untracked changes — drives the "needs sync" glow.
+  const porcelain = tryExecFile("git", ["status", "--porcelain"], cwd);
+  const changed = porcelain ? porcelain.split("\n").filter(Boolean).length : 0;
+  state.dirty = changed > 0;
+  state.changedFiles = changed;
 
   return state;
 }

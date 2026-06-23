@@ -22,6 +22,7 @@ export function StatusBar() {
   const queue = useAppStore((s) => s.activeTab.queue);
   const diagnostics = useAppStore((s) => s.diagnostics);
   const activeTabId = useAppStore((s) => s.activeTabId);
+  const mode = useAppStore((s) => s.activeTab.mode);
   const [thinkOpen, setThinkOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -95,7 +96,11 @@ export function StatusBar() {
           <span className="text-warning">{pendingCount} queued</span>
         )}
         <ExtensionStatusBadges />
-        <GitRepoBadge cwd={piState.cwd} tabId={activeTabId ?? undefined} />
+        {mode === "chat" ? (
+          <span className="rounded border border-border bg-bg-subtle px-1.5 py-0.5 text-[10px] text-text-faint">Chat</span>
+        ) : (
+          <GitRepoBadge cwd={piState.cwd} tabId={activeTabId ?? undefined} />
+        )}
       </div>
 
       <div className="flex items-center gap-3">
