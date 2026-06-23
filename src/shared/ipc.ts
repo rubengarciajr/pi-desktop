@@ -296,8 +296,24 @@ export interface StatusItemContribution {
   panelId?: string;
   source: string;
 }
+/** Declarative tool-call result renderer (Tier 2b). Field/path values are
+ *  dot-paths into the tool's result object (e.g. "details.results"). */
+export type ToolResultTemplate =
+  | { type: "list"; items: string; title?: string; subtitle?: string; body?: string }
+  | { type: "table"; items: string; columns: { label: string; field: string }[] }
+  | { type: "keyvalue"; fields: { label: string; path: string }[] }
+  | { type: "markdown"; path?: string; template?: string };
+export interface ToolRendererContribution {
+  tool: string;
+  source: string;
+  result: ToolResultTemplate;
+}
 export interface AddonsApi {
-  contributions: () => Promise<{ panels: PanelContribution[]; statusItems: StatusItemContribution[] }>;
+  contributions: () => Promise<{
+    panels: PanelContribution[];
+    statusItems: StatusItemContribution[];
+    toolRenderers: ToolRendererContribution[];
+  }>;
 }
 
 /** Packages API surface. */

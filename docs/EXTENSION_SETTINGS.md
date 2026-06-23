@@ -131,3 +131,35 @@ Beyond settings, your package can contribute its own **panel** (a sidebar entry 
 **Safety:** panels and status items are fully declarative — no code from your manifest executes in the app. Actions can only run a chat command/prompt, open a URL, or save config under your settings key.
 
 Panels appear in the sidebar (and status items in the status bar) as soon as your package is installed, and disappear when it's removed.
+
+---
+
+# Custom tool-call renderers (`pi.toolRenderers`)
+
+When your tool runs in chat, Pi Desktop normally shows the raw result text. If your tool returns **structured** data, you can declare how it should render — still declaratively, no UI code. Add `pi.toolRenderers` to `package.json`, mapping a tool **name** to a result **template**:
+
+```jsonc
+"pi": {
+  "extensions": ["./src/index.ts"],
+  "toolRenderers": [{
+    "tool": "web_search",            // the tool's name, as the agent calls it
+    "result": {
+      "type": "list",                // list | table | keyvalue | markdown
+      "items": "details.results",    // dot-path to the array in the tool result
+      "title": "title",              // field paths, relative to each item
+      "subtitle": "url",
+      "body": "snippet"
+    }
+  }]
+}
+```
+
+**Paths are dot-paths into the raw tool result object** (e.g. `details.results`, `details.answer`, `0.name`). Most Pi tools put structured data under `details`, so that's the usual prefix.
+
+**Template types:**
+- `list` — `items` (path to an array) + per-item field paths `title`, `subtitle`, `body`.
+- `table` — `items` (path to an array) + `columns: [{ label, field }]` (`field` is a per-row path).
+- `keyvalue` — `fields: [{ label, path }]` extracted from the result object.
+- `markdown` — either `path` (path to a Markdown string) or `template` (a string with `{dot.path}` placeholders filled from the result).
+
+The custom view is used only when the tool **finishes successfully**; errors and in-progress calls keep the default output. Users can always click **Show raw output** to see the original result. If two installed packages claim the same tool name, the first (by install order) wins.

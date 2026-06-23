@@ -40,6 +40,20 @@ export interface StatusItemContribution {
   source: string;
 }
 
+/** Declarative template for rendering a tool's result in the chat. Field/path
+ *  values are dot-paths into the tool result object (e.g. "details.results"). */
+export type ToolResultTemplate =
+  | { type: "list"; items: string; title?: string; subtitle?: string; body?: string }
+  | { type: "table"; items: string; columns: { label: string; field: string }[] }
+  | { type: "keyvalue"; fields: { label: string; path: string }[] }
+  | { type: "markdown"; path?: string; template?: string };
+
+export interface ToolRendererContribution {
+  tool: string;
+  source: string;
+  result: ToolResultTemplate;
+}
+
 const AGENT_DIR = join(homedir(), ".pi", "agent");
 const SETTINGS_PATH = join(AGENT_DIR, "settings.json");
 const NODE_MODULES = join(AGENT_DIR, "npm", "node_modules");
@@ -133,13 +147,62 @@ function normalizeStatusItem(raw: any, pkgName: string): StatusItemContribution 
   };
 }
 
+function normalizeResultTemplate(raw: any): ToolResultTemplate | null {
+  if (!raw || typeof raw.type !== "string") return null;
+  switch (raw.type) {
+    case "list":
+      return typeof raw.items === "string"
+        ? {
+            type: "list",
+            items: raw.items,
+            title: typeof raw.title === "string" ? raw.title : undefined,
+            subtitle: typeof raw.subtitle === "string" ? raw.subtitle : undefined,
+            body: typeof raw.body === "string" ? raw.body : undefined,
+          }
+        : null;
+    case "table": {
+      if (typeof raw.items !== "string" || !Array.isArray(raw.columns)) return null;
+      const columns = raw.columns
+        .filter((c: any) => c && typeof c.field === "string")
+        .map((c: any) => ({ label: typeof c.label === "string" ? c.label : c.field, field: c.field }));
+      return columns.length ? { type: "table", items: raw.items, columns } : null;
+    }
+    case "keyvalue": {
+      if (!Array.isArray(raw.fields)) return null;
+      const fields = raw.fields
+        .filter((f: any) => f && typeof f.path === "string")
+        .map((f: any) => ({ label: typeof f.label === "string" ? f.label : f.path, path: f.path }));
+      return fields.length ? { type: "keyvalue", fields } : null;
+    }
+    case "markdown":
+      if (typeof raw.path === "string") return { type: "markdown", path: raw.path };
+      if (typeof raw.template === "string") return { type: "markdown", template: raw.template };
+      return null;
+    default:
+      return null;
+  }
+}
+
+function normalizeToolRenderer(raw: any, pkgName: string): ToolRendererContribution | null {
+  if (!raw || typeof raw.tool !== "string") return null;
+  const result = normalizeResultTemplate(raw.result);
+  if (!result) return null;
+  return { tool: raw.tool, source: pkgName, result };
+}
+
 /** Enumerate panel + status-item contributions across configured packages. */
-export function getAddonContributions(): { panels: PanelContribution[]; statusItems: StatusItemContribution[] } {
+export function getAddonContributions(): {
+  panels: PanelContribution[];
+  statusItems: StatusItemContribution[];
+  toolRenderers: ToolRendererContribution[];
+} {
   const settings = readJson(SETTINGS_PATH) ?? {};
   const specs: string[] = [...(settings.packages ?? []), ...(settings.projectPackages ?? [])];
   const panels: PanelContribution[] = [];
   const statusItems: StatusItemContribution[] = [];
+  const toolRenderers: ToolRendererContribution[] = [];
   const seenPanels = new Set<string>();
+  const seenTools = new Set<string>();
 
   for (const spec of specs) {
     const pkgName = parsePackageName(String(spec));
@@ -157,7 +220,15 @@ export function getAddonContributions(): { panels: PanelContribution[]; statusIt
       const item = normalizeStatusItem(raw, pkgName);
       if (item) statusItems.push(item);
     }
+    for (const raw of Array.isArray(pkg.pi.toolRenderers) ? pkg.pi.toolRenderers : []) {
+      const tr = normalizeToolRenderer(raw, pkgName);
+      // First package to claim a tool name wins (stable, install-order).
+      if (tr && !seenTools.has(tr.tool)) {
+        seenTools.add(tr.tool);
+        toolRenderers.push(tr);
+      }
+    }
   }
 
-  return { panels, statusItems };
+  return { panels, statusItems, toolRenderers };
 }

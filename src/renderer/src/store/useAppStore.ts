@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { PanelContribution, StatusItemContribution } from "../../../shared/ipc";
+import type { PanelContribution, StatusItemContribution, ToolRendererContribution } from "../../../shared/ipc";
 
 export interface ContentBlock {
   type: "text" | "thinking" | "toolCall" | "toolResult";
@@ -134,6 +134,8 @@ interface AppState {
   panels: PanelContribution[];
   statusItems: StatusItemContribution[];
   activePanelId: string | null;
+  /** Custom tool-call result renderers (Tier 2b), keyed by tool name. */
+  toolRenderers: Record<string, ToolRendererContribution>;
 
   // Default mode for new tabs (Chat/Code toggle), persisted to localStorage.
   defaultTabMode: TabMode;
@@ -207,6 +209,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   panels: [],
   statusItems: [],
   activePanelId: null,
+  toolRenderers: {},
   defaultTabMode: (() => {
     try {
       return (localStorage.getItem("pi-default-tab-mode") as TabMode) || "chat";
@@ -514,13 +517,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   loadAddons: () => {
     window.pi.addons
       .contributions()
-      .then(({ panels, statusItems }) =>
+      .then(({ panels, statusItems, toolRenderers }) =>
         set((st) => {
           // If the open panel disappeared (package removed), fall back to chat.
           const stillExists = st.activePanelId && panels.some((p) => p.id === st.activePanelId);
+          const rendererMap: Record<string, ToolRendererContribution> = {};
+          for (const tr of toolRenderers ?? []) rendererMap[tr.tool] = tr;
           return {
             panels,
             statusItems,
+            toolRenderers: rendererMap,
             ...(st.activeView === "panel" && !stillExists ? { activeView: "chat" as View, activePanelId: null } : {}),
           };
         }),
