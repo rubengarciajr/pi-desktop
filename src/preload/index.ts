@@ -120,6 +120,8 @@ const packages = {
   removeSkill: invoke("pi:skill.remove"),
   removeExtension: invoke("pi:extension.remove"),
   restoreStock: invoke("pi:restoreStock"),
+  detail: invoke("packages:detail"),
+  setConfig: invoke("packages:settings.set"),
 };
 
 const events = {

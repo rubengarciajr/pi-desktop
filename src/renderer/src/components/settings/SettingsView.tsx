@@ -311,6 +311,7 @@ interface WebSearchStatus {
   gemini: boolean;
   allowBrowserCookies: boolean;
   curator: boolean;
+  webAccessInstalled: boolean;
 }
 
 const WEB_PROVIDERS = [
@@ -341,16 +342,29 @@ function WebSearchSection() {
     refresh();
   };
 
+  // Gemini key / browser cookies / curator are pi-web-access-only; hide them in
+  // native mode. Native search uses Exa/Perplexity (else no-key DuckDuckGo).
+  const installed = status?.webAccessInstalled ?? false;
+  const providers = WEB_PROVIDERS.filter((p) => installed || p.key !== "geminiApiKey");
+
   return (
-    <Section title="Web Search">
+    <Section title={installed ? "Web Search" : "Web Search (built-in)"}>
       <div className="rounded-lg border border-border bg-bg-subtle px-4 py-3">
         <p className="mb-3 text-xs text-text-faint">
-          Built-in web search works with no key (DuckDuckGo). Add an Exa or Perplexity key below for
-          higher-quality results. Enable the 🔍 Web toggle in a chat to use it. If the{" "}
-          <span className="font-mono">pi-web-access</span> package is installed, it takes over with richer search.
+          {installed ? (
+            <>
+              Powered by the <span className="font-mono">pi-web-access</span> package. Add provider keys below, or
+              enable the 🔍 Web toggle in a chat.
+            </>
+          ) : (
+            <>
+              Built-in web search works with no key (DuckDuckGo). Add an Exa or Perplexity key for higher-quality
+              results, then enable the 🔍 Web toggle in a chat.
+            </>
+          )}
         </p>
         <div className="space-y-2">
-          {WEB_PROVIDERS.map((p) => (
+          {providers.map((p) => (
             <div key={p.key} className="flex items-center gap-2">
               <span className="w-20 shrink-0 text-xs text-text-muted">{p.label}</span>
               <input
@@ -378,34 +392,38 @@ function WebSearchSection() {
             </div>
           ))}
         </div>
-        <label className="mt-3 flex items-center gap-2 text-xs text-text-muted">
-          <input
-            type="checkbox"
-            checked={status?.allowBrowserCookies ?? false}
-            onChange={(e) => toggleCookies(e.target.checked)}
-            className="accent-accent"
-          />
-          Allow browser cookies (enables Gemini Web search)
-        </label>
-        <label className="mt-2 flex items-start gap-2 text-xs text-text-muted">
-          <input
-            type="checkbox"
-            checked={status?.curator ?? false}
-            onChange={async (e) => {
-              await window.pi.api
-                .setWebSearchConfig({ workflow: e.target.checked ? "summary-review" : "none" })
-                .catch(() => {});
-              refresh();
-            }}
-            className="mt-0.5 accent-accent"
-          />
-          <span>
-            Review results in a browser (curator)
-            <span className="mt-0.5 block text-[10px] text-text-faint">
-              Off (recommended): searches run in the background and return to the chat. On: opens an interactive result picker in your browser.
-            </span>
-          </span>
-        </label>
+        {installed && (
+          <>
+            <label className="mt-3 flex items-center gap-2 text-xs text-text-muted">
+              <input
+                type="checkbox"
+                checked={status?.allowBrowserCookies ?? false}
+                onChange={(e) => toggleCookies(e.target.checked)}
+                className="accent-accent"
+              />
+              Allow browser cookies (enables Gemini Web search)
+            </label>
+            <label className="mt-2 flex items-start gap-2 text-xs text-text-muted">
+              <input
+                type="checkbox"
+                checked={status?.curator ?? false}
+                onChange={async (e) => {
+                  await window.pi.api
+                    .setWebSearchConfig({ workflow: e.target.checked ? "summary-review" : "none" })
+                    .catch(() => {});
+                  refresh();
+                }}
+                className="mt-0.5 accent-accent"
+              />
+              <span>
+                Review results in a browser (curator)
+                <span className="mt-0.5 block text-[10px] text-text-faint">
+                  Off (recommended): searches run in the background and return to the chat. On: opens an interactive result picker in your browser.
+                </span>
+              </span>
+            </label>
+          </>
+        )}
         {saved && <p className="mt-2 text-[10px] text-success">Saved.</p>}
       </div>
     </Section>

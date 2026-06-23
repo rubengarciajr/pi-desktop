@@ -126,7 +126,7 @@ export interface PiApi {
   abort: (args?: { tabId?: string }) => Promise<{ success: boolean }>;
   removeQueued: (args: { kind: "steering" | "followUp"; index: number; tabId?: string }) => Promise<{ success: boolean }>;
   setChatWeb: (args: { enabled: boolean; tabId?: string }) => Promise<{ success: boolean; webEnabled?: boolean; available?: boolean }>;
-  getWebSearchStatus: () => Promise<{ exa: boolean; perplexity: boolean; gemini: boolean; allowBrowserCookies: boolean; curator: boolean }>;
+  getWebSearchStatus: () => Promise<{ exa: boolean; perplexity: boolean; gemini: boolean; allowBrowserCookies: boolean; curator: boolean; webAccessInstalled: boolean }>;
   setWebSearchConfig: (args: { exaApiKey?: string; perplexityApiKey?: string; geminiApiKey?: string; allowBrowserCookies?: boolean; workflow?: "none" | "summary-review" }) => Promise<{ success: boolean }>;
 
   // Session
@@ -248,6 +248,27 @@ export interface InstalledPackage {
   source: string;
 }
 
+/** Declarative per-extension settings (the `pi.settings` convention). */
+export interface PiSettingsField {
+  key: string;
+  label: string;
+  type: "string" | "number" | "boolean" | "select" | "secret";
+  default?: unknown;
+  description?: string;
+  options?: string[];
+}
+export interface PiSettingsSchema {
+  key: string;
+  docs?: string;
+  fields: PiSettingsField[];
+}
+export interface ExtensionDetail {
+  meta: { name: string; version?: string; description?: string; homepage?: string; repository?: string; source: string };
+  readme: string | null;
+  schema: PiSettingsSchema | null;
+  values: Record<string, unknown>;
+}
+
 /** Packages API surface. */
 export interface PackagesApi {
   search: () => Promise<PackageInfo[]>;
@@ -257,6 +278,8 @@ export interface PackagesApi {
   removeSkill: (args: { path: string }) => Promise<{ success: boolean; error?: string }>;
   removeExtension: (args: { path: string }) => Promise<{ success: boolean; error?: string }>;
   restoreStock: () => Promise<{ success: boolean; removed: string[]; error?: string }>;
+  detail: (args: { source: string }) => Promise<ExtensionDetail>;
+  setConfig: (args: { key: string; values: Record<string, unknown> }) => Promise<{ success: boolean }>;
 }
 
 export interface PiImage {

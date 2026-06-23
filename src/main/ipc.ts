@@ -22,6 +22,7 @@ import {
 import { searchPackages, getDownloadCounts } from "./packages";
 import { listCustomModels, addCustomModel, removeCustomModel, getModelsPath } from "./models";
 import { getWebSearchStatus, setWebSearchConfig } from "./webSearch";
+import { getExtensionDetail, setExtensionConfig } from "./extensionDetail";
 import { shell } from "electron";
 
 /**
@@ -95,6 +96,10 @@ export function registerIpc(
   // --- Web search config (~/.pi/web-search.json) ---
   handle("pi:webSearch.status", () => getWebSearchStatus());
   handle("pi:webSearch.set", (a) => setWebSearchConfig(a ?? {}));
+
+  // --- Extension detail + settings (per-extension panel) ---
+  handle("packages:detail", (a) => getExtensionDetail(a?.source));
+  handle("packages:settings.set", (a) => setExtensionConfig(a?.key, a?.values ?? {}));
 
   // --- Session (per-tab) ---
   handle("pi:session.new", async (a) => { const m = await mgr(a); return m.newSession(a?.parentSession, a?.cwd); });

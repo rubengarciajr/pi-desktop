@@ -13,6 +13,19 @@ function getConfigPath(): string {
   return join(homedir(), CONFIG_DIR, "web-search.json");
 }
 
+/** Whether the pi-web-access package is configured (then it owns web search,
+ *  and its Gemini/cookies/curator settings are relevant). */
+function isWebAccessInstalled(): boolean {
+  try {
+    const settingsPath = join(homedir(), CONFIG_DIR, "agent", "settings.json");
+    const s = JSON.parse(readFileSync(settingsPath, "utf-8"));
+    const pkgs = [...(s?.packages ?? []), ...(s?.projectPackages ?? [])];
+    return pkgs.some((p: any) => String(p).includes("pi-web-access"));
+  } catch {
+    return false;
+  }
+}
+
 export interface WebSearchConfig {
   exaApiKey?: string;
   perplexityApiKey?: string;
@@ -84,6 +97,7 @@ export function getWebSearchStatus(): {
   gemini: boolean;
   allowBrowserCookies: boolean;
   curator: boolean;
+  webAccessInstalled: boolean;
 } {
   const c = getWebSearchConfig();
   return {
@@ -93,5 +107,7 @@ export function getWebSearchStatus(): {
     allowBrowserCookies: !!c.allowBrowserCookies,
     // Curator (browser review) is on only when explicitly set to summary-review.
     curator: c.workflow === "summary-review",
+    // pi-web-access-specific controls (Gemini/cookies/curator) only matter when installed.
+    webAccessInstalled: isWebAccessInstalled(),
   };
 }

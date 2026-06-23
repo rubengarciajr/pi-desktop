@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import type { InstalledPackage } from "../../../../shared/ipc";
+import { ExtensionDetail } from "./ExtensionDetail";
 
 interface ExtensionInfo {
   path: string;
@@ -30,6 +31,7 @@ export function ExtensionsView() {
   const [commands, setCommands] = useState<CommandInfo[]>([]);
   const [tools, setTools] = useState<{ name: string; description?: string; source?: string }[]>([]);
   const [installedPackages, setInstalledPackages] = useState<InstalledPackage[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
     refresh();
@@ -68,6 +70,17 @@ export function ExtensionsView() {
       if (result?.success) refresh();
     } catch {}
   };
+
+  if (selected) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="drag-region h-14 shrink-0" />
+        <div className="flex-1 overflow-y-auto px-6 pb-6 pt-1">
+          <ExtensionDetail source={selected} onBack={() => { setSelected(null); refresh(); }} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -108,6 +121,7 @@ export function ExtensionsView() {
               extensions={extensions}
               installedPackages={installedPackages}
               onRemovePackage={handleRemovePackage}
+              onSettings={setSelected}
             />
           )}
           {tab === "skills" && <SkillsList skills={skills} onRemove={handleRemoveSkill} />}
@@ -144,10 +158,12 @@ function ExtensionsList({
   extensions,
   installedPackages,
   onRemovePackage,
+  onSettings,
 }: {
   extensions: ExtensionInfo[];
   installedPackages: InstalledPackage[];
   onRemovePackage: (spec: string) => void;
+  onSettings: (source: string) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -162,12 +178,20 @@ function ExtensionsList({
                   <div className="truncate text-sm font-medium text-text">{pkg.name}</div>
                   <div className="truncate text-xs text-text-faint font-mono">{pkg.spec}</div>
                 </div>
-                <button
-                  onClick={() => onRemovePackage(pkg.spec)}
-                  className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs text-danger opacity-0 transition-opacity hover:bg-danger/20 group-hover:opacity-100"
-                >
-                  Remove
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    onClick={() => onSettings(pkg.spec)}
+                    className="rounded-lg border border-border bg-bg-hover px-3 py-1.5 text-xs text-text-muted opacity-0 transition-opacity hover:bg-bg-active hover:text-text group-hover:opacity-100"
+                  >
+                    Settings
+                  </button>
+                  <button
+                    onClick={() => onRemovePackage(pkg.spec)}
+                    className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs text-danger opacity-0 transition-opacity hover:bg-danger/20 group-hover:opacity-100"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
           </div>
