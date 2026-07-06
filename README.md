@@ -91,7 +91,7 @@ Pi Desktop brings the power of the Pi AI coding agent into a native macOS experi
 Paste this one command into Terminal to download, install, and remove the Gatekeeper quarantine flag automatically:
 
 ```bash
-MOUNT_DIR="$(mktemp -d)" && curl -sL "https://github.com/rubengarciajr/pi-desktop/releases/latest/download/Pi%20Desktop-0.2.9.dmg" -o /tmp/pidesktop.dmg && hdiutil attach /tmp/pidesktop.dmg -nobrowse -quiet -mountpoint "$MOUNT_DIR" && cp -R "$MOUNT_DIR/Pi Desktop.app" /Applications/ && xattr -cr "/Applications/Pi Desktop.app" && hdiutil detach "$MOUNT_DIR" -quiet && rmdir "$MOUNT_DIR" && rm /tmp/pidesktop.dmg && open /Applications
+DMG_URL=$(curl -s https://api.github.com/repos/rubengarciajr/pi-desktop/releases/latest | grep "browser_download_url.*dmg" | cut -d '"' -f 4) && MOUNT_DIR="$(mktemp -d)" && curl -sL "$DMG_URL" -o /tmp/pidesktop.dmg && hdiutil attach /tmp/pidesktop.dmg -nobrowse -quiet -mountpoint "$MOUNT_DIR" && cp -R "$MOUNT_DIR/Pi Desktop.app" /Applications/ && xattr -cr "/Applications/Pi Desktop.app" && hdiutil detach "$MOUNT_DIR" -quiet && rmdir "$MOUNT_DIR" && rm /tmp/pidesktop.dmg && open /Applications
 ```
 
 ### Manual Download

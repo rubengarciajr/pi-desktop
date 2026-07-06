@@ -361,6 +361,7 @@ export interface PiEventApi {
   onSessionReset: (listener: (data: { sessionId: string; sessionFile?: string }) => void) => () => void;
   onPackagesChanged: (listener: () => void) => () => void;
   onUpdate: (listener: (data: any) => void) => () => void;
+  onUpdateProgress: (listener: (data: { loaded: number; total: number }) => void) => () => void;
   onThemeChanged: (listener: (data: any) => void) => () => void;
   onExtUi: (listener: (message: any) => void) => () => void;
   restartForUpdate: () => void;
@@ -372,7 +373,7 @@ export interface PiEventApi {
     releaseNotes?: string;
     message?: string;
   }>;
-  downloadUpdate: () => Promise<{ success: boolean }>;
+  downloadUpdate: (args?: { url?: string }) => Promise<{ success: boolean; error?: string; path?: string }>;
   getTheme: () => Promise<{ shouldUseDarkColors: boolean; themeSource: string }>;
   setTheme: (source: "system" | "light" | "dark") => Promise<{ success: boolean }>;
 }

@@ -6,7 +6,7 @@ Pi Desktop is a native macOS desktop application that wraps the [Pi coding agent
 
 Built with **Electron 38**, **React 18**, **TypeScript**, and **Tailwind CSS**.
 
-**Current version:** 0.2.9
+**Current version:** 0.3.0
 **License:** MIT
 **Platform:** macOS (Apple Silicon + Intel)
 **Download:** [github.com/rubengarciajr/pi-desktop/releases](https://github.com/rubengarciajr/pi-desktop/releases)
@@ -311,7 +311,7 @@ xattr -cr "/Applications/Pi Desktop.app"
 Or use the one-liner:
 
 ```bash
-MOUNT_DIR="$(mktemp -d)" && curl -sL "https://github.com/rubengarciajr/pi-desktop/releases/latest/download/Pi%20Desktop-0.2.9.dmg" -o /tmp/pidesktop.dmg && hdiutil attach /tmp/pidesktop.dmg -nobrowse -quiet -mountpoint "$MOUNT_DIR" && cp -R "$MOUNT_DIR/Pi Desktop.app" /Applications/ && xattr -cr "/Applications/Pi Desktop.app" && hdiutil detach "$MOUNT_DIR" -quiet && rmdir "$MOUNT_DIR" && rm /tmp/pidesktop.dmg && open /Applications
+DMG_URL=$(curl -s https://api.github.com/repos/rubengarciajr/pi-desktop/releases/latest | grep "browser_download_url.*dmg" | cut -d '"' -f 4) && MOUNT_DIR="$(mktemp -d)" && curl -sL "$DMG_URL" -o /tmp/pidesktop.dmg && hdiutil attach /tmp/pidesktop.dmg -nobrowse -quiet -mountpoint "$MOUNT_DIR" && cp -R "$MOUNT_DIR/Pi Desktop.app" /Applications/ && xattr -cr "/Applications/Pi Desktop.app" && hdiutil detach "$MOUNT_DIR" -quiet && rmdir "$MOUNT_DIR" && rm /tmp/pidesktop.dmg && open /Applications
 ```
 
 ### For Developers

@@ -151,6 +151,18 @@ export function PromptInput() {
     }
   }, [text]);
 
+  // Focus the prompt when the Cmd+L shortcut fires or when a new chat/code
+  // tab is created from the empty state (the "Start Chatting" heading).
+  useEffect(() => {
+    const onFocusRequest = () => {
+      // Slight delay so the tab swap (and resulting textarea mount) completes
+      // before we try to focus it.
+      setTimeout(() => textareaRef.current?.focus(), 50);
+    };
+    window.addEventListener("pi:focusPrompt", onFocusRequest);
+    return () => window.removeEventListener("pi:focusPrompt", onFocusRequest);
+  }, []);
+
   // Derive slash state directly from text - no async state, no timing bugs.
   const slashQuery = (() => {
     if (!text.startsWith("/")) return null;

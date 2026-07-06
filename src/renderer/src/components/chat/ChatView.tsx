@@ -127,6 +127,7 @@ function EmptyState() {
     await window.pi.api.createTab({ tabId, cwd, mode: "code" });
     addTab({ id: tabId, title: cwd.split("/").pop() || cwd, cwd, mode: "code" });
     setActiveView("chat");
+    window.dispatchEvent(new CustomEvent("pi:focusPrompt"));
   };
 
   const handleNewChat = async () => {
@@ -134,6 +135,7 @@ function EmptyState() {
     await window.pi.api.createTab({ tabId, mode: "chat" });
     addTab({ id: tabId, title: "Chat", mode: "chat" });
     setActiveView("chat");
+    window.dispatchEvent(new CustomEvent("pi:focusPrompt"));
   };
 
   const chat = defaultTabMode === "chat";

@@ -168,6 +168,11 @@ const events = {
     ipcRenderer.on("pi:update", wrapped);
     return () => ipcRenderer.removeListener("pi:update", wrapped);
   },
+  onUpdateProgress: (listener: (data: { loaded: number; total: number }) => void) => {
+    const wrapped = (_e: IpcRendererEvent, data: { loaded: number; total: number }) => listener(data);
+    ipcRenderer.on("pi:update:progress", wrapped);
+    return () => ipcRenderer.removeListener("pi:update:progress", wrapped);
+  },
   onThemeChanged: (listener: (data: any) => void) => {
     const wrapped = (_e: IpcRendererEvent, data: any) => listener(data);
     ipcRenderer.on("pi:theme:changed", wrapped);

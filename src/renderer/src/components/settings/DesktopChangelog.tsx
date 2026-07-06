@@ -6,6 +6,54 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.3.1",
+    date: "2026-07-06",
+    sections: [
+      {
+        title: "Update UX",
+        items: [
+          'The update banner now downloads the DMG in-app (no browser) with a live progress bar, then opens the installer in Finder ready to drag into Applications',
+        ],
+      },
+      {
+        title: "Fixes",
+        items: [
+          'Version badge in the sidebar is now single-sourced from package.json via the preload bridge — it can no longer drift out of sync',
+          'The "Start Chatting" heading now focuses the prompt input so you can start typing immediately',
+          'Install one-liners in the docs no longer hardcode a version — they resolve the latest asset from the GitHub API',
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.3.0",
+    date: "2026-07-06",
+    sections: [
+      {
+        title: "Public Release",
+        items: [
+          "Pi Desktop is now open source — the full codebase is public on GitHub",
+          "In-app update check runs anonymously against the GitHub releases API (no token, no setup)",
+          "Sidebar version badge is now sourced from package.json so it can never drift from the installed build",
+        ],
+      },
+      {
+        title: "Chat UX",
+        items: [
+          '"Start Chatting" is now a clean h2 heading instead of a button — click it to start a chat and the prompt focuses automatically',
+          "Glowing accent border on the message input when a chat or code session is empty — draws the eye to where you type",
+        ],
+      },
+      {
+        title: "Releases",
+        items: [
+          "CI auto-publishes GitHub Releases (no more stuck drafts)",
+          "Every release ships a fresh DMG with no baked-in credentials",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.2.9",
     date: "2026-07-04",
     sections: [

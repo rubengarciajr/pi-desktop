@@ -1,6 +1,10 @@
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import { compareVersions } from "../shared/version";
 import { getUpdateToken } from "./updateToken";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createWriteStream } from "node:fs";
+import { mkdir, unlink } from "node:fs/promises";
 
 const REPO_OWNER = "rubengarciajr";
 const REPO_NAME = "pi-desktop";
@@ -78,11 +82,93 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
     }
   });
 
-  // Open the release page in browser for manual download.
-  ipcMain.handle("pi:update:download", async () => {
-    const url = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest`;
-    await shell.openExternal(url);
-    return { success: true };
+  // Download the DMG in-process and open it in Finder, which auto-mounts the
+  // disk image and reveals the app for drag-to-Applications. Skips the
+  // browser step entirely. Falls back to opening the release page on error.
+  ipcMain.handle("pi:update:download", async (_e, args: any) => {
+    const url: string | undefined = args?.url;
+    const win = getMainWindow();
+    const reportProgress = (loaded: number, total: number) => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send("pi:update:progress", { loaded, total });
+      }
+    };
+
+    try {
+      // Resolve the latest DMG asset URL (anonymous; repo is public).
+      let dmgUrl: string | undefined = url;
+      let filename = "Pi-Desktop-latest.dmg";
+      if (!dmgUrl) {
+        const token = getUpdateToken();
+        const res = await fetch(
+          `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`,
+          { headers: { "User-Agent": "pi-desktop-updater", ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
+        );
+        if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
+        const data: any = await res.json();
+        const asset = (data.assets || []).find((a: any) => a.name.endsWith(".dmg"));
+        if (!asset?.browser_download_url) throw new Error("No DMG asset found in latest release");
+        dmgUrl = asset.browser_download_url;
+        filename = asset.name;
+      }
+      const downloadUrl: string = dmgUrl!;
+
+      // Stream the download to a temp file, reporting progress.
+      const destDir = join(tmpdir(), "pi-desktop-update");
+      await mkdir(destDir, { recursive: true });
+      const destPath = join(destDir, filename);
+
+      const res = await fetch(downloadUrl, { redirect: "follow" });
+      if (!res.ok || !res.body) throw new Error(`Download failed: ${res.status}`);
+
+      const total = Number(res.headers.get("content-length") || 0);
+      let loaded = 0;
+      const stream = createWriteStream(destPath);
+      const reader = res.body.getReader();
+      // Read the stream chunk-by-chunk so we can report progress to the
+      // renderer, which shows a percentage on the Download button.
+      // (Node 20+ web streams: pump via getReader on the ReadableStream.)
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        stream.write(Buffer.from(value));
+        loaded += value.byteLength;
+        reportProgress(loaded, total);
+      }
+      await new Promise<void>((resolve, reject) => {
+        stream.on("finish", resolve);
+        stream.on("error", reject);
+        stream.end();
+      });
+
+      // Open the DMG in Finder — macOS mounts it and reveals the app bundle.
+      // shell.openPath returns "" on success, or an error string on failure.
+      const errMsg = await shell.openPath(destPath);
+      if (errMsg) throw new Error(`Could not open DMG: ${errMsg}`);
+
+      return { success: true, path: destPath };
+    } catch (e: any) {
+      console.error("[updater] DMG download failed:", e);
+      // Last-resort fallback: send the user to the release page in a browser.
+      const fallback = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest`;
+      await shell.openExternal(fallback);
+      return { success: false, error: e?.message ?? String(e) };
+    }
+  });
+
+  // Clean up a previously-downloaded update DMG (optional housekeeping).
+  ipcMain.handle("pi:update:cleanup", async () => {
+    try {
+      const dir = join(tmpdir(), "pi-desktop-update");
+      const { readdir } = await import("node:fs/promises");
+      for (const f of await readdir(dir)) {
+        await unlink(join(dir, f)).catch(() => {});
+      }
+      return { success: true };
+    } catch {
+      return { success: false };
+    }
   });
 
   // Check for updates on startup (non-blocking, just notifies the renderer).
