@@ -12,6 +12,13 @@ const builderArgs = args.length > 0 ? args : ["--mac", "dmg"];
 
 builderArgs.push(`--config.directories.output=${tempOutDir}`);
 
+// Forward --publish to electron-builder so releases actually publish instead
+// of staying as drafts. Without this, the CI step's `--publish always` is
+// silently dropped (we rebuild builderArgs above from the platform flags only).
+if (process.env.GITHUB_TOKEN && !builderArgs.includes("--publish")) {
+  builderArgs.push("--publish", "always");
+}
+
 console.log(`[package-dmg] Building in temporary output: ${tempOutDir}`);
 
 execFileSync("npx", ["electron-builder", ...builderArgs], {
