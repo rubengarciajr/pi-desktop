@@ -43,9 +43,8 @@ jobs:
 
       - name: Build, sign & publish DMG
         env:
-          # The auto-injected GITHUB_TOKEN has limited scope and leaves releases
-          # as drafts. Use the PI_UPDATE_TOKEN PAT (repo scope) instead so
-          # electron-builder publishes directly.
-          GH_TOKEN: ${{ secrets.PI_UPDATE_TOKEN }}
+          # The auto-injected GITHUB_TOKEN has sufficient scope to publish
+          # releases on a public repo (the workflow grants contents: write).
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: node build/package-dmg.cjs --mac dmg --publish always

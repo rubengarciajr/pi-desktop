@@ -35,9 +35,10 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
   ipcMain.handle("pi:update:check", async () => {
     try {
       const currentVersion = app.getVersion();
-      // The repo is private, so anonymous requests 404. Authenticate with a
-      // read-only PAT when one is available (baked in at build time or read
-      // from ~/.pi-desktop-update-token). Absent → anonymous (public repos).
+      // The repo is public, so anonymous requests reach the releases API
+      // directly. The optional token is kept as an escape hatch for anyone who
+      // forks to a private repo (baked in at build time or read from
+      // ~/.pi-desktop-update-token).
       const token = getUpdateToken();
       const res = await fetch(
         `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`,

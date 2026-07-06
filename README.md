@@ -142,31 +142,16 @@ Pushing a `v*` tag triggers the GitHub Action (`.github/workflows/build.yml`) wh
 
 ```bash
 # bump version in package.json, then:
-git commit -am "release: v0.2.11"
-git tag v0.2.11
+git commit -am "release: v0.3.0"
+git tag v0.3.0
 git push origin main --tags
 ```
 
-### In-App Update Check (Private Repo)
+### In-App Update Check
 
-The app shows a "Pi Desktop vX.Y.Z is available" banner when a newer GitHub Release exists. Because this repo is private, the check needs a **read-only Personal Access Token** to authenticate — anonymous requests get 404.
+The app shows a "Pi Desktop vX.Y.Z is available" banner when a newer GitHub Release exists. The check runs automatically on launch — it queries the public GitHub releases API anonymously, compares versions, and surfaces a banner with a Download button. No setup, tokens, or configuration required.
 
-**Setup (one-time):**
-
-1. Generate a token at https://github.com/settings/tokens/new
-   - Scopes: `repo` (read-only; the check never writes)
-2. Locally, create a `.env` (gitignored) at the repo root:
-   ```bash
-   echo "PI_UPDATE_TOKEN=ghp_xxxxx" > .env
-   ```
-3. For CI builds, add the same value as a repository secret named `PI_UPDATE_TOKEN`:
-   ```bash
-   gh secret set PI_UPDATE_TOKEN
-   ```
-
-The token is baked into the app at build time via `electron.vite.config.ts` → `import.meta.env.PI_UPDATE_TOKEN`. End users need no setup — the banner "just works."
-
-**Rotate / override without rebuilding:** drop the new token at `~/.pi-desktop-update-token`.
+> **Forked to a private repo?** The anonymous check will 404. Drop a read-only PAT at `~/.pi-desktop-update-token` (or set `PI_UPDATE_TOKEN` at build time) and the updater will authenticate with it.
 
 ---
 
