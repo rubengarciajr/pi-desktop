@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWriteStream } from "node:fs";
 import { mkdir, unlink } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 
 const REPO_OWNER = "rubengarciajr";
 const REPO_NAME = "pi-desktop";
@@ -141,6 +142,16 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
         stream.on("error", reject);
         stream.end();
       });
+
+      // Strip the com.apple.quarantine extended attribute from the downloaded
+      // DMG before opening it. On Apple Silicon, an ad-hoc signed app that
+      // retains quarantine crashes on launch ("damaged and can't be opened").
+      // xattr -cr clears all extended attributes so the mounted app runs clean.
+      try {
+        execFileSync("xattr", ["-cr", destPath]);
+      } catch {
+        // Non-fatal: openPath may still work if no quarantine was present.
+      }
 
       // Open the DMG in Finder — macOS mounts it and reveals the app bundle.
       // shell.openPath returns "" on success, or an error string on failure.

@@ -6,6 +6,18 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.3.3",
+    date: "2026-07-06",
+    sections: [
+      {
+        title: "Critical Fix",
+        items: [
+          "Fixed crash-on-launch on Apple Silicon: the in-app update downloader now strips the macOS quarantine flag from the downloaded DMG before opening it, so the updated app launches cleanly instead of being killed by Gatekeeper",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.3.2",
     date: "2026-07-06",
     sections: [
