@@ -1,6 +1,9 @@
-import { execSync } from "child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import * as fs from "fs";
 import * as path from "path";
+
+const pExecFile = promisify(execFile);
 
 export interface GitRepoInfo {
   isRepo: boolean;
@@ -21,9 +24,19 @@ export interface GitRepoInfo {
   totalCommits?: number;
 }
 
-function run(cmd: string, cwd: string): string | null {
+/**
+ * Run a git command asynchronously. Returns trimmed stdout or `null` on
+ * failure/timeout. Never blocks the main thread (the previous execFileSync
+ * implementation froze the UI for the full 5s timeout on every poll).
+ */
+async function run(args: string[], cwd: string): Promise<string | null> {
   try {
-    return execSync(cmd, { cwd, encoding: "utf-8", timeout: 5000, stdio: ["pipe", "pipe", "pipe"] }).trim();
+    const { stdout } = await pExecFile("git", args, {
+      cwd,
+      encoding: "utf-8",
+      timeout: 5000,
+    });
+    return stdout.trim();
   } catch {
     return null;
   }
@@ -39,20 +52,42 @@ function parseGithubUrl(url: string): { owner: string; repo: string } | null {
   return null;
 }
 
-export function getGitInfo(cwd: string): GitRepoInfo {
+/**
+ * Short-lived per-cwd cache so the two concurrent 5s polls (GitDirtyDot +
+ * GitHubBadge) for the same working directory share one subprocess batch
+ * instead of each firing ~7 git spawns.
+ */
+interface CacheEntry {
+  value: GitRepoInfo;
+  expires: number;
+}
+const CACHE_TTL_MS = 3000;
+const gitInfoCache = new Map<string, CacheEntry>();
+
+/** Cached async variant — reads from the in-memory cache when fresh. */
+export async function getGitInfoCached(cwd: string): Promise<GitRepoInfo> {
+  const hit = gitInfoCache.get(cwd);
+  const now = Date.now();
+  if (hit && hit.expires > now) return hit.value;
+  const value = await getGitInfo(cwd);
+  gitInfoCache.set(cwd, { value, expires: now + CACHE_TTL_MS });
+  return value;
+}
+
+export async function getGitInfo(cwd: string): Promise<GitRepoInfo> {
   const info: GitRepoInfo = { isRepo: false };
 
   // Check if it's a git repo
   const gitDir = path.join(cwd, ".git");
   if (!fs.existsSync(gitDir)) {
-    const isRepo = run("git rev-parse --is-inside-work-tree", cwd);
+    const isRepo = await run(["rev-parse", "--is-inside-work-tree"], cwd);
     if (!isRepo) return info;
   }
 
   info.isRepo = true;
 
   // Remote URL
-  const remoteUrl = run("git remote get-url origin", cwd);
+  const remoteUrl = await run(["remote", "get-url", "origin"], cwd);
   if (remoteUrl) {
     info.remoteUrl = remoteUrl;
     const parsed = parseGithubUrl(remoteUrl);
@@ -63,10 +98,10 @@ export function getGitInfo(cwd: string): GitRepoInfo {
   }
 
   // Branch
-  info.branch = run("git rev-parse --abbrev-ref HEAD", cwd) || undefined;
+  info.branch = (await run(["rev-parse", "--abbrev-ref", "HEAD"], cwd)) || undefined;
 
   // Ahead/behind
-  const tracking = run("git rev-list --left-right --count HEAD...@{upstream}", cwd);
+  const tracking = await run(["rev-list", "--left-right", "--count", "HEAD...@{upstream}"], cwd);
   if (tracking) {
     const [ahead, behind] = tracking.split(/\s+/).map(Number);
     info.ahead = ahead;
@@ -74,7 +109,7 @@ export function getGitInfo(cwd: string): GitRepoInfo {
   }
 
   // Status
-  const porcelain = run("git status --porcelain", cwd);
+  const porcelain = await run(["status", "--porcelain"], cwd);
   if (porcelain) {
     const lines = porcelain.split("\n").filter(Boolean);
     info.stagedCount = lines.filter((l) => l[0] !== " " && l[0] !== "?").length;
@@ -89,7 +124,7 @@ export function getGitInfo(cwd: string): GitRepoInfo {
   }
 
   // Last commit
-  const lastCommit = run('git log -1 --format="%H|%s|%an|%ar|%ad"', cwd);
+  const lastCommit = await run(["log", "-1", "--format=%H|%s|%an|%ar|%ad"], cwd);
   if (lastCommit) {
     const [hash, message, author, dateRelative, dateISO] = lastCommit.split("|");
     info.lastCommitHash = hash;
@@ -99,7 +134,7 @@ export function getGitInfo(cwd: string): GitRepoInfo {
   }
 
   // Total commits
-  const count = run("git rev-list --count HEAD", cwd);
+  const count = await run(["rev-list", "--count", "HEAD"], cwd);
   if (count) info.totalCommits = parseInt(count, 10);
 
   return info;

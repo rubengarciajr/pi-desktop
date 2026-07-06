@@ -1,6 +1,6 @@
 {
   "name": "pi-desktop",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "description": "Pi Desktop - a full-featured macOS desktop app for the Pi coding agent",
   "main": "out/main/index.js",
   "author": "Pi Desktop",
@@ -18,26 +18,25 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run typecheck && npm run lint && npm run test",
-    "build:mac": "electron-vite build && electron-builder --mac",
-    "build:dmg": "electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg",
-    "package": "electron-vite build && electron-builder"
+    "build:mac": "electron-vite build && node build/package-dmg.cjs --mac",
+    "build:dmg": "electron-vite build && node build/package-dmg.cjs --mac dmg",
+    "package": "electron-vite build && node build/package-dmg.cjs"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "^0.79.10",
+    "@earendil-works/pi-coding-agent": "^0.80.3",
     "@types/react-syntax-highlighter": "^15.5.13",
-    "diff": "^8.0.4",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.1",
+    "react-virtuoso": "^4.18.10",
     "remark-gfm": "^4.0.1",
     "undici": "^8.5.0",
     "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/diff": "^7.0.2",
     "@types/node": "^22.10.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

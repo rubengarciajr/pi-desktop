@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import type { ChatMessage } from "../../store/useAppStore";
 import { ToolCallBlock } from "./ToolCallBlock";
 import { DiffViewer } from "./DiffViewer";
@@ -54,15 +54,30 @@ function AssistantMessage({ message }: { message: ChatMessage }) {
 }
 
 function ThinkingBlock({ text }: { text: string }) {
-  if (!text) return null;
+  if (!text || !text.trim()) return null;
   return (
-    <details className="mb-2 rounded-lg border border-border bg-bg-subtle/40 px-3 py-2">
-      <summary className="cursor-pointer text-xs font-medium text-thinking">
+    <details className="group mb-[5px] rounded-lg border border-border/60 bg-bg-subtle/30">
+      <summary className="flex cursor-pointer select-none list-none items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-text-faint transition-colors hover:text-text-muted">
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="shrink-0 transition-transform duration-150 group-open:rotate-90"
+        >
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
         Reasoning
       </summary>
-      <p className="mt-2 text-xs leading-relaxed text-text-muted whitespace-pre-wrap selectable">
-        {text}
-      </p>
+      <div className="border-t border-border/40 px-3 py-2">
+        <p className="selectable whitespace-pre-wrap text-xs font-light leading-relaxed text-text-faint/80">
+          {text.trim()}
+        </p>
+      </div>
     </details>
   );
 }
@@ -83,8 +98,14 @@ function EditDiffs({ message }: { message: ChatMessage }) {
 import { useAppStore } from "../../store/useAppStore";
 function useEditToolResults(message: ChatMessage) {
   const tools = useAppStore((s) => s.activeTab.tools);
-  return message.blocks
-    .filter((b) => b.type === "toolCall" && (b.toolName === "edit" || b.toolName === "write"))
-    .map((b) => tools[b.toolCallId ?? ""])
-    .filter((t): t is NonNullable<typeof t> => !!t && t.done && t.toolName === "edit");
+  // Memoize so the streaming message (which re-renders every token) doesn't
+  // re-run this filter+map on every render — only when blocks or tools change.
+  return useMemo(
+    () =>
+      message.blocks
+        .filter((b) => b.type === "toolCall" && (b.toolName === "edit" || b.toolName === "write"))
+        .map((b) => tools[b.toolCallId ?? ""])
+        .filter((t): t is NonNullable<typeof t> => !!t && t.done && t.toolName === "edit"),
+    [message.blocks, tools],
+  );
 }

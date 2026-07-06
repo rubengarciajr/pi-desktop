@@ -31,6 +31,14 @@ export default defineConfig({
       rollupOptions: {
         input: { index: resolve(__dirname, "src/preload/index.ts") },
         external: ["electron"],
+        output: {
+          // The preload runs under `sandbox: true` (see src/main/window.ts),
+          // whose restricted loader does NOT support ESM `import` — it must be
+          // CommonJS. The `.cjs` entry below keeps it loadable despite the
+          // package-level `"type": "module"`.
+          format: "cjs",
+          entryFileNames: "index.cjs",
+        },
       },
       target: "node20",
       outDir: "out/preload",
@@ -39,8 +47,21 @@ export default defineConfig({
   renderer: {
     root: "src/renderer",
     build: {
+      // Electron 38 ships Chromium ~128; targeting it directly skips needlessly
+      // transpiling modern syntax that the runtime already understands.
+      target: "chrome128",
+      sourcemap: false,
+      chunkSizeWarningLimit: 1000,
       rollupOptions: {
         input: { index: resolve(__dirname, "src/renderer/index.html") },
+        output: {
+          // Split heavy vendor deps into their own chunks so they cache
+          // independently and parse in parallel, instead of one giant blob.
+          manualChunks: {
+            "vendor-react": ["react", "react-dom"],
+            "vendor-markdown": ["react-markdown", "remark-gfm", "react-syntax-highlighter"],
+          },
+        },
       },
       outDir: "out/renderer",
     },

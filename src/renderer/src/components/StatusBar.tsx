@@ -24,6 +24,7 @@ export function StatusBar() {
   const mode = useAppStore((s) => s.activeTab.mode);
   const statusItems = useAppStore((s) => s.statusItems);
   const openPanel = useAppStore((s) => s.openPanel);
+  const sdkVersion = useAppStore((s) => s.sdkVersion);
   const [thinkOpen, setThinkOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -89,7 +90,7 @@ export function StatusBar() {
           </span>
         ) : (
           <span className="text-[11px] text-text-faint">
-            Pi Coding Agent v{window.pi?.versions?.pi ?? "0.79.10"}
+            Pi Coding Agent v{sdkVersion || window.pi?.versions?.pi || "—"}
           </span>
         )}
         {pendingCount > 0 && (
@@ -143,7 +144,14 @@ export function StatusBar() {
             </span>
           )}
           {piState.totalCost != null && piState.totalCost > 0 && (
-            <span className="ml-2 text-[10px] text-success font-medium" title="Total session cost">
+            <span
+              className="ml-2 text-[10px] text-success font-medium"
+              title={
+                piState.reasoningTokens
+                  ? `Total session cost\nReasoning/thinking tokens: ${formatTokens(piState.reasoningTokens)} (subset of output)`
+                  : "Total session cost"
+              }
+            >
               ${piState.totalCost.toFixed(3)}
             </span>
           )}

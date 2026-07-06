@@ -87,10 +87,10 @@ const api = {
   setCwd: invoke("pi:cwd.set"),
   pickDirectory: invoke("pi:pickDirectory"),
   getGitInfo: invoke("pi:git.info"),
+  getSdkVersion: invoke("pi:sdk.version"),
 
-  // Install
+  // System checks
   checkPiInstalled: invoke("pi:install.check"),
-  startPiInstall: invoke("pi:install.start"),
   systemCheck: invoke("pi:system.check"),
 
   // Extension UI dialog response (select/confirm/input/editor)
@@ -118,6 +118,8 @@ const packages = {
   installed: invoke("packages:installed"),
   install: invoke("packages:install"),
   remove: invoke("packages:remove"),
+  update: invoke("packages:update"),
+  checkUpdates: invoke("packages:checkUpdates"),
   removeSkill: invoke("pi:skill.remove"),
   removeExtension: invoke("pi:extension.remove"),
   restoreStock: invoke("pi:restoreStock"),
@@ -155,16 +157,6 @@ const events = {
     const wrapped = (_e: IpcRendererEvent, data: { sessionId: string; sessionFile?: string }) => listener(data);
     ipcRenderer.on("pi:sessionReset", wrapped);
     return () => ipcRenderer.removeListener("pi:sessionReset", wrapped);
-  },
-  onInstallProgress: (listener: (progress: any) => void) => {
-    const wrapped = (_e: IpcRendererEvent, progress: any) => listener(progress);
-    ipcRenderer.on("pi:install.progress", wrapped);
-    return () => ipcRenderer.removeListener("pi:install.progress", wrapped);
-  },
-  onInstallDone: (listener: (result: any) => void) => {
-    const wrapped = (_e: IpcRendererEvent, result: any) => listener(result);
-    ipcRenderer.on("pi:install.done", wrapped);
-    return () => ipcRenderer.removeListener("pi:install.done", wrapped);
   },
   onPackagesChanged: (listener: () => void) => {
     const wrapped = () => listener();
@@ -210,7 +202,9 @@ try {
       electron: process.versions.electron,
       chrome: process.versions.chrome,
       node: process.versions.node,
-      pi: "0.79.10",
+      // Static fallback only — the renderer refreshes this from the SDK's own
+      // VERSION export on mount (see App.tsx) so it never drifts on a bump.
+      pi: "0.80.3",
     },
   });
 } catch (err) {

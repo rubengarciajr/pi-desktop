@@ -1,6 +1,13 @@
-const { execSync } = require("child_process");
+const { execFileSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
+
+function run(command, args) {
+  return execFileSync(command, args, {
+    stdio: "pipe",
+    encoding: "utf-8",
+  });
+}
 
 /**
  * electron-builder afterSign hook.
@@ -27,18 +34,15 @@ exports.default = async function (context) {
     // codesign-blocking attr by name across the tree (xattr -cr can miss some
     // system attrs), then clear AppleDouble/FinderInfo detritus.
     try {
-      execSync(`xattr -cr "${dir}"`, { stdio: "pipe", encoding: "utf-8" });
+      run("xattr", ["-cr", dir]);
     } catch {}
     for (const attr of blockingAttrs) {
       try {
-        execSync(`find "${dir}" -exec xattr -d ${attr} {} \\; 2>/dev/null`, {
-          stdio: "pipe",
-          encoding: "utf-8",
-        });
+        run("xattr", ["-dr", attr, dir]);
       } catch {}
     }
     try {
-      execSync(`dot_clean -m "${dir}"`, { stdio: "pipe", encoding: "utf-8" });
+      run("dot_clean", ["-m", dir]);
     } catch {}
   };
 
@@ -49,19 +53,28 @@ exports.default = async function (context) {
    * immediately before each attempt and retrying wins the race.
    */
   const clearAndSign = (target, withEntitlements) => {
-    const cmd = withEntitlements
-      ? `codesign --force --sign - --options runtime --entitlements "${entitlementsPath}" "${target}"`
-      : `codesign --force --sign - "${target}"`;
+    const args = withEntitlements
+      ? [
+          "--force",
+          "--sign",
+          "-",
+          "--options",
+          "runtime",
+          "--entitlements",
+          entitlementsPath,
+          target,
+        ]
+      : ["--force", "--sign", "-", target];
     const maxAttempts = 5;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       stripAttrs(target);
       try {
-        execSync(cmd, { stdio: "pipe", encoding: "utf-8" });
+        run("codesign", args);
         return true;
       } catch (err) {
         if (attempt === maxAttempts) throw err;
         // brief backoff lets the file provider settle before the next strip
-        try { execSync("sleep 0.4", { stdio: "pipe" }); } catch {}
+        try { execFileSync("sleep", ["0.4"], { stdio: "pipe" }); } catch {}
       }
     }
     return false;
@@ -92,7 +105,7 @@ exports.default = async function (context) {
     console.log(`[afterSign] Successfully ad-hoc signed`);
 
     // 3. Verify — fatal: a release must not ship a broken signature.
-    execSync(`codesign --verify --strict "${appPath}"`, { stdio: "pipe", encoding: "utf-8" });
+    run("codesign", ["--verify", "--strict", appPath]);
     console.log(`[afterSign] Signature verified OK`);
   } catch (err) {
     console.error(`[afterSign] Signing failed: ${err.message}`);

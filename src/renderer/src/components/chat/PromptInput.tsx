@@ -27,6 +27,7 @@ export function PromptInput() {
   const [converting, setConverting] = useState(false);
   const isStreaming = useAppStore((s) => s.activeTab.piState.isStreaming);
   const queue = useAppStore((s) => s.activeTab.queue);
+  const hasMessages = useAppStore((s) => s.activeTab.messages.length > 0);
   const activeTabId = useAppStore((s) => s.activeTabId);
   const mode = useAppStore((s) => s.activeTab.mode);
   const webEnabled = useAppStore((s) => s.activeTab.piState.webEnabled);
@@ -303,7 +304,7 @@ export function PromptInput() {
           </div>
         )}
 
-        <div className="rounded-xl border border-border bg-bg-hover focus-within:border-accent/50 transition-colors">
+        <div className={`rounded-xl border border-border bg-bg-hover transition-colors focus-within:border-accent/50 ${!hasMessages ? "animate-glow-accent" : ""}`}>
           <textarea
             ref={textareaRef}
             value={text}
@@ -350,7 +351,11 @@ export function PromptInput() {
               {mode === "chat" && (
                 <button
                   onClick={toggleWeb}
-                  title={webEnabled ? "Web search ON — agent can search & fetch the web" : "Web search OFF — pure conversation"}
+                  title={
+                    webEnabled
+                      ? "Web search ON — agent can search the web (built-in, no extension needed)"
+                      : "Web search OFF — click to enable built-in web search (DuckDuckGo, no key required)"
+                  }
                   className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
                     webEnabled
                       ? "border-accent/40 bg-accent/15 text-accent"
@@ -365,11 +370,11 @@ export function PromptInput() {
                 <button
                   onClick={handleConvertToCode}
                   disabled={converting}
-                  title="Convert to a code session — pick a folder; this chat is saved to docs/ and continues with full tools"
-                  className="flex items-center gap-1.5 rounded-lg border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-40"
+                  aria-label="Convert to Code"
+                  title="Convert to Code — pick a folder; this chat is saved to docs/ and continues with full tools"
+                  className="flex items-center justify-center rounded-lg border border-accent/30 bg-accent/10 px-2 py-1.5 text-accent transition-colors hover:bg-accent/20 disabled:opacity-40"
                 >
-                  <BoltIcon size={12} />
-                  {converting ? "Converting…" : "Convert to code"}
+                  <BoltIcon size={14} />
                 </button>
               )}
               <button

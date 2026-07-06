@@ -1,6 +1,6 @@
 # Pi Desktop — Features
 
-*Website-ready feature copy. Version 0.2.8 · macOS (Apple Silicon + Intel).*
+_Website-ready feature copy. Version 0.2.9 · macOS (Apple Silicon + Intel)._
 
 **Pi Desktop is a native macOS app for the [Pi coding agent](https://pi.dev) — a polished, multi-tab GUI that replaces the terminal. No CLI, no Node.js setup. Just open it and start.**
 
@@ -85,14 +85,14 @@ Your API keys and GitHub token are encrypted at rest with the macOS keychain. Ev
 
 Community packages that work seamlessly inside Pi Desktop:
 
-| Package | What it adds |
-|---|---|
-| `@samfp/pi-memory` | Persistent memory — learns your corrections and preferences across sessions |
-| `pi-subagents` | Delegate work to focused child agents (reviewer, planner, worker, scout) |
-| `@narumitw/pi-plan-mode` | Codex-style Plan Mode — plan before executing |
-| `pi-web-access` | Web search, page fetching, PDF & video understanding |
-| `context-mode` | Smarter context management with semantic indexing |
+| Package                  | What it adds                                                                |
+| ------------------------ | --------------------------------------------------------------------------- |
+| `@samfp/pi-memory`       | Persistent memory — learns your corrections and preferences across sessions |
+| `pi-subagents`           | Delegate work to focused child agents (reviewer, planner, worker, scout)    |
+| `@narumitw/pi-plan-mode` | Codex-style Plan Mode — plan before executing                               |
+| `pi-web-access`          | Web search, page fetching, PDF & video understanding                        |
+| `context-mode`           | Smarter context management with semantic indexing                           |
 
 ---
 
-*Download the latest release at [github.com/rubengarciajr/pi-desktop/releases](https://github.com/rubengarciajr/pi-desktop/releases). MIT licensed. Powered by [Pi](https://pi.dev) from earendil-works.*
+_Download the latest release at [github.com/rubengarciajr/pi-desktop/releases](https://github.com/rubengarciajr/pi-desktop/releases). MIT licensed. Powered by [Pi](https://pi.dev) from earendil-works._

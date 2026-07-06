@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow, dialog } from "electron";
 import { SessionPool } from "./pi/SessionPool";
-import { getGitInfo } from "./git";
-import { isPiInstalled, getPiVersion, installPi } from "./installer";
+import { getGitInfoCached } from "./git";
+import { checkPiInstalled } from "./installer";
 import { invalidateSharedDeps } from "./pi/SharedDepsCache";
 import { getCachedMessages, setCachedMessages, invalidateCache } from "./pi/MessageCache";
 import {
@@ -24,16 +24,14 @@ import { listCustomModels, addCustomModel, removeCustomModel, getModelsPath } fr
 import { getWebSearchStatus, setWebSearchConfig } from "./webSearch";
 import { getExtensionDetail, setExtensionConfig } from "./extensionDetail";
 import { getAddonContributions } from "./addonContributions";
+import { getSdkVersion } from "./pi/sdkVersion";
 import { shell } from "electron";
 
 /**
  * Registers all ipcMain handlers. Every call is routed to the correct
  * PiSessionManager via the SessionPool, keyed by tabId.
  */
-export function registerIpc(
-  pool: SessionPool,
-  getMainWindow: () => BrowserWindow | null,
-): void {
+export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindow | null): void {
   const send = (channel: string, ...args: unknown[]) => {
     const win = getMainWindow();
     if (win && !win.isDestroyed()) win.webContents.send(channel, ...args);
@@ -47,10 +45,7 @@ export function registerIpc(
   pool.events.on(pool.SESSION_RESET_EVENT, (data: unknown) => send("pi:sessionReset", data));
   pool.events.on(pool.EXT_UI_EVENT, (message: unknown) => send("pi:extui", message));
 
-  const handle = <Res>(
-    channel: string,
-    fn: (args: any) => Promise<Res> | Res,
-  ) => {
+  const handle = <Res>(channel: string, fn: (args: any) => Promise<Res> | Res) => {
     ipcMain.handle(channel, async (_e, args: any) => {
       try {
         return await fn(args ?? {});
@@ -86,14 +81,38 @@ export function registerIpc(
   });
 
   // --- Prompting (per-tab) ---
-  handle("pi:prompt", async (a) => { const m = await mgr(a); return m.prompt(a.message, a); });
-  handle("pi:steer", async (a) => { const m = await mgr(a); return m.steer(a.message, a.images); });
-  handle("pi:followUp", async (a) => { const m = await mgr(a); return m.followUp(a.message, a.images); });
-  handle("pi:abort", async (a) => { const m = await mgr(a); return m.abort(); });
-  handle("pi:queue.remove", async (a) => { const m = await mgr(a); return m.removeQueuedItem(a.kind, a.index); });
-  handle("pi:convertToCode", async (a) => { const m = await mgr(a); return m.convertToCode(a.cwd); });
-  handle("pi:chat.setWeb", async (a) => { const m = await mgr(a); return m.setWebEnabled(!!a.enabled); });
-  handle("pi:chat.setTools", async (a) => { const m = await mgr(a); return m.setToolsEnabled(!!a.enabled); });
+  handle("pi:prompt", async (a) => {
+    const m = await mgr(a);
+    return m.prompt(a.message, a);
+  });
+  handle("pi:steer", async (a) => {
+    const m = await mgr(a);
+    return m.steer(a.message, a.images);
+  });
+  handle("pi:followUp", async (a) => {
+    const m = await mgr(a);
+    return m.followUp(a.message, a.images);
+  });
+  handle("pi:abort", async (a) => {
+    const m = await mgr(a);
+    return m.abort();
+  });
+  handle("pi:queue.remove", async (a) => {
+    const m = await mgr(a);
+    return m.removeQueuedItem(a.kind, a.index);
+  });
+  handle("pi:convertToCode", async (a) => {
+    const m = await mgr(a);
+    return m.convertToCode(a.cwd);
+  });
+  handle("pi:chat.setWeb", async (a) => {
+    const m = await mgr(a);
+    return m.setWebEnabled(!!a.enabled);
+  });
+  handle("pi:chat.setTools", async (a) => {
+    const m = await mgr(a);
+    return m.setToolsEnabled(!!a.enabled);
+  });
 
   // --- Web search config (~/.pi/web-search.json) ---
   handle("pi:webSearch.status", () => getWebSearchStatus());
@@ -107,10 +126,22 @@ export function registerIpc(
   handle("addons:contributions", () => getAddonContributions());
 
   // --- Session (per-tab) ---
-  handle("pi:session.new", async (a) => { const m = await mgr(a); return m.newSession(a?.parentSession, a?.cwd); });
-  handle("pi:session.switch", async (a) => { const m = await mgr(a); return m.switchSession(a.sessionPath, a?.cwd); });
-  handle("pi:session.fork", async (a) => { const m = await mgr(a); return m.fork(a.entryId); });
-  handle("pi:session.clone", async (a) => { const m = await mgr(a); return m.clone(); });
+  handle("pi:session.new", async (a) => {
+    const m = await mgr(a);
+    return m.newSession(a?.parentSession, a?.cwd);
+  });
+  handle("pi:session.switch", async (a) => {
+    const m = await mgr(a);
+    return m.switchSession(a.sessionPath, a?.cwd);
+  });
+  handle("pi:session.fork", async (a) => {
+    const m = await mgr(a);
+    return m.fork(a.entryId);
+  });
+  handle("pi:session.clone", async (a) => {
+    const m = await mgr(a);
+    return m.clone();
+  });
   handle("pi:session.list", async () => {
     const m = pool.get() ?? (await pool.getOrCreate(pool.getActiveTab()!));
     return m.listSessions();
@@ -119,8 +150,14 @@ export function registerIpc(
     const m = pool.get() ?? (await pool.getOrCreate(pool.getActiveTab()!));
     return m.listAllSessions();
   });
-  handle("pi:session.tree", async (a) => { const m = await mgr(a); return m.getSessionTree(); });
-  handle("pi:session.forkMessages", async (a) => { const m = await mgr(a); return m.getForkMessages(); });
+  handle("pi:session.tree", async (a) => {
+    const m = await mgr(a);
+    return m.getSessionTree();
+  });
+  handle("pi:session.forkMessages", async (a) => {
+    const m = await mgr(a);
+    return m.getForkMessages();
+  });
   handle("pi:messages", async (a) => {
     const m = await mgr(a);
     const sessionFile = m.session?.sessionFile;
@@ -135,15 +172,36 @@ export function registerIpc(
     }
     return msgs;
   });
-  handle("pi:state", async (a) => { const m = await mgr(a); return m.getState(); });
-  handle("pi:stats", async (a) => { const m = await mgr(a); return m.getSessionStats(); });
+  handle("pi:state", async (a) => {
+    const m = await mgr(a);
+    return m.getState();
+  });
+  handle("pi:stats", async (a) => {
+    const m = await mgr(a);
+    return m.getSessionStats();
+  });
 
   // --- Model & thinking (per-tab) ---
-  handle("pi:model.set", async (a) => { const m = await mgr(a); return m.setModel(a.provider, a.modelId); });
-  handle("pi:model.cycle", async (a) => { const m = await mgr(a); return m.cycleModel(); });
-  handle("pi:model.available", async (a) => { const m = await mgr(a); return m.getAvailableModels(); });
-  handle("pi:thinking.set", async (a) => { const m = await mgr(a); return m.setThinkingLevel(a.level); });
-  handle("pi:thinking.cycle", async (a) => { const m = await mgr(a); return m.cycleThinkingLevel(); });
+  handle("pi:model.set", async (a) => {
+    const m = await mgr(a);
+    return m.setModel(a.provider, a.modelId);
+  });
+  handle("pi:model.cycle", async (a) => {
+    const m = await mgr(a);
+    return m.cycleModel();
+  });
+  handle("pi:model.available", async (a) => {
+    const m = await mgr(a);
+    return m.getAvailableModels();
+  });
+  handle("pi:thinking.set", async (a) => {
+    const m = await mgr(a);
+    return m.setThinkingLevel(a.level);
+  });
+  handle("pi:thinking.cycle", async (a) => {
+    const m = await mgr(a);
+    return m.cycleThinkingLevel();
+  });
 
   // --- Custom models (models.json management) ---
   handle("pi:models.custom.list", () => listCustomModels());
@@ -168,9 +226,18 @@ export function registerIpc(
   });
 
   // --- Compaction (per-tab) ---
-  handle("pi:compact", async (a) => { const m = await mgr(a); return m.compact(a?.customInstructions); });
-  handle("pi:compact.abort", async (a) => { const m = await mgr(a); return m.abortCompaction(); });
-  handle("pi:autoCompaction", async (a) => { const m = await mgr(a); return m.setAutoCompaction(!!a?.enabled); });
+  handle("pi:compact", async (a) => {
+    const m = await mgr(a);
+    return m.compact(a?.customInstructions);
+  });
+  handle("pi:compact.abort", async (a) => {
+    const m = await mgr(a);
+    return m.abortCompaction();
+  });
+  handle("pi:autoCompaction", async (a) => {
+    const m = await mgr(a);
+    return m.setAutoCompaction(!!a?.enabled);
+  });
 
   // --- Auth (shared, not per-tab) ---
   handle("pi:auth.status", async () => {
@@ -220,21 +287,30 @@ export function registerIpc(
     const m = pool.get() ?? (await pool.getOrCreate(pool.getActiveTab()!));
     return m.getTools();
   });
-  handle("pi:session.rename", async (a) => { const m = await mgr(a); return m.renameSession(a.name); });
-  handle("pi:session.exportHtml", async (a) => { const m = await mgr(a); return m.exportHtml(a?.outputPath); });
+  handle("pi:session.rename", async (a) => {
+    const m = await mgr(a);
+    return m.renameSession(a.name);
+  });
+  handle("pi:session.exportHtml", async (a) => {
+    const m = await mgr(a);
+    return m.exportHtml(a?.outputPath);
+  });
 
   // --- Cwd ---
   handle("pi:cwd.get", async () => {
     const m = pool.get() ?? (await pool.getOrCreate(pool.getActiveTab()!));
     return m.getCwd();
   });
-  handle("pi:cwd.set", async (a) => { const m = await mgr(a); return m.setCwd(a.cwd); });
+  handle("pi:cwd.set", async (a) => {
+    const m = await mgr(a);
+    return m.setCwd(a.cwd);
+  });
   handle("pi:pickDirectory", async () => {
     const win = getMainWindow();
     const res = win
       ? await dialog.showOpenDialog(win, { properties: ["openDirectory"] })
       : { canceled: true, filePaths: [] };
-    return res.canceled ? null : res.filePaths[0] ?? null;
+    return res.canceled ? null : (res.filePaths[0] ?? null);
   });
 
   // --- Extension UI (status / widgets / dialogs from extensions) ---
@@ -243,43 +319,43 @@ export function registerIpc(
     return m.resolveDialog(a.id, a.response);
   });
 
+  // --- Pi SDK version (resolved from the SDK's own VERSION export) ---
+  handle("pi:sdk.version", () => getSdkVersion());
+
   // --- Git repository info ---
   handle("pi:git.info", async (a) => {
     const m = await mgr(a);
     const cwd = m.getCwd();
-    return getGitInfo(cwd);
+    return getGitInfoCached(cwd);
   });
 
   // --- Pi CLI install ---
   handle("pi:install.check", async () => {
-    return { installed: isPiInstalled(), version: getPiVersion() };
+    // Single subprocess instead of two sequential sync `pi --version` probes
+    // (each previously blocked the main thread for up to 5s).
+    return checkPiInstalled();
   });
   handle("pi:system.check", async () => {
-    const { execSync } = await import("child_process");
-    const check = (cmd: string) => {
-      try {
-        execSync(`${cmd} --version`, { encoding: "utf-8", timeout: 5000, stdio: ["pipe", "pipe", "pipe"] });
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    return {
-      npm: check("npm"),
-      node: check("node"),
-      git: check("git"),
-      pi: check("pi"),
-    };
-  });
-
-  handle("pi:install.start", async () => {
-    const installer = installPi();
-    installer.on("progress", (progress: any) => {
-      send("pi:install.progress", progress);
-    });
-    const result = await installer;
-    send("pi:install.done", result);
-    return result;
+    // Run all four probes concurrently (not sequentially), each async so the
+    // main thread is never blocked. The previous implementation ran them one
+    // after another with execFileSync, blocking up to 20s on a slow machine.
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const pExecFile = promisify(execFile);
+    const check = (cmd: string) =>
+      pExecFile(cmd, ["--version"], {
+        encoding: "utf-8",
+        timeout: 5000,
+      })
+        .then(() => true)
+        .catch(() => false);
+    const [npm, node, git, pi] = await Promise.all([
+      check("npm"),
+      check("node"),
+      check("git"),
+      check("pi"),
+    ]);
+    return { npm, node, git, pi };
   });
 
   // --- GitHub auth ---
@@ -292,7 +368,10 @@ export function registerIpc(
     if (!token) return { authenticated: false, error: "No token provided" };
     const result = await verifyToken(token);
     if (result.authenticated) {
-      storeGitHubToken(token);
+      const stored = storeGitHubToken(token);
+      if (!stored.success) {
+        return { authenticated: false, error: stored.error ?? "GitHub token could not be saved" };
+      }
     }
     return result;
   });
@@ -327,7 +406,11 @@ export function registerIpc(
     const cwd = m.getCwd();
     const token = getGitHubToken();
     if (!token) return { success: false, error: "Not authenticated" };
-    return createRepo(cwd, token, { name: a?.name, private: a?.private ?? true, description: a?.description });
+    return createRepo(cwd, token, {
+      name: a?.name,
+      private: a?.private ?? true,
+      description: a?.description,
+    });
   });
 
   handle("github:repo.list", async () => {
@@ -383,6 +466,22 @@ export function registerIpc(
     invalidateSharedDeps();
     send("packages:installed.changed", {});
     return result;
+  });
+
+  // Update a single package to its latest version (the in-app equivalent of
+  // `pi update <spec>`), so users never need a terminal to upgrade extensions.
+  handle("packages:update", async (a) => {
+    const m = await mgr(a);
+    const result = await m.updatePackage(a?.spec);
+    invalidateSharedDeps();
+    send("packages:installed.changed", {});
+    return result;
+  });
+
+  // Check for available updates without installing — powers the "Update" badges.
+  handle("packages:checkUpdates", async (a) => {
+    const m = await mgr(a);
+    return m.checkForPackageUpdates();
   });
 
   // --- Skill / Extension removal ---

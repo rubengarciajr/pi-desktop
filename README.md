@@ -11,6 +11,7 @@ Pi Desktop brings the power of the Pi AI coding agent into a native macOS experi
 ## Features
 
 ### Chat Experience
+
 - **Streaming responses** with markdown rendering, syntax highlighting, and collapsible tool output
 - **Multi-tab sessions** - run multiple independent pi agents in parallel, each with its own working directory, model, and session state
 - **Slash command autocomplete** with arrow-key navigation for commands, skills, and prompt templates
@@ -18,6 +19,7 @@ Pi Desktop brings the power of the Pi AI coding agent into a native macOS experi
 - **Follow-up messages** - steer the agent mid-stream without waiting for completion
 
 ### Model Management
+
 - **Built-in model picker** with provider grouping and reasoning level control
 - **Add custom models** from the UI - no terminal or JSON editing needed. Supports:
   - Claude (Anthropic)
@@ -32,23 +34,27 @@ Pi Desktop brings the power of the Pi AI coding agent into a native macOS experi
 - **Per-tab model selection** - different tabs can use different models
 
 ### Session Management
+
 - **Session browser** with resume, fork, clone, and favorites
 - **Folder organization** for grouping related sessions
 - **Session tree view** showing fork history and relationships
 - **Instant tab switching** with in-memory message caching
 
 ### GitHub Integration
+
 - **PAT authentication** with avatar and username display
 - **Repository management** - create, attach, push, and pull repos per folder
 - **Per-folder repo linkage** with status badges in the prompt bar
 - **Clone repositories** directly into a new session
 
 ### Extensions and Packages
+
 - **Extensions browser** with tabs for extensions, skills, commands, and tools
 - **Package explorer** - search, install, and remove pi packages from npm
 - **Argument hints** for commands and skills
 
 ### System Integration
+
 - **Native macOS menu bar** tray icon with quick actions
 - **Auto-updates** - the app checks for new versions on launch and downloads them in the background. A toast banner appears when an update is ready to install
 - **PATH repair** for GUI launches - automatically detects Homebrew, nvm, Volta, and fnm paths
@@ -56,6 +62,7 @@ Pi Desktop brings the power of the Pi AI coding agent into a native macOS experi
 - **Drag-to-install DMG** with custom Pi app icon
 
 ### Performance
+
 - **SharedDepsCache** - caches AuthStorage, ModelRegistry, and SettingsManager across tabs for fast session creation
 - **MessageCache** - instant session switching with in-memory message caching
 - **Lazy state emission** - only sends state updates when values change
@@ -64,46 +71,52 @@ Pi Desktop brings the power of the Pi AI coding agent into a native macOS experi
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-| --- | --- |
-| `Cmd+M` | Switch models |
-| `Cmd+N` | New session |
-| `Cmd+L` | Focus prompt |
-| `Cmd+W` | Close tab (or window if last tab) |
-| `Cmd+Shift+Enter` | Send follow-up during streaming |
-| `Enter` | Send message (or select slash command) |
-| `Shift+Enter` | Newline |
-| `Up/Down + Enter` | Slash command autocomplete navigation |
+| Shortcut          | Action                                 |
+| ----------------- | -------------------------------------- |
+| `Cmd+M`           | Switch models                          |
+| `Cmd+N`           | New session                            |
+| `Cmd+L`           | Focus prompt                           |
+| `Cmd+W`           | Close tab (or window if last tab)      |
+| `Cmd+Shift+Enter` | Send follow-up during streaming        |
+| `Enter`           | Send message (or select slash command) |
+| `Shift+Enter`     | Newline                                |
+| `Up/Down + Enter` | Slash command autocomplete navigation  |
 
 ---
 
 ## Installation
 
 ### Quick Install (Terminal)
+
 Paste this one command into Terminal to download, install, and remove the Gatekeeper quarantine flag automatically:
 
 ```bash
-curl -sL https://github.com/rubengarciajr/pi-desktop/releases/latest/download/Pi-Desktop-0.1.2.dmg -o /tmp/pidesktop.dmg && hdiutil attach /tmp/pidesktop.dmg -nobrowse -quiet && cp -R "/Volumes/Pi Desktop 0.1.2/Pi Desktop.app" /Applications/ && xattr -cr "/Applications/Pi Desktop.app" && hdiutil detach "/Volumes/Pi Desktop 0.1.2" -quiet && rm /tmp/pidesktop.dmg && open /Applications
+MOUNT_DIR="$(mktemp -d)" && curl -sL "https://github.com/rubengarciajr/pi-desktop/releases/latest/download/Pi%20Desktop-0.2.9.dmg" -o /tmp/pidesktop.dmg && hdiutil attach /tmp/pidesktop.dmg -nobrowse -quiet -mountpoint "$MOUNT_DIR" && cp -R "$MOUNT_DIR/Pi Desktop.app" /Applications/ && xattr -cr "/Applications/Pi Desktop.app" && hdiutil detach "$MOUNT_DIR" -quiet && rmdir "$MOUNT_DIR" && rm /tmp/pidesktop.dmg && open /Applications
 ```
 
 ### Manual Download
+
 Download the latest DMG from the [Releases page](https://github.com/rubengarciajr/pi-desktop/releases).
 
 ### macOS Gatekeeper Note
+
 Pi Desktop is ad-hoc signed but not notarized (no Apple Developer certificate). If macOS blocks it:
 
 **Option A (recommended):**
+
 1. Drag Pi Desktop to your Applications folder
 2. Right-click **Pi Desktop** and select **Open**
 3. Click **Open** in the dialog that appears
 4. It will open normally from now on
 
 **Option B:**
+
 1. Drag Pi Desktop to your Applications folder
 2. Open **System Settings > Privacy & Security**
 3. Scroll down and click **"Open Anyway"** next to the Pi Desktop message
 
 **Option C (Terminal):**
+
 ```bash
 xattr -cr "/Applications/Pi Desktop.app"
 ```
@@ -172,19 +185,22 @@ resources/           # App icons, tray icon, entitlements
 Custom models are stored in `~/.pi/agent/models.json` and hot-reload without restarting the app.
 
 ### From the UI
+
 1. Open the **Model** tab
 2. Click **+ Add Model**
 3. Pick a quick preset or fill in the form manually
 4. The model appears in your available models list
 
 ### Supported API Types
-| API | Use For |
-| --- | --- |
-| `openai-completions` | OpenAI, Ollama, vLLM, LM Studio, most providers |
-| `anthropic-messages` | Anthropic, Anthropic-compatible proxies |
-| `google-generative-ai` | Google AI Studio, Gemini |
+
+| API                    | Use For                                         |
+| ---------------------- | ----------------------------------------------- |
+| `openai-completions`   | OpenAI, Ollama, vLLM, LM Studio, most providers |
+| `anthropic-messages`   | Anthropic, Anthropic-compatible proxies         |
+| `google-generative-ai` | Google AI Studio, Gemini                        |
 
 ### API Key Formats
+
 - **Direct key**: `sk-ant-...`
 - **Environment variable**: `$MY_API_KEY`
 - **Shell command**: `!security find-generic-password -ws 'anthropic'`

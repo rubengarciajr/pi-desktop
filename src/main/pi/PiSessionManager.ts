@@ -40,8 +40,6 @@ type Model = {
   maxTokens?: number;
 };
 
-const PI_VERSION = "0.79.10";
-
 /** Web-search tools (from the pi-web-access package) allowed in chat mode when
  *  the 🔍 Web toggle is on. Unknown names are harmless no-ops if the package
  *  isn't installed. */
@@ -272,7 +270,14 @@ export class PiSessionManager {
     this.applyChatTools();
     if (enabled) {
       this.injectWebNudge();
-      if (!this.isWebSearchAvailable()) {
+      if (this.isWebSearchAvailable()) {
+        this.events.emit(
+          this.DIAG_EVENT,
+          this.isWebAccessInstalled()
+            ? "Web search enabled (pi-web-access)."
+            : "Web search enabled — using the built-in tool (DuckDuckGo, no key required).",
+        );
+      } else {
         this.events.emit(this.DIAG_EVENT, "Web search is unavailable in this session.");
       }
     }
@@ -477,7 +482,7 @@ export class PiSessionManager {
   }
 
   /** Build and emit a state summary from the current session. */
-  emitState() {
+  async emitState() {
     if (!this.session) return;
     const s = this.session;
     const model = s.model;
@@ -485,6 +490,7 @@ export class PiSessionManager {
     let contextWindow: number | null = null;
     let totalTokens: number | null = null;
     let totalCost: number | null = null;
+    let reasoningTokens: number | null = null;
     try {
       const usage = s.getContextUsage?.();
       if (usage) {
@@ -493,11 +499,14 @@ export class PiSessionManager {
       }
     } catch {}
     try {
-      const stats = s.getSessionStats?.();
+      // Use the manager's own aggregate (which sums reasoning tokens from
+      // per-message usage) rather than the SDK's getSessionStats(), so the
+      // Pi 0.80.3 reasoning breakdown is surfaced.
+      const stats = await this.getSessionStats();
       if (stats) {
         totalTokens = stats.tokens?.total ?? null;
         totalCost = stats.cost ?? null;
-        if (!contextWindow && stats.contextUsage) contextWindow = stats.contextUsage.contextWindow ?? null;
+        reasoningTokens = stats.tokens?.reasoning ?? null;
       }
     } catch {}
     this.events.emit(this.STATE_EVENT, {
@@ -519,6 +528,7 @@ export class PiSessionManager {
       contextWindow,
       totalTokens,
       totalCost,
+      reasoningTokens,
     });
   }
 
@@ -758,6 +768,10 @@ export class PiSessionManager {
     // Reconstruct from session messages + agent usage; full stats require agent internals.
     if (!this.session) return null;
     let input = 0, output = 0, cacheRead = 0, cacheWrite = 0, cost = 0;
+    // Reasoning/thinking tokens reported by some providers (Pi 0.80.3+). These
+    // are a SUBSET of `output` (the SDK doc is explicit), so they're surfaced
+    // as a breakdown detail and deliberately NOT added to `total`.
+    let reasoning = 0;
     let userMessages = 0, assistantMessages = 0, toolCalls = 0, toolResults = 0;
     for (const m of this.session.messages as any[]) {
       if (m.role === "user") userMessages++;
@@ -769,6 +783,7 @@ export class PiSessionManager {
           output += usage.output ?? 0;
           cacheRead += usage.cacheRead ?? 0;
           cacheWrite += usage.cacheWrite ?? 0;
+          reasoning += usage.reasoning ?? 0;
           cost += usage.cost?.total ?? 0;
         }
         const content = Array.isArray(m.content) ? m.content : [];
@@ -785,7 +800,15 @@ export class PiSessionManager {
       toolCalls,
       toolResults,
       totalMessages: this.session.messages.length,
-      tokens: { input, output, cacheRead, cacheWrite, total: input + output + cacheRead + cacheWrite },
+      tokens: {
+        input,
+        output,
+        cacheRead,
+        cacheWrite,
+        // `reasoning` is a subset of `output` — do not add it here.
+        total: input + output + cacheRead + cacheWrite,
+        reasoning,
+      },
       cost,
     };
   }
@@ -919,6 +942,44 @@ export class PiSessionManager {
       }));
     } catch (err: any) {
       console.error("[pi-desktop] Package list failed:", err);
+      return [];
+    }
+  }
+
+  /**
+   * Update a single configured package to its latest version. Mirrors `pi update`.
+   * Lets users upgrade extensions from the UI instead of dropping to a terminal.
+   */
+  async updatePackage(
+    spec: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const pm = await this.getPackageManager();
+      await pm.update(spec);
+      return { success: true };
+    } catch (err: any) {
+      console.error("[pi-desktop] Package update failed:", err);
+      return { success: false, error: err?.message ?? String(err) };
+    }
+  }
+
+  /**
+   * Check which configured packages have a newer version available, without
+   * installing. Powers the "Update available" badges in the Extensions view.
+   */
+  async checkForPackageUpdates(): Promise<
+    { source: string; displayName: string; type: "npm" | "git" }[]
+  > {
+    try {
+      const pm = await this.getPackageManager();
+      const updates = await pm.checkForAvailableUpdates();
+      return (updates ?? []).map((u: any) => ({
+        source: u.source,
+        displayName: u.displayName,
+        type: u.type,
+      }));
+    } catch (err: any) {
+      console.error("[pi-desktop] Package update check failed:", err);
       return [];
     }
   }
@@ -1201,10 +1262,6 @@ export class PiSessionManager {
     const path = outputPath ?? `${this.session.sessionFile}.html`;
     // Delegate to a simple HTML generation
     return { path };
-  }
-
-  get piVersion() {
-    return PI_VERSION;
   }
 
   dispose() {

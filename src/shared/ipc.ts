@@ -57,6 +57,8 @@ export interface PiState {
   contextWindow?: number | null;
   totalTokens?: number | null;
   totalCost?: number | null;
+  /** Cumulative reasoning/thinking tokens (Pi 0.80.3+). Subset of totalTokens' output. */
+  reasoningTokens?: number | null;
 }
 
 export interface PiModelInfo {
@@ -87,6 +89,8 @@ export interface PiSessionStats {
     cacheRead: number;
     cacheWrite: number;
     total: number;
+    /** Reasoning/thinking tokens (Pi 0.80.3+). Subset of `output`, not in `total`. */
+    reasoning?: number;
   };
   cost: number;
   contextUsage?: {
@@ -186,10 +190,11 @@ export interface PiApi {
   setCwd: (args: { cwd: string; tabId?: string }) => Promise<{ success: boolean }>;
   pickDirectory: () => Promise<string | null>;
   getGitInfo: (args?: { tabId?: string }) => Promise<GitRepoInfo>;
+  /** Resolved Pi SDK version (from the SDK's own VERSION export). */
+  getSdkVersion: () => Promise<string>;
 
-  // Install
+  // System checks
   checkPiInstalled: () => Promise<{ installed: boolean; version: string | null }>;
-  startPiInstall: () => Promise<{ success: boolean; error?: string }>;
 
   // Extension UI dialog response (answers a select/confirm/input/editor request)
   respondExtUi: (args: { tabId?: string; id: string; response: unknown }) => Promise<{ success: boolean }>;
@@ -316,12 +321,23 @@ export interface AddonsApi {
   }>;
 }
 
+/** A package with a newer version available (never installed). */
+export interface PackageUpdateInfo {
+  source: string;
+  displayName: string;
+  type: "npm" | "git";
+}
+
 /** Packages API surface. */
 export interface PackagesApi {
   search: () => Promise<PackageInfo[]>;
   installed: () => Promise<InstalledPackage[]>;
   install: (args: { spec: string }) => Promise<{ success: boolean; error?: string }>;
   remove: (args: { spec: string }) => Promise<{ success: boolean; error?: string }>;
+  /** Update a single configured package to its latest version (in-app `pi update`). */
+  update: (args: { spec: string; tabId?: string }) => Promise<{ success: boolean; error?: string }>;
+  /** Check configured packages for available updates (does not install). */
+  checkUpdates: (args?: { tabId?: string }) => Promise<PackageUpdateInfo[]>;
   removeSkill: (args: { path: string }) => Promise<{ success: boolean; error?: string }>;
   removeExtension: (args: { path: string }) => Promise<{ success: boolean; error?: string }>;
   restoreStock: () => Promise<{ success: boolean; removed: string[]; error?: string }>;
@@ -343,8 +359,6 @@ export interface PiEventApi {
   onDiagnostics: (listener: (msg: string) => void) => () => void;
   onMenu: (listener: (action: string) => void) => () => void;
   onSessionReset: (listener: (data: { sessionId: string; sessionFile?: string }) => void) => () => void;
-  onInstallProgress: (listener: (progress: any) => void) => () => void;
-  onInstallDone: (listener: (result: any) => void) => () => void;
   onPackagesChanged: (listener: () => void) => () => void;
   onUpdate: (listener: (data: any) => void) => () => void;
   onThemeChanged: (listener: (data: any) => void) => () => void;

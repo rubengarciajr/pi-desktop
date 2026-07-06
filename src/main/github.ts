@@ -1,9 +1,12 @@
-import { execFileSync } from "child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { safeStorage, app } from "electron";
 import { join } from "node:path";
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 
 const TOKEN_FILE = join(app.getPath("userData"), "github-token.enc");
+
+const pExecFile = promisify(execFile);
 
 export interface GitHubAuthState {
   authenticated: boolean;
@@ -27,18 +30,31 @@ export interface GitHubSyncState {
 }
 
 /** Securely store GitHub token using Electron safeStorage. */
-export function storeGitHubToken(token: string): void {
+export function storeGitHubToken(token: string): { success: boolean; error?: string } {
+  if (!safeStorage.isEncryptionAvailable()) {
+    return {
+      success: false,
+      error: "macOS secure storage is unavailable. GitHub token was not saved.",
+    };
+  }
+
   try {
     const encrypted = safeStorage.encryptString(token);
     writeFileSync(TOKEN_FILE, encrypted);
+    return { success: true };
   } catch (err) {
     console.error("[github] Failed to store token:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to save GitHub token",
+    };
   }
 }
 
 /** Retrieve stored token. */
 export function getGitHubToken(): string | null {
   try {
+    if (!safeStorage.isEncryptionAvailable()) return null;
     if (!existsSync(TOKEN_FILE)) return null;
     const encrypted = readFileSync(TOKEN_FILE);
     if (encrypted.length === 0) return null;
@@ -90,11 +106,14 @@ export async function getGitHubAuthStatus(): Promise<GitHubAuthState> {
  * `fetchRemote` controls the (network) `git fetch` — pass false for cheap,
  * frequent local polling (dirty + ahead), true to also refresh `behind`.
  */
-export function getSyncState(cwd: string, fetchRemote = true): GitHubSyncState {
+export async function getSyncState(
+  cwd: string,
+  fetchRemote = true,
+): Promise<GitHubSyncState> {
   const state: GitHubSyncState = { ahead: 0, behind: 0, hasRemote: false };
 
   // First check if there's a git remote.
-  const remoteUrl = tryExecFile("git", ["remote", "get-url", "origin"], cwd);
+  const remoteUrl = await tryExecFile("git", ["remote", "get-url", "origin"], cwd);
   if (!remoteUrl) {
     // No git remote, but check the linkage file (e.g., on a fresh clone machine).
     const linkage = readRepoLinkage(cwd);
@@ -115,12 +134,16 @@ export function getSyncState(cwd: string, fetchRemote = true): GitHubSyncState {
     state.repoName = match[2];
   }
 
-  state.branch = tryExecFile("git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd) || "main";
+  state.branch = (await tryExecFile("git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd)) || "main";
 
   // Fetch quietly to update ahead/behind (network — only on explicit refresh).
-  if (fetchRemote) tryExecFile("git", ["fetch", "--quiet"], cwd);
+  if (fetchRemote) await tryExecFile("git", ["fetch", "--quiet"], cwd);
 
-  const tracking = tryExecFile("git", ["rev-list", "--left-right", "--count", "HEAD...@{upstream}"], cwd);
+  const tracking = await tryExecFile(
+    "git",
+    ["rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
+    cwd,
+  );
   if (tracking) {
     const parts = tracking.split(/\s+/);
     state.ahead = parseInt(parts[0], 10) || 0;
@@ -128,7 +151,7 @@ export function getSyncState(cwd: string, fetchRemote = true): GitHubSyncState {
   }
 
   // Uncommitted/untracked changes — drives the "needs sync" glow.
-  const porcelain = tryExecFile("git", ["status", "--porcelain"], cwd);
+  const porcelain = await tryExecFile("git", ["status", "--porcelain"], cwd);
   const changed = porcelain ? porcelain.split("\n").filter(Boolean).length : 0;
   state.dirty = changed > 0;
   state.changedFiles = changed;
@@ -137,9 +160,15 @@ export function getSyncState(cwd: string, fetchRemote = true): GitHubSyncState {
 }
 
 /** Push local changes to remote. Uses git credential helper. */
-export function pushToRemote(cwd: string): { success: boolean; error?: string } {
+export async function pushToRemote(
+  cwd: string,
+): Promise<{ success: boolean; error?: string }> {
   try {
-    execFileSync("git", ["push"], { cwd, encoding: "utf-8", timeout: 30000, stdio: ["pipe", "pipe", "pipe"] });
+    await pExecFile("git", ["push"], {
+      cwd,
+      encoding: "utf-8",
+      timeout: 30000,
+    });
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message || "Push failed" };
@@ -147,9 +176,15 @@ export function pushToRemote(cwd: string): { success: boolean; error?: string } 
 }
 
 /** Pull from remote. */
-export function pullFromRemote(cwd: string): { success: boolean; error?: string } {
+export async function pullFromRemote(
+  cwd: string,
+): Promise<{ success: boolean; error?: string }> {
   try {
-    execFileSync("git", ["pull"], { cwd, encoding: "utf-8", timeout: 30000, stdio: ["pipe", "pipe", "pipe"] });
+    await pExecFile("git", ["pull"], {
+      cwd,
+      encoding: "utf-8",
+      timeout: 30000,
+    });
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message || "Pull failed" };
@@ -185,7 +220,9 @@ export function writeRepoLinkage(cwd: string, linkage: RepoLinkage): void {
 }
 
 /** List user's GitHub repos for the "attach" picker. */
-export async function listUserRepos(token: string): Promise<{ name: string; fullName: string; private: boolean; url: string }[]> {
+export async function listUserRepos(
+  token: string,
+): Promise<{ name: string; fullName: string; private: boolean; url: string }[]> {
   const res = await fetch("https://api.github.com/user/repos?sort=updated&per_page=100", {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -203,12 +240,19 @@ export async function listUserRepos(token: string): Promise<{ name: string; full
 }
 
 /** Attach an existing GitHub repo to the local folder: set remote, write linkage. */
-export function attachRepo(cwd: string, repo: { owner: string; name: string; remoteUrl: string }): { success: boolean; error?: string } {
+export async function attachRepo(
+  cwd: string,
+  repo: { owner: string; name: string; remoteUrl: string },
+): Promise<{ success: boolean; error?: string }> {
   try {
-    tryExecFile("git", ["init"], cwd);
-    tryExecFile("git", ["remote", "remove", "origin"], cwd);
-    execFileSync("git", ["remote", "add", "origin", repo.remoteUrl], { cwd, encoding: "utf-8", timeout: 5000 });
-    tryExecFile("git", ["fetch", "--quiet"], cwd);
+    await tryExecFile("git", ["init"], cwd);
+    await tryExecFile("git", ["remote", "remove", "origin"], cwd);
+    await pExecFile("git", ["remote", "add", "origin", repo.remoteUrl], {
+      cwd,
+      encoding: "utf-8",
+      timeout: 5000,
+    });
+    await tryExecFile("git", ["fetch", "--quiet"], cwd);
     writeRepoLinkage(cwd, {
       repoOwner: repo.owner,
       repoName: repo.name,
@@ -222,9 +266,15 @@ export function attachRepo(cwd: string, repo: { owner: string; name: string; rem
 }
 
 /** Clone a repo into a local folder (for new machine / new folder setup). */
-export function cloneRepo(remoteUrl: string, localPath: string): { success: boolean; error?: string } {
+export async function cloneRepo(
+  remoteUrl: string,
+  localPath: string,
+): Promise<{ success: boolean; error?: string }> {
   try {
-    execFileSync("git", ["clone", remoteUrl, localPath], { encoding: "utf-8", timeout: 60000, stdio: ["pipe", "pipe", "pipe"] });
+    await pExecFile("git", ["clone", remoteUrl, localPath], {
+      encoding: "utf-8",
+      timeout: 60000,
+    });
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to clone" };
@@ -266,24 +316,33 @@ export async function createRepo(
   const repoUrl = sshUrl || httpsUrl;
 
   // Initialize git if needed.
-  tryExecFile("git", ["init"], cwd);
+  await tryExecFile("git", ["init"], cwd);
 
   // Set remote (remove existing origin first if present).
-  tryExecFile("git", ["remote", "remove", "origin"], cwd);
-  execFileSync("git", ["remote", "add", "origin", repoUrl], { cwd, encoding: "utf-8", timeout: 5000 });
+  await tryExecFile("git", ["remote", "remove", "origin"], cwd);
+  await pExecFile("git", ["remote", "add", "origin", repoUrl], {
+    cwd,
+    encoding: "utf-8",
+    timeout: 5000,
+  });
 
   // Initial commit + push if there are files.
-  const hasFiles = tryExecFile("git", ["status", "--porcelain"], cwd);
+  const hasFiles = await tryExecFile("git", ["status", "--porcelain"], cwd);
   if (hasFiles) {
-    execFileSync("git", ["add", "-A"], { cwd, encoding: "utf-8", timeout: 10000 });
-    tryExecFile("git", ["commit", "-m", "Initial commit from Pi Desktop"], cwd);
+    await pExecFile("git", ["add", "-A"], { cwd, encoding: "utf-8", timeout: 10000 });
+    await tryExecFile("git", ["commit", "-m", "Initial commit from Pi Desktop"], cwd);
   }
 
   // Push to set upstream.
-  const branch = tryExecFile("git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd) || "main";
+  const branch =
+    (await tryExecFile("git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd)) || "main";
   try {
-    execFileSync("git", ["push", "-u", "origin", branch], { cwd, encoding: "utf-8", timeout: 30000, stdio: ["pipe", "pipe", "pipe"] });
-  } catch (err: any) {
+    await pExecFile("git", ["push", "-u", "origin", branch], {
+      cwd,
+      encoding: "utf-8",
+      timeout: 30000,
+    });
+  } catch {
     // Push may fail if no files/commits, but repo was still created.
   }
 
@@ -298,10 +357,22 @@ export async function createRepo(
   return { success: true, repoUrl };
 }
 
-/** Safe exec helper using arg arrays (no shell injection risk). */
-function tryExecFile(cmd: string, args: string[], cwd: string): string | null {
+/**
+ * Safe async exec helper using arg arrays (no shell injection risk). Returns
+ * trimmed stdout or `null` on failure/timeout. Never blocks the main thread.
+ */
+async function tryExecFile(
+  cmd: string,
+  args: string[],
+  cwd: string,
+): Promise<string | null> {
   try {
-    return execFileSync(cmd, args, { cwd, encoding: "utf-8", timeout: 5000, stdio: ["pipe", "pipe", "pipe"] }).trim();
+    const { stdout } = await pExecFile(cmd, args, {
+      cwd,
+      encoding: "utf-8",
+      timeout: 5000,
+    });
+    return stdout.trim();
   } catch {
     return null;
   }

@@ -6,6 +6,38 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.2.9",
+    date: "2026-07-04",
+    sections: [
+      {
+        title: "Performance",
+        items: [
+          "Eliminated periodic 5-second UI freezes: git/GitHub polling and version probes moved off the main thread (execFileSync → async)",
+          "Streaming chat no longer re-highlights code on every token — CodeBlock is memoized, markdown consts hoisted, message list virtualized (react-virtuoso)",
+          "Renderer bundle cut from 1.7 MB to ~1.0 MB: PrismLight + selective language registration, vendor chunk splitting, lazy-loaded secondary views",
+        ],
+      },
+      {
+        title: "Pi SDK 0.80.3",
+        items: [
+          "Upgraded Pi agent SDK to 0.80.3 (Claude Sonnet 5, gpt-5.5 default, provider/stream fixes)",
+          "Displayed SDK version now reads from the SDK itself — no more drift after bumps",
+          "Reasoning/thinking token counts surfaced in the status bar cost tooltip where providers report them",
+        ],
+      },
+      {
+        title: "No-CLI cleanup",
+        items: [
+          "Removed the dead pi-CLI installer UI and the 'Install Pi' button — Pi Desktop runs the SDK in-process and never needed it",
+          "Package install/remove/list now provably goes through the in-process SDK (dead CLI-spawning code in packages.ts removed)",
+          "System tab reworded to make clear Node/npm are only needed when installing packages, and the Pi CLI is terminal-only",
+          "Removed the unused Onboarding screen",
+          "Fixed black screen on launch: preload now builds as CommonJS (sandboxed renderers don't support ESM imports)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.2.8",
     date: "2026-06-22",
     sections: [

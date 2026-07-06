@@ -1,5 +1,3 @@
-import { execSync, spawn, ChildProcess } from "child_process";
-
 export interface PackageInfo {
   name: string;
   description: string;
@@ -13,17 +11,15 @@ export interface PackageInfo {
   publishedDate?: string;
 }
 
-export interface InstalledPackage {
-  spec: string;
-  name: string;
-  source: string;
-}
+// `InstalledPackage` (the canonical type used by the renderer) lives in
+// src/shared/ipc.ts. Package install/remove/list themselves are handled by
+// PiSessionManager via the SDK's DefaultPackageManager — no pi CLI involved.
 
 /** Search npm registry for pi-package keyword. */
 export async function searchPackages(): Promise<PackageInfo[]> {
   const res = await fetch(
     "https://registry.npmjs.org/-/v1/search?text=keywords:pi-package&size=250",
-    { headers: { Accept: "application/json" } }
+    { headers: { Accept: "application/json" } },
   );
   if (!res.ok) throw new Error(`npm search failed: ${res.status}`);
   const data: any = await res.json();
@@ -40,14 +36,17 @@ export async function searchPackages(): Promise<PackageInfo[]> {
     // Extract types from keywords.
     const keywords: string[] = pkg.keywords || [];
     const types = keywords.filter((k: string) =>
-      ["extension", "skill", "theme", "prompt", "package"].includes(k)
+      ["extension", "skill", "theme", "prompt", "package"].includes(k),
     );
     if (types.length === 0) types.push("package");
 
     packages.push({
       name: pkg.name,
       description: pkg.description || "",
-      author: typeof pkg.publisher === "string" ? pkg.publisher : pkg.publisher?.username || pkg.author?.name || "unknown",
+      author:
+        typeof pkg.publisher === "string"
+          ? pkg.publisher
+          : pkg.publisher?.username || pkg.author?.name || "unknown",
       version: pkg.version,
       downloads,
       types,
@@ -78,7 +77,7 @@ export async function getDownloadCounts(packageNames: string[]): Promise<Record<
       try {
         const res = await fetch(
           `https://api.npmjs.org/downloads/point/last-month/${encodeURIComponent(name)}`,
-          { headers: { Accept: "application/json" } }
+          { headers: { Accept: "application/json" } },
         );
         if (!res.ok) continue;
         const data: any = await res.json();
@@ -91,74 +90,4 @@ export async function getDownloadCounts(packageNames: string[]): Promise<Record<
 
   await Promise.all(Array.from({ length: concurrency }, () => fetchOne()));
   return results;
-}
-
-/** Install a pi package. Returns a child process + promise. */
-export function installPackage(spec: string): Promise<{ success: boolean; error?: string }> {
-  return new Promise((resolve) => {
-    const child = spawn("pi", ["install", spec], {
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
-    let stderr = "";
-    child.stderr?.on("data", (data: Buffer) => { stderr += data.toString(); });
-
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve({ success: true });
-      } else {
-        resolve({ success: false, error: stderr.trim() || `pi install exited with code ${code}` });
-      }
-    });
-
-    child.on("error", (err) => {
-      resolve({ success: false, error: err.message });
-    });
-  });
-}
-
-/** Remove a pi package. */
-export function removePackage(spec: string): Promise<{ success: boolean; error?: string }> {
-  return new Promise((resolve) => {
-    const child = spawn("pi", ["remove", spec], {
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
-    let stderr = "";
-    child.stderr?.on("data", (data: Buffer) => { stderr += data.toString(); });
-
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve({ success: true });
-      } else {
-        resolve({ success: false, error: stderr.trim() || `pi remove exited with code ${code}` });
-      }
-    });
-
-    child.on("error", (err) => {
-      resolve({ success: false, error: err.message });
-    });
-  });
-}
-
-/** List installed packages by parsing pi list output. */
-export function listInstalledPackages(): InstalledPackage[] {
-  try {
-    const output = execSync("pi list", { encoding: "utf-8", timeout: 10000, stdio: ["pipe", "pipe", "pipe"] });
-    const packages: InstalledPackage[] = [];
-    for (const line of output.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("pi")) continue;
-      // Lines look like: "  npm:@foo/bar" or "  npm:package@version"
-      const match = trimmed.match(/^(npm:|git:|https?:|\.?\/)(.+)$/);
-      if (match) {
-        const spec = trimmed.replace(/\s+$/, "");
-        const name = spec.replace(/^npm:/, "").split("@")[0] || spec;
-        packages.push({ spec, name, source: match[1] });
-      }
-    }
-    return packages;
-  } catch {
-    return [];
-  }
 }

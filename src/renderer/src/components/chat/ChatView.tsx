@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useRef } from "react";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { useAppStore } from "../../store/useAppStore";
 import { MessageItem } from "./MessageItem";
 import { PromptInput } from "./PromptInput";
@@ -7,66 +8,51 @@ import { ExtensionWidgets } from "../extensions/ExtensionUi";
 import { PiLogoIcon, FolderIcon } from "../Icons";
 
 export function ChatView() {
-  const activeTab = useAppStore((s) => s.activeTab);
-  const messages = activeTab.messages;
-  const isStreaming = activeTab.piState.isStreaming;
-  const cwd = activeTab.piState.cwd;
-  const scrollRef = useRef<HTMLDivElement>(null);
-  // Pinned = follow new output. Toggled OFF the moment the user scrolls up, and
-  // back ON only when they return to the bottom themselves. The auto-scroll's
-  // own movement is distinguished from a user scroll by direction (it only ever
-  // moves down to the bottom), so it can never re-pin against the user's wishes.
-  const pinnedRef = useRef(true);
-  const lastTopRef = useRef(0);
+  // Select only the fields this component uses, so unrelated tab state changes
+  // (tool/queue/ext updates) don't re-render the whole message list. The
+  // previous `s.activeTab` subscription re-rendered on every streaming token
+  // AND every tool-call update.
+  const messages = useAppStore((s) => s.activeTab.messages);
+  const isStreaming = useAppStore((s) => s.activeTab.piState.isStreaming);
+  const cwd = useAppStore((s) => s.activeTab.piState.cwd);
+  const activeTabId = useAppStore((s) => s.activeTab.id);
+
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
+  // Whether the viewport is pinned to the bottom (auto-following streaming
+  // output). Virtuoso flips this via atBottomStateChange; followOutput reads it
+  // so a token arriving while the user scrolled up never yanks the view back.
+  const atBottomRef = useRef(true);
   const [showJump, setShowJump] = useState(false);
 
+  // followOutput is invoked on every change that could add content. Return
+  // "smooth" while pinned to follow streaming output; false once the user has
+  // scrolled up so a token arriving mid-scroll-up never yanks the view back.
+  const followOutput = () => {
+    if (!atBottomRef.current) return false;
+    return "smooth" as const;
+  };
+
+  const handleAtBottomChange = (atBottom: boolean) => {
+    atBottomRef.current = atBottom;
+    setShowJump(!atBottom);
+  };
+
   const scrollToBottom = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    pinnedRef.current = true;
-    el.scrollTop = el.scrollHeight;
-    lastTopRef.current = el.scrollTop;
-    setShowJump(false);
-  };
-
-  // Follow streaming output only while pinned. The pinned flag is re-checked at
-  // rAF fire time, so a token that arrives mid-scroll-up never yanks the view.
-  useEffect(() => {
-    if (!pinnedRef.current) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    const id = requestAnimationFrame(() => {
-      if (!pinnedRef.current || !el) return;
-      el.scrollTop = el.scrollHeight;
-      lastTopRef.current = el.scrollTop;
+    virtuosoRef.current?.scrollToIndex({
+      index: "LAST",
+      behavior: "smooth",
     });
-    return () => cancelAnimationFrame(id);
-  }, [messages]);
-
-  const handleScroll = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const top = el.scrollTop;
-    const distance = el.scrollHeight - top - el.clientHeight;
-    if (top < lastTopRef.current - 2) {
-      pinnedRef.current = false; // user scrolled up — stop following
-    } else if (distance < 24) {
-      pinnedRef.current = true; // returned to the bottom — resume following
-    }
-    lastTopRef.current = top;
-    setShowJump(!pinnedRef.current && distance > 80);
   };
 
-  // Scroll to bottom on tab switch.
-  useEffect(() => {
-    pinnedRef.current = true;
+  // Reset follow state on tab switch so a fresh tab starts pinned at the bottom.
+  // (Resetting the ref directly is enough; Virtuoso re-evaluates followOutput on
+  // the next render.)
+  const lastTabRef = useRef(activeTabId);
+  if (lastTabRef.current !== activeTabId) {
+    lastTabRef.current = activeTabId;
+    atBottomRef.current = true;
     setShowJump(false);
-    const el = scrollRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-      lastTopRef.current = el.scrollTop;
-    }
-  }, [activeTab.id]);
+  }
 
   const isEmpty = messages.length === 0;
 
@@ -82,18 +68,33 @@ export function ChatView() {
 
       {/* Messages */}
       <div className="relative flex-1 overflow-hidden">
-        <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto overflow-x-hidden">
-          {isEmpty ? (
-            <EmptyState />
-          ) : (
-            <div className="flex min-w-0 flex-col gap-1 px-6 pb-6">
-              {messages.map((msg) => (
-                <MessageItem key={msg.id} message={msg} />
-              ))}
-              {isStreaming && <div className="py-1 text-xs text-thinking animate-pulse-subtle">Thinking...</div>}
-            </div>
-          )}
-        </div>
+        {isEmpty ? (
+          <EmptyState />
+        ) : (
+          <Virtuoso
+            ref={virtuosoRef}
+            className="h-full"
+            data={messages}
+            followOutput={followOutput}
+            atBottomStateChange={handleAtBottomChange}
+            atBottomThreshold={80}
+            computeItemKey={(_, msg) => msg.id}
+            itemContent={(_, msg) => (
+              // Horizontal padding lives on each item (the old layout used a
+              // padded flex column); vertical spacing comes from the message's
+              // own `py-2`.
+              <div className="min-w-0 px-6">
+                <MessageItem message={msg} />
+              </div>
+            )}
+            components={{ Footer: () => <div className="h-6" /> }}
+          />
+        )}
+        {isStreaming && atBottomRef.current && !isEmpty && (
+          <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 py-1 text-xs text-thinking animate-pulse-subtle">
+            Thinking...
+          </div>
+        )}
         {showJump && (
           <button
             onClick={scrollToBottom}
@@ -146,12 +147,12 @@ function EmptyState() {
           ? "Start a quick chat — no folder needed. Convert it to a code session anytime with the ⚡ button."
           : "A full-featured desktop client for the Pi coding agent. Pick a working folder or drag one onto the tab bar to begin."}
       </p>
-      <button
+      <h2
         onClick={chat ? handleNewChat : handleNewSession}
-        className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+        className="cursor-pointer text-2xl font-semibold tracking-tight text-text-muted transition-colors hover:text-accent"
       >
         {chat ? "Start Chatting" : "Select Working Folder"}
-      </button>
+      </h2>
       <div className="mt-8 grid grid-cols-2 gap-3 text-sm">
         <Example text="Explain this codebase" />
         <Example text="Fix failing tests" />

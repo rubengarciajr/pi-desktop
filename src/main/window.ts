@@ -23,8 +23,8 @@ export function createMainWindow(): BrowserWindow {
     visualEffectState: "active",
     ...(icon && !icon.isEmpty() ? { icon } : {}),
     webPreferences: {
-      preload: join(__dirname, "../preload/index.mjs"),
-      sandbox: false,
+      preload: join(__dirname, "../preload/index.cjs"),
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
     },

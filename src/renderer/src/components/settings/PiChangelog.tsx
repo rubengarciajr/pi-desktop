@@ -121,7 +121,7 @@ function parseChangelog(md: string): ChangelogEntry[] {
     }
     if (inCodeBlock) continue;
 
-    // Version header: ## [0.79.9] - 2026-06-20
+    // Version header: ## [0.80.3] - 2026-06-30
     const versionMatch = line.match(/^##\s*\[([^\]]+)\]\s*-?\s*(.*)/);
     if (versionMatch) {
       // Skip [Unreleased] - we only want released versions.

@@ -24,6 +24,8 @@ export function Sidebar() {
   const panels = useAppStore((s) => s.panels);
   const activePanelId = useAppStore((s) => s.activePanelId);
   const openPanel = useAppStore((s) => s.openPanel);
+  // Update count drives the orange dot on the Extensions nav item.
+  const packageUpdateCount = useAppStore((s) => s.packageUpdates.length);
 
   if (!sidebarOpen) return null;
 
@@ -118,6 +120,8 @@ export function Sidebar() {
         {NAV_ITEMS.map((item) => {
           const isSessions = item.id === "sessions";
           const active = isSessions ? sessionsPanelOpen : activeView === item.id;
+          // Orange dot on Extensions when configured packages have updates.
+          const showUpdateDot = item.id === "extensions" && packageUpdateCount > 0 && !active;
           return (
             <button
               key={item.id}
@@ -137,7 +141,13 @@ export function Sidebar() {
               <span className="flex w-[18px] shrink-0 items-center justify-center">
                 <item.Icon size={14} className={active ? "text-accent" : ""} />
               </span>
-              {item.label}
+              <span className="flex-1 text-left">{item.label}</span>
+              {showUpdateDot && (
+                <span
+                  className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning"
+                  title={`${packageUpdateCount} package update${packageUpdateCount === 1 ? "" : "s"} available`}
+                />
+              )}
             </button>
           );
         })}

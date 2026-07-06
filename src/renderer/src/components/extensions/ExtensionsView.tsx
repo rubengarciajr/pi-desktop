@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
-import type { InstalledPackage } from "../../../../shared/ipc";
+import type { InstalledPackage, PackageUpdateInfo } from "../../../../shared/ipc";
 import { ExtensionDetail } from "./ExtensionDetail";
 
 interface ExtensionInfo {
@@ -31,6 +31,12 @@ export function ExtensionsView() {
   const [commands, setCommands] = useState<CommandInfo[]>([]);
   const [tools, setTools] = useState<{ name: string; description?: string; source?: string }[]>([]);
   const [installedPackages, setInstalledPackages] = useState<InstalledPackage[]>([]);
+  // Update state lives in the store so the Sidebar orange dot and the badges
+  // here stay in sync (one source of truth).
+  const updates = useAppStore((s) => s.packageUpdates);
+  const refreshPackageUpdates = useAppStore((s) => s.refreshPackageUpdates);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [updatingSpec, setUpdatingSpec] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,6 +69,38 @@ export function ExtensionsView() {
     } catch {}
   };
 
+  // Check installed packages for newer versions (the in-app equivalent of
+  // `pi update`'s dry-run). No terminal required. Writes to the store so the
+  // Sidebar dot updates too.
+  const handleCheckUpdates = async () => {
+    setCheckingUpdates(true);
+    try {
+      await refreshPackageUpdates();
+    } finally {
+      setCheckingUpdates(false);
+    }
+  };
+
+  // Update a single package to its latest version, then re-check so the badge
+  // and Sidebar dot clear if it succeeded.
+  const handleUpdatePackage = async (spec: string) => {
+    setUpdatingSpec(spec);
+    try {
+      const res = await window.pi.packages.update({ spec });
+      if (res?.success) {
+        useAppStore.getState().addDiagnostic(`Updated ${spec} to the latest version.`);
+        await refreshPackageUpdates();
+        refresh();
+      } else if (res?.error) {
+        useAppStore.getState().addDiagnostic(`Update failed: ${res.error}`);
+      }
+    } catch (err: any) {
+      useAppStore.getState().addDiagnostic(`Update failed: ${err?.message ?? String(err)}`);
+    } finally {
+      setUpdatingSpec(null);
+    }
+  };
+
   const handleRemoveSkill = async (skill: SkillInfo) => {
     if (!skill.path) return;
     try {
@@ -87,13 +125,29 @@ export function ExtensionsView() {
       <div className="drag-region h-14 shrink-0" />
       <div className="no-drag flex items-center justify-between px-6 pb-3">
         <h1 className="text-sm font-semibold">Extensions & Skills</h1>
-        <button
-          onClick={refresh}
-          className="no-drag rounded-lg border border-border bg-bg-hover px-3 py-1 text-xs text-text-muted hover:bg-bg-active"
-        >
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCheckUpdates}
+            disabled={checkingUpdates}
+            className="no-drag rounded-lg border border-border bg-bg-hover px-3 py-1 text-xs text-text-muted hover:bg-bg-active disabled:opacity-40"
+            title="Check installed packages for newer versions"
+          >
+            {checkingUpdates ? "Checking…" : "Check for updates"}
+          </button>
+          <button
+            onClick={refresh}
+            className="no-drag rounded-lg border border-border bg-bg-hover px-3 py-1 text-xs text-text-muted hover:bg-bg-active"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
+      {updates.length > 0 && (
+        <div className="no-drag mx-6 mb-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-xs text-text-muted">
+          <span className="font-medium text-accent">{updates.length} update{updates.length === 1 ? "" : "s"} available.</span>{" "}
+          Use the Update button next to each package below.
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="no-drag flex gap-1 border-b border-border px-6">
@@ -120,7 +174,10 @@ export function ExtensionsView() {
             <ExtensionsList
               extensions={extensions}
               installedPackages={installedPackages}
+              updates={updates}
+              updatingSpec={updatingSpec}
               onRemovePackage={handleRemovePackage}
+              onUpdatePackage={handleUpdatePackage}
               onSettings={setSelected}
             />
           )}
@@ -157,12 +214,18 @@ function TabButton({ active, onClick, count, children }: { active: boolean; onCl
 function ExtensionsList({
   extensions,
   installedPackages,
+  updates,
+  updatingSpec,
   onRemovePackage,
+  onUpdatePackage,
   onSettings,
 }: {
   extensions: ExtensionInfo[];
   installedPackages: InstalledPackage[];
+  updates: PackageUpdateInfo[];
+  updatingSpec: string | null;
   onRemovePackage: (spec: string) => void;
+  onUpdatePackage: (spec: string) => void;
   onSettings: (source: string) => void;
 }) {
   return (
@@ -172,28 +235,50 @@ function ExtensionsList({
         <div>
           <h3 className="mb-2 text-xs uppercase tracking-wider text-text-faint">Installed Packages</h3>
           <div className="space-y-2">
-            {installedPackages.map((pkg, i) => (
-              <div key={i} className="group flex items-center justify-between rounded-lg border border-border bg-bg-subtle px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-text">{pkg.name}</div>
-                  <div className="truncate text-xs text-text-faint font-mono">{pkg.spec}</div>
+            {installedPackages.map((pkg, i) => {
+              // Match an update to this package by source spec (e.g. "npm:context-mode").
+              const update = updates.find((u) => u.source === pkg.spec);
+              const isUpdating = updatingSpec === pkg.spec;
+              return (
+                <div key={i} className="group flex items-center justify-between rounded-lg border border-border bg-bg-subtle px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium text-text">{pkg.name}</span>
+                      {update && (
+                        <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                          Update available
+                        </span>
+                      )}
+                    </div>
+                    <div className="truncate text-xs text-text-faint font-mono">{pkg.spec}</div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {update && (
+                      <button
+                        onClick={() => onUpdatePackage(pkg.spec)}
+                        disabled={isUpdating}
+                        className="rounded-lg border border-accent/40 bg-accent/15 px-3 py-1.5 text-xs font-medium text-accent transition-opacity hover:bg-accent/25 disabled:opacity-40"
+                        title={`Update ${pkg.name} to the latest version`}
+                      >
+                        {isUpdating ? "Updating…" : "Update"}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onSettings(pkg.spec)}
+                      className="rounded-lg border border-border bg-bg-hover px-3 py-1.5 text-xs text-text-muted opacity-0 transition-opacity hover:bg-bg-active hover:text-text group-hover:opacity-100"
+                    >
+                      Settings
+                    </button>
+                    <button
+                      onClick={() => onRemovePackage(pkg.spec)}
+                      className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs text-danger opacity-0 transition-opacity hover:bg-danger/20 group-hover:opacity-100"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <button
-                    onClick={() => onSettings(pkg.spec)}
-                    className="rounded-lg border border-border bg-bg-hover px-3 py-1.5 text-xs text-text-muted opacity-0 transition-opacity hover:bg-bg-active hover:text-text group-hover:opacity-100"
-                  >
-                    Settings
-                  </button>
-                  <button
-                    onClick={() => onRemovePackage(pkg.spec)}
-                    className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs text-danger opacity-0 transition-opacity hover:bg-danger/20 group-hover:opacity-100"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

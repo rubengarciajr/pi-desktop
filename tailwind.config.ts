@@ -55,6 +55,7 @@ const config: Config = {
         "fade-in": "fade-in 0.15s ease-out",
         "slide-up": "slide-up 0.2s ease-out",
         glow: "glow 2s ease-in-out infinite",
+        "glow-accent": "glow-accent 2.4s ease-in-out infinite",
       },
       keyframes: {
         "pulse-subtle": {
@@ -74,6 +75,18 @@ const config: Config = {
         glow: {
           "0%, 100%": { boxShadow: "0 0 0 0 rgb(var(--color-warning-rgb) / 0)" },
           "50%": { boxShadow: "0 0 10px 2px rgb(var(--color-warning-rgb) / 0.55)" },
+        },
+        // Accent-colored pulse on the prompt input when a chat/code session is
+        // fresh (empty) — draws the eye to where the user should type.
+        "glow-accent": {
+          "0%, 100%": {
+            boxShadow: "0 0 0 0 rgb(var(--color-accent-rgb) / 0)",
+            borderColor: "rgb(var(--color-border-rgb))",
+          },
+          "50%": {
+            boxShadow: "0 0 14px 2px rgb(var(--color-accent-rgb) / 0.45)",
+            borderColor: "rgb(var(--color-accent-rgb) / 0.6)",
+          },
         },
       },
     },

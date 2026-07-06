@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { PanelContribution, StatusItemContribution, ToolRendererContribution } from "../../../shared/ipc";
+import type { PanelContribution, StatusItemContribution, ToolRendererContribution, PackageUpdateInfo } from "../../../shared/ipc";
 
 export interface ContentBlock {
   type: "text" | "thinking" | "toolCall" | "toolResult";
@@ -50,6 +50,8 @@ export interface PiState {
   contextWindow?: number | null;
   totalTokens?: number | null;
   totalCost?: number | null;
+  /** Cumulative reasoning/thinking tokens (Pi 0.80.3+). Subset of output. */
+  reasoningTokens?: number | null;
 }
 
 export interface QueueState {
@@ -140,6 +142,14 @@ interface AppState {
   // Default mode for new tabs (Chat/Code toggle), persisted to localStorage.
   defaultTabMode: TabMode;
 
+  // Resolved Pi SDK version (refreshed from the SDK's own VERSION export on
+  // mount so the displayed version never drifts after a bump).
+  sdkVersion: string;
+
+  // Configured packages that have a newer version available (drives the
+  // orange dot on the Extensions nav item + the Update buttons in the view).
+  packageUpdates: PackageUpdateInfo[];
+
   // Derived (from active tab)
   activeTab: TabState;
 
@@ -161,6 +171,10 @@ interface AppState {
   setActiveView: (v: View) => void;
   setSidebarOpen: (o: boolean) => void;
   setSessionsPanelOpen: (o: boolean) => void;
+  setSdkVersion: (v: string) => void;
+  setPackageUpdates: (updates: PackageUpdateInfo[]) => void;
+  /** Re-check configured packages for available updates; refreshes the store. */
+  refreshPackageUpdates: () => Promise<void>;
   addDiagnostic: (msg: string) => void;
 
   // Extension UI actions
@@ -210,6 +224,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   statusItems: [],
   activePanelId: null,
   toolRenderers: {},
+  sdkVersion: "",
+  packageUpdates: [],
   defaultTabMode: (() => {
     try {
       return (localStorage.getItem("pi-default-tab-mode") as TabMode) || "chat";
@@ -373,9 +389,15 @@ export const useAppStore = create<AppState>((set, get) => ({
           updated = { ...ts, piState: { ...ts.piState, isStreaming: true } };
           break;
         case "agent_end":
+          // Clone ONLY the message that was streaming — cloning every message
+          // here would bust every MessageItem memo at once and re-render the
+          // entire conversation at end of turn. (message_end already does the
+          // same selective clone below.)
           updated = {
             ...ts,
-            messages: ts.messages.map((m) => ({ ...m, streaming: false })),
+            messages: ts.messages.map((m) =>
+              m.streaming ? { ...m, streaming: false } : m,
+            ),
             piState: { ...ts.piState, isStreaming: false },
           };
           break;
@@ -458,6 +480,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActiveView: (v) => set({ activeView: v }),
   setSidebarOpen: (o) => set({ sidebarOpen: o }),
   setSessionsPanelOpen: (o) => set({ sessionsPanelOpen: o }),
+  setSdkVersion: (v) => set({ sdkVersion: v }),
+  setPackageUpdates: (updates) => set({ packageUpdates: updates }),
+  refreshPackageUpdates: async () => {
+    try {
+      const updates = await window.pi.packages.checkUpdates({});
+      set({ packageUpdates: updates ?? [] });
+    } catch {
+      /* non-fatal — the dot just won't show */
+    }
+  },
   addDiagnostic: (msg) =>
     set((st) => {
       // Surface diagnostics as readable, auto-dismissing toasts (not just the
@@ -563,19 +595,84 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
 }));
 
+/**
+ * Split a raw text string into thinking + text segments.
+ *
+ * Some models (e.g. DeepSeek) emit reasoning as literal `<think>…</think>`
+ * tags *inside* text content, rather than as native SDK `thinking` blocks.
+ * Without this, the tags render as raw markdown text. This extracts them into
+ * proper thinking blocks so they collapse under the same "Reasoning" toggle as
+ * native reasoning. Supports multiple `<think>` segments per message and an
+ * unclosed `<think>` (during streaming) which is treated as thinking-through-EOF.
+ */
+function splitThinkTags(text: string): { kind: "thinking" | "text"; text: string }[] {
+  if (!text.includes("<think>")) return [{ kind: "text", text }];
+  const segments: { kind: "thinking" | "text"; text: string }[] = [];
+  const re = /<think>([\s\S]*?)(<\/think>|$)/gi;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    // Text before the <think> tag (if any).
+    if (m.index > last) {
+      const before = text.slice(last, m.index);
+      if (before.trim()) segments.push({ kind: "text", text: before });
+    }
+    segments.push({ kind: "thinking", text: m[1] });
+    last = m.index + m[0].length;
+    // If the tag was unclosed (streaming mid-think), consume the rest and stop.
+    if (!m[2]) break;
+  }
+  // Trailing text after the last closing tag.
+  if (last < text.length) {
+    const after = text.slice(last);
+    if (after.trim()) segments.push({ kind: "text", text: after });
+  }
+  return segments.length ? segments : [{ kind: "text", text }];
+}
+
 function extractBlocks(msg: any): ContentBlock[] {
   const blocks: ContentBlock[] = [];
   const content = msg.content;
+  // First pass: detect whether the SDK already provided native thinking
+  // blocks. Some models emit BOTH a native thinking block AND redundant
+  // <think>…</think> tags inside text — in that case we must NOT split the
+  // tags into another thinking block (it would duplicate the Reasoning UI).
+  // We just strip the tags from the text instead.
+  const hasNativeThinking =
+    Array.isArray(content) && content.some((c: any) => c.type === "thinking");
+
   if (typeof content === "string") {
-    blocks.push({ type: "text", text: content });
+    for (const seg of splitThinkTags(content)) {
+      blocks.push(seg.kind === "thinking" ? { type: "thinking", text: seg.text } : { type: "text", text: seg.text });
+    }
   } else if (Array.isArray(content)) {
     for (const c of content) {
-      if (c.type === "text") blocks.push({ type: "text", text: c.text });
-      else if (c.type === "thinking") blocks.push({ type: "thinking", text: c.thinking });
+      if (c.type === "text") {
+        if (hasNativeThinking) {
+          // Native reasoning already exists — just strip any redundant tags
+          // from the text so they don't render raw. No new thinking block.
+          const stripped = stripThinkTags(c.text ?? "");
+          if (stripped.trim()) blocks.push({ type: "text", text: stripped });
+        } else {
+          // No native thinking — promote <think> tags to thinking blocks
+          // (covers tag-only models like DeepSeek).
+          for (const seg of splitThinkTags(c.text ?? "")) {
+            blocks.push(seg.kind === "thinking" ? { type: "thinking", text: seg.text } : { type: "text", text: seg.text });
+          }
+        }
+      } else if (c.type === "thinking") blocks.push({ type: "thinking", text: c.thinking });
       else if (c.type === "toolCall") blocks.push({ type: "toolCall", toolName: c.name, toolCallId: c.id, arguments: c.arguments });
     }
   }
   return blocks;
+}
+
+/** Remove all <think>…</think> segments (and an unclosed trailing <think>…) from text. */
+function stripThinkTags(text: string): string {
+  if (!text.includes("<think>")) return text;
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<think>[\s\S]*$/i, "");
 }
 
 function applyDelta(delta: any, messages: ChatMessage[]): ChatMessage[] {
@@ -592,8 +689,17 @@ function applyDelta(delta: any, messages: ChatMessage[]): ChatMessage[] {
       if (!msg.blocks.some((b) => b.type === "text")) msg.blocks.push({ type: "text", text: "" });
       break;
     case "text_delta": {
+      // Append to the current text block, then strip any <think>…</think>
+      // segments from what's shown while streaming. We deliberately DON'T try
+      // to promote them to a live thinking block here — doing so across deltas
+      // is racy (the tag gets consumed on one delta, then later thinking
+      // tokens arrive without it and leak into text, producing raw tags and
+      // duplicate Reasoning blocks). Final promotion happens once in
+      // extractBlocks when the message completes.
       const tb = msg.blocks.find((b) => b.type === "text");
-      if (tb) tb.text = (tb.text ?? "") + (delta.delta ?? "");
+      if (tb) {
+        tb.text = stripThinkTags((tb.text ?? "") + (delta.delta ?? ""));
+      }
       break;
     }
     case "thinking_start":

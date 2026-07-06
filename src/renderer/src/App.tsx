@@ -1,21 +1,32 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { useAppStore } from "./store/useAppStore";
 import { Sidebar } from "./components/Sidebar";
 import { TabBar } from "./components/TabBar";
 import { ChatView } from "./components/chat/ChatView";
 import { SessionsView } from "./components/sessions/SessionsView";
-import { ModelView } from "./components/model/ModelView";
-import { SettingsView } from "./components/settings/SettingsView";
-import { ExtensionsView } from "./components/extensions/ExtensionsView";
-import { PackagesView } from "./components/packages/PackagesView";
 import { StatusBar } from "./components/StatusBar";
-import { Onboarding } from "./components/Onboarding";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { ExtensionDialog, ExtensionToasts } from "./components/extensions/ExtensionUi";
 import { PanelView } from "./components/extensions/PanelView";
 
+// Secondary views are code-split so their (considerable) code — settings,
+// extensions marketplace, package manager, model picker — loads on demand
+// instead of upfront in the initial bundle. The chat view stays eager since
+// it's what the user sees on launch.
+const ModelView = lazy(() =>
+  import("./components/model/ModelView").then((m) => ({ default: m.ModelView })),
+);
+const SettingsView = lazy(() =>
+  import("./components/settings/SettingsView").then((m) => ({ default: m.SettingsView })),
+);
+const ExtensionsView = lazy(() =>
+  import("./components/extensions/ExtensionsView").then((m) => ({ default: m.ExtensionsView })),
+);
+const PackagesView = lazy(() =>
+  import("./components/packages/PackagesView").then((m) => ({ default: m.PackagesView })),
+);
+
 export default function App() {
-  const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
   const activeView = useAppStore((s) => s.activeView);
   const tabs = useAppStore((s) => s.tabs);
   const activeTabId = useAppStore((s) => s.activeTabId);
@@ -50,12 +61,6 @@ export default function App() {
       .catch(() => {});
   }, [addTab]);
 
-  // The app runs the pi agent SDK in-process and does NOT require the pi CLI.
-  // Skip onboarding entirely - users can optionally install the CLI from System tab.
-  useEffect(() => {
-    setNeedsOnboarding(false);
-  }, []);
-
   // Apply saved theme and accent on mount.
   useEffect(() => {
     const savedTheme = localStorage.getItem("pi-theme") || "system";
@@ -87,6 +92,24 @@ export default function App() {
     useAppStore.getState().loadFavorites();
   }, []);
 
+  // Resolve the installed Pi SDK version from the SDK's own VERSION export so
+  // the displayed version never drifts after a bump (the preload's value is a
+  // static fallback only).
+  useEffect(() => {
+    window.pi.api
+      .getSdkVersion()
+      .then((v: string) => {
+        if (v) useAppStore.getState().setSdkVersion(v);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Check configured packages for available updates on mount — drives the
+  // orange "update" dot on the Extensions nav item and the Update buttons.
+  useEffect(() => {
+    useAppStore.getState().refreshPackageUpdates();
+  }, []);
+
   // Subscribe to pi events once on mount.
   useEffect(() => {
     const pi = window.pi;
@@ -110,7 +133,12 @@ export default function App() {
 
     // Load addon contributions (panels/status items) + refresh when packages change.
     loadAddons();
-    const offPkgChanged = pi.events.onPackagesChanged(() => loadAddons());
+    // Re-check for updates too, so the orange dot clears after an update and
+    // appears when a newly-installed package has a newer version.
+    const offPkgChanged = pi.events.onPackagesChanged(() => {
+      loadAddons();
+      useAppStore.getState().refreshPackageUpdates();
+    });
 
     const offExtUi = pi.events.onExtUi((message: any) => {
       const tabId = message?.tabId;
@@ -204,16 +232,6 @@ export default function App() {
 
   const hasTabs = tabs.length > 0 && activeTabId;
 
-  // Show onboarding if pi CLI is not installed.
-  if (needsOnboarding) {
-    return <Onboarding onComplete={() => setNeedsOnboarding(false)} />;
-  }
-
-  // Still checking, show nothing (prevents flash).
-  if (needsOnboarding === null) {
-    return null;
-  }
-
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg text-text">
       <Sidebar />
@@ -223,10 +241,26 @@ export default function App() {
           {/* Main content */}
           <div className="min-w-0 flex-1 overflow-hidden">
             {activeView === "chat" && (hasTabs ? <ChatView /> : <div className="flex h-full items-center justify-center text-text-muted">No active tab</div>)}
-            {activeView === "model" && <ModelView />}
-            {activeView === "settings" && <SettingsView />}
-            {activeView === "extensions" && <ExtensionsView />}
-            {activeView === "packages" && <PackagesView />}
+            {activeView === "model" && (
+              <Suspense fallback={null}>
+                <ModelView />
+              </Suspense>
+            )}
+            {activeView === "settings" && (
+              <Suspense fallback={null}>
+                <SettingsView />
+              </Suspense>
+            )}
+            {activeView === "extensions" && (
+              <Suspense fallback={null}>
+                <ExtensionsView />
+              </Suspense>
+            )}
+            {activeView === "packages" && (
+              <Suspense fallback={null}>
+                <PackagesView />
+              </Suspense>
+            )}
             {activeView === "panel" && <PanelView panel={panels.find((p) => p.id === activePanelId)} />}
           </div>
           {/* Sessions panel (persistent drawer) */}

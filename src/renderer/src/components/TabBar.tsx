@@ -35,7 +35,13 @@ export function TabBar() {
         return (
           <div
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => {
+              setActiveTab(tab.id);
+              // Selecting a tab always returns to the chat view, so the user
+              // isn't left looking at Settings/Extensions/etc. after clicking a
+              // tab. Matches the sidebar's view-switching behavior.
+              useAppStore.getState().setActiveView("chat");
+            }}
             className={`no-drag group relative flex cursor-default items-center gap-1.5 py-1 transition-colors ${
               active ? "bg-bg text-text" : "text-text-muted hover:bg-bg-hover"
             }`}
@@ -58,6 +64,10 @@ export function TabBar() {
                   e.stopPropagation();
                   window.pi.api.removeTab({ tabId: tab.id });
                   removeTab(tab.id);
+                  // Closing a tab also returns to chat for the same reason as
+                  // selecting one — don't leave the user stranded in a settings
+                  // view looking at whichever tab became active.
+                  useAppStore.getState().setActiveView("chat");
                 }}
                 className="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded text-text-faint opacity-0 transition-opacity hover:bg-bg-active hover:text-text group-hover:opacity-100"
                 style={{ fontSize: 13, lineHeight: 1 }}
