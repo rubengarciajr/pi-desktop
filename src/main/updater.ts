@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import { compareVersions } from "../shared/version";
+import { getUpdateToken } from "./updateToken";
 
 const REPO_OWNER = "rubengarciajr";
 const REPO_NAME = "pi-desktop";
@@ -34,10 +35,17 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
   ipcMain.handle("pi:update:check", async () => {
     try {
       const currentVersion = app.getVersion();
+      // The repo is private, so anonymous requests 404. Authenticate with a
+      // read-only PAT when one is available (baked in at build time or read
+      // from ~/.pi-desktop-update-token). Absent → anonymous (public repos).
+      const token = getUpdateToken();
       const res = await fetch(
         `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`,
         {
-          headers: { "User-Agent": "pi-desktop-updater" },
+          headers: {
+            "User-Agent": "pi-desktop-updater",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         }
       );
       if (!res.ok) {

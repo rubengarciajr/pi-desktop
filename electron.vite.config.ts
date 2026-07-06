@@ -1,9 +1,22 @@
 import { resolve } from "node:path";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
+import { loadEnv } from "vite";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // Load .env so PI_UPDATE_TOKEN (a read-only GitHub PAT for the private repo's
+  // releases API) is available at build time via import.meta.env. The file is
+  // gitignored; CI injects it via the secret of the same name.
+  const env = loadEnv(mode, process.cwd(), "PI_");
+
+  return {
   main: {
+    define: {
+      // Bake the update-check PAT into the main bundle at build time so
+      // updateToken.ts can read it via import.meta.env. JSON-encoded so empty
+      // values become the literal `undefined`, never the string "undefined".
+      "import.meta.env.PI_UPDATE_TOKEN": JSON.stringify(env.PI_UPDATE_TOKEN ?? ""),
+    },
     plugins: [externalizeDepsPlugin({ exclude: [] })],
     resolve: {
       // Pi ships ESM; mark its packages as bundled (not externalized) so the
@@ -73,4 +86,5 @@ export default defineConfig({
     },
     plugins: [react()],
   },
+  };
 });

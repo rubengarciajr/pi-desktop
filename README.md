@@ -136,6 +136,38 @@ npm run dev
 npm run build:dmg
 ```
 
+### Releasing a New Version
+
+Pushing a `v*` tag triggers the GitHub Action (`.github/workflows/build.yml`) which builds the DMG and publishes a GitHub Release:
+
+```bash
+# bump version in package.json, then:
+git commit -am "release: v0.2.11"
+git tag v0.2.11
+git push origin main --tags
+```
+
+### In-App Update Check (Private Repo)
+
+The app shows a "Pi Desktop vX.Y.Z is available" banner when a newer GitHub Release exists. Because this repo is private, the check needs a **read-only Personal Access Token** to authenticate — anonymous requests get 404.
+
+**Setup (one-time):**
+
+1. Generate a token at https://github.com/settings/tokens/new
+   - Scopes: `repo` (read-only; the check never writes)
+2. Locally, create a `.env` (gitignored) at the repo root:
+   ```bash
+   echo "PI_UPDATE_TOKEN=ghp_xxxxx" > .env
+   ```
+3. For CI builds, add the same value as a repository secret named `PI_UPDATE_TOKEN`:
+   ```bash
+   gh secret set PI_UPDATE_TOKEN
+   ```
+
+The token is baked into the app at build time via `electron.vite.config.ts` → `import.meta.env.PI_UPDATE_TOKEN`. End users need no setup — the banner "just works."
+
+**Rotate / override without rebuilding:** drop the new token at `~/.pi-desktop-update-token`.
+
 ---
 
 ## Tech Stack
