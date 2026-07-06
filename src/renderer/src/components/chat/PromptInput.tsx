@@ -316,7 +316,11 @@ export function PromptInput() {
           </div>
         )}
 
-        <div className={`rounded-xl border border-border bg-bg-hover transition-colors focus-within:border-accent/50 ${!hasMessages ? "animate-glow-accent" : ""}`}>
+        <div className={`rounded-xl border bg-bg-hover ${
+          !hasMessages
+            ? "border-transparent animate-glow-accent"
+            : "border-border transition-colors focus-within:border-accent/50"
+        }`}>
           <textarea
             ref={textareaRef}
             value={text}

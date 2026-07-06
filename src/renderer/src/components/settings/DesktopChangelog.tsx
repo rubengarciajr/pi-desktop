@@ -6,6 +6,19 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.3.2",
+    date: "2026-07-06",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          '"Start Chatting" now reuses the current tab instead of opening a duplicate — the prompt focuses immediately so you can start typing',
+          "Glowing accent border on the chat input now appears reliably on every empty chat (no longer requires a restart)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.3.1",
     date: "2026-07-06",
     sections: [

@@ -119,6 +119,7 @@ function EmptyState() {
   const addTab = useAppStore((s) => s.addTab);
   const setActiveView = useAppStore((s) => s.setActiveView);
   const defaultTabMode = useAppStore((s) => s.defaultTabMode);
+  const activeTabId = useAppStore((s) => s.activeTabId);
 
   const handleNewSession = async () => {
     const cwd = await window.pi.api.pickDirectory();
@@ -131,6 +132,16 @@ function EmptyState() {
   };
 
   const handleNewChat = async () => {
+    // On launch, App.tsx already creates an empty Chat tab so the user lands
+    // on a ready-to-type surface. Reuse it instead of opening a second tab —
+    // the EmptyState only shows when messages.length === 0, so the active tab
+    // is guaranteed empty here. Only create a fresh tab when there isn't one
+    // to reuse (e.g. the user explicitly closed all tabs).
+    if (activeTabId) {
+      setActiveView("chat");
+      window.dispatchEvent(new CustomEvent("pi:focusPrompt"));
+      return;
+    }
     const tabId = `tab-${Date.now()}`;
     await window.pi.api.createTab({ tabId, mode: "chat" });
     addTab({ id: tabId, title: "Chat", mode: "chat" });
