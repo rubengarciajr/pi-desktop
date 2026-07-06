@@ -48,3 +48,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: node build/package-dmg.cjs --mac dmg --publish always
+
+      # electron-builder sometimes leaves the release as a draft even with
+      # --publish always. This step flips any draft for the current tag to
+      # published so /releases/latest sees it immediately.
+      - name: Publish release (if still draft)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ github.ref_name }}" --draft=false --latest || true
