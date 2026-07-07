@@ -26,6 +26,8 @@ import java from "react-syntax-highlighter/dist/esm/languages/prism/java";
 import ruby from "react-syntax-highlighter/dist/esm/languages/prism/ruby";
 import php from "react-syntax-highlighter/dist/esm/languages/prism/php";
 import shellSession from "react-syntax-highlighter/dist/esm/languages/prism/shell-session";
+import { looksLikePath } from "../../../../shared/filePath";
+import { FilePath } from "./FilePath";
 
 // Register once at module load. Aliases map common fenced-code labels to the
 // registered language so ```sh, ```shell, ```html, ```xml etc. highlight too.
@@ -225,6 +227,11 @@ const MARKDOWN_COMPONENTS: Components = {
     const value = String(children).replace(/\n$/, "");
     if (!inline && (match || value.includes("\n"))) {
       return <CodeBlock language={match?.[1] ?? ""} value={value} />;
+    }
+    // Inline code that is a file path becomes an interactive chip (reveal in
+    // Finder / copy path). Non-path inline code renders as a plain accent chip.
+    if (looksLikePath(value)) {
+      return <FilePath path={value} variant="chip" />;
     }
     return (
       <code

@@ -1,8 +1,15 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.3.6** · Last updated: **July 7, 2026**
+> Current version: **v0.3.7** · Last updated: **July 7, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.3.7 — July 7, 2026
+
+### Features
+- **Interactive file paths** — click any file path in the conversation (in a message, a tool call, or command output) to open it in Finder or copy it. The menu offers **Reveal in Finder**, **Copy full path**, **Copy filename**, and **Copy relative path** — a quick way to jump from what Pi is doing to the actual files.
 
 ---
 

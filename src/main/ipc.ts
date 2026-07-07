@@ -27,6 +27,14 @@ import { getAddonContributions } from "./addonContributions";
 import { getSdkVersion } from "./pi/sdkVersion";
 import { loadFavorites, saveFavorites, type Favorite } from "./favorites";
 import { shell } from "electron";
+import { homedir } from "node:os";
+
+/** Expand a leading `~` to the user's home directory for OS file operations. */
+function expandHome(p: string): string {
+  if (p === "~") return homedir();
+  if (p.startsWith("~/")) return homedir() + p.slice(1);
+  return p;
+}
 
 /**
  * Registers all ipcMain handlers. Every call is routed to the correct
@@ -230,8 +238,15 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
   // Open a folder (or file) in the OS file manager / default handler.
   handle("pi:shell.openPath", async (a: { path: string }) => {
     if (!a?.path) return { success: false, error: "No path provided" };
-    const error = await shell.openPath(a.path);
+    const error = await shell.openPath(expandHome(a.path));
     return error ? { success: false, error } : { success: true };
+  });
+
+  // Reveal a file/folder in Finder, selecting it in its parent folder.
+  handle("pi:shell.revealPath", (a: { path: string }) => {
+    if (!a?.path) return { success: false, error: "No path provided" };
+    shell.showItemInFolder(expandHome(a.path));
+    return { success: true };
   });
 
   // --- Favorites (persisted to userData/favorites.json) ---

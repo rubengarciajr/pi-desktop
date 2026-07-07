@@ -209,6 +209,8 @@ export interface PiApi {
   pickDirectory: () => Promise<string | null>;
   /** Open a folder (or file) in the OS file manager / default handler. */
   openPath: (args: { path: string }) => Promise<{ success: boolean; error?: string }>;
+  /** Reveal a file/folder in Finder, selecting it in its parent folder. */
+  revealPath: (args: { path: string }) => Promise<{ success: boolean; error?: string }>;
   /** Load favorites from userData/favorites.json (survives restarts/updates). */
   getFavorites: () => Promise<{ path: string; name: string }[]>;
   /** Persist favorites to userData/favorites.json. */

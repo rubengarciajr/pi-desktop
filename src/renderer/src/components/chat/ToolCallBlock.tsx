@@ -1,6 +1,10 @@
 import { memo, useMemo, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { ToolRenderedResult } from "./ToolRenderer";
+import { FilePath, linkifyPaths } from "./FilePath";
+
+/** Tools whose one-line summary IS a file path (so it gets the reveal/copy menu). */
+const PATH_TOOLS = new Set(["read", "edit", "write", "ls"]);
 
 export const ToolCallBlock = memo(function ToolCallBlock({ toolCallId }: { toolCallId: string }) {
   const tool = useAppStore((s) => s.activeTab.tools[toolCallId]);
@@ -36,7 +40,14 @@ export const ToolCallBlock = memo(function ToolCallBlock({ toolCallId }: { toolC
         ) : (
           <span className="text-accent animate-pulse-subtle">running</span>
         )}
-        {summary && <span className="truncate text-text-faint">{summary}</span>}
+        {summary &&
+          (PATH_TOOLS.has(tool.toolName) ? (
+            <span className="truncate text-text-faint">
+              <FilePath path={summary} variant="inline" />
+            </span>
+          ) : (
+            <span className="truncate text-text-faint">{summary}</span>
+          ))}
       </summary>
       <div className="border-t border-border px-3 py-2">
         <ToolArgs tool={tool} />
@@ -135,7 +146,7 @@ function ToolOutput({ tool }: { tool: any }) {
       <div className="mb-1 text-[10px] uppercase tracking-wider text-text-faint">Output</div>
       {isLong ? <CollapsibleOutput lines={lines} maxLines={MAX_LINES} /> : (
         <pre className="max-h-64 overflow-auto rounded bg-bg px-2 py-1.5 text-[11px] text-text-muted font-mono whitespace-pre-wrap">
-          {text}
+          {linkifyPaths(text)}
         </pre>
       )}
       {details?.diff && (
@@ -153,7 +164,7 @@ function CollapsibleOutput({ lines, maxLines }: { lines: string[]; maxLines: num
     return (
       <div>
         <pre className="max-h-96 overflow-auto rounded bg-bg px-2 py-1.5 text-[11px] text-text-muted font-mono whitespace-pre-wrap">
-          {lines.join("\n")}
+          {linkifyPaths(lines.join("\n"))}
         </pre>
         <button
           onClick={() => setExpanded(false)}
@@ -168,7 +179,7 @@ function CollapsibleOutput({ lines, maxLines }: { lines: string[]; maxLines: num
   return (
     <div>
       <pre className="max-h-64 overflow-hidden rounded bg-bg px-2 py-1.5 text-[11px] text-text-muted font-mono whitespace-pre-wrap">
-        {lines.slice(0, maxLines).join("\n")}
+        {linkifyPaths(lines.slice(0, maxLines).join("\n"))}
       </pre>
       <button
         onClick={() => setExpanded(true)}

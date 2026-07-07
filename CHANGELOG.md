@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.3.7] — 2026-07-07
+
+### Added
+- **Interactive file paths** — clicking a file path anywhere in the conversation (inline path chips in messages, Read/Edit/Write/ls tool-call headers, and command output) opens a menu with **Reveal in Finder**, **Copy full path**, **Copy filename**, and **Copy relative path** (relative to the tab's working folder). Path detection is a shared, unit-tested heuristic (`src/shared/filePath.ts`) that recognizes absolute/`~`/relative paths and bare filenames while excluding URLs, dates, fractions, and version numbers. Adds a `pi:shell.revealPath` IPC (`shell.showItemInFolder`) alongside the existing `openPath`.
+
+---
+
 ## [0.3.6] — 2026-07-07
 
 ### Fixed

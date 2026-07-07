@@ -6,6 +6,18 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.3.7",
+    date: "2026-07-07",
+    sections: [
+      {
+        title: "Features",
+        items: [
+          "File paths in the conversation are now interactive — click any path (in a message, a tool call, or command output) to Reveal in Finder, Copy full path, Copy filename, or Copy path relative to the working folder",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.3.6",
     date: "2026-07-07",
     sections: [
