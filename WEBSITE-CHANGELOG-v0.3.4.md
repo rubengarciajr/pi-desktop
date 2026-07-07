@@ -9,6 +9,12 @@ changelog: concise, benefit-first, plain language.
 
 ## Short version (for a compact changelog list)
 
+### v0.3.6 — July 7, 2026
+
+**Fixes**
+
+- **Conversations open at the newest message.** Opening a favorite or a saved session now starts scrolled to the bottom (the most recent message) instead of jumping to the top (the oldest).
+
 ### v0.3.5 — July 7, 2026
 
 **Fixes**
@@ -25,6 +31,10 @@ changelog: concise, benefit-first, plain language.
 ---
 
 ## Expanded version (for a blog-style release post)
+
+### Pi Desktop v0.3.6
+
+**Conversations open where you left off — at the newest message.** Opening a favorite or a saved session used to drop you at the very top of the thread, the oldest message, forcing a long scroll down to catch up. Conversations now open scrolled to the bottom, showing the most recent message first, the way a chat should.
 
 ### Pi Desktop v0.3.5
 

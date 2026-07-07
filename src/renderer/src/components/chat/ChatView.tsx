@@ -76,9 +76,16 @@ export function ChatView() {
           <EmptyState />
         ) : (
           <Virtuoso
+            // Keyed by tab so switching to (or freshly loading) a session
+            // remounts the list, which re-applies initialTopMostItemIndex and
+            // opens at the most recent message instead of the oldest.
+            key={activeTabId}
             ref={virtuosoRef}
             className="h-full"
             data={messages}
+            // Open a loaded conversation scrolled to the bottom (newest), the
+            // way a chat should — not at the top (oldest).
+            initialTopMostItemIndex={Math.max(0, messages.length - 1)}
             followOutput={followOutput}
             atBottomStateChange={handleAtBottomChange}
             atBottomThreshold={80}

@@ -6,6 +6,18 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.3.6",
+    date: "2026-07-07",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "Opening a conversation now starts at the most recent message (scrolled to the bottom) instead of the oldest — noticeable when opening a favorite or a saved session",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.3.5",
     date: "2026-07-07",
     sections: [
