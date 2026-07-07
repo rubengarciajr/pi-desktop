@@ -690,14 +690,29 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   openPanel: (id) => set({ activeView: "panel", activePanelId: id }),
 
-  // Favorites
-  loadFavorites: () => {
+  // Favorites — persisted to userData/favorites.json via the main process.
+  // localStorage was used before but did not survive restarts/updates under the
+  // renderer's file:// origin, so favorites appeared to reset.
+  loadFavorites: async () => {
     try {
-      const stored = localStorage.getItem("pi-favorites");
-      if (stored) {
-        const favorites = JSON.parse(stored) as Favorite[];
-        set({ favorites });
+      let favorites = await window.pi.api.getFavorites();
+      // One-time migration: if the on-disk store is empty but the old
+      // localStorage location still has favorites, carry them over so users
+      // don't lose them when upgrading to file-backed persistence.
+      if (!favorites || favorites.length === 0) {
+        try {
+          const legacy = localStorage.getItem("pi-favorites");
+          if (legacy) {
+            const parsed = JSON.parse(legacy) as Favorite[];
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              favorites = parsed;
+              window.pi.api.setFavorites({ favorites }).catch(() => {});
+              localStorage.removeItem("pi-favorites");
+            }
+          }
+        } catch {}
       }
+      if (Array.isArray(favorites)) set({ favorites });
     } catch {}
   },
 
@@ -705,14 +720,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((st) => {
       if (st.favorites.some((f) => f.path === path)) return {};
       const favorites = [...st.favorites, { path, name: path.split("/").pop() || path }];
-      try { localStorage.setItem("pi-favorites", JSON.stringify(favorites)); } catch {}
+      window.pi.api.setFavorites({ favorites }).catch(() => {});
       return { favorites };
     }),
 
   removeFavorite: (path) =>
     set((st) => {
       const favorites = st.favorites.filter((f) => f.path !== path);
-      try { localStorage.setItem("pi-favorites", JSON.stringify(favorites)); } catch {}
+      window.pi.api.setFavorites({ favorites }).catch(() => {});
       return { favorites };
     }),
 }));

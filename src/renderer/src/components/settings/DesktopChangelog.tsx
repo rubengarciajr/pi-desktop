@@ -6,6 +6,31 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.3.5",
+    date: "2026-07-07",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "Favorites now persist across restarts and app updates — they're saved to a file in the app's data folder instead of browser storage that didn't survive relaunches (your existing favorites are migrated over automatically)",
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.3.4",
+    date: "2026-07-07",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "One tab per folder: opening a folder that's already open now focuses the existing tab instead of opening a duplicate — applies across the Sessions list, favorites, the + tab button, drag-and-drop, the sidebar, and the macOS New Session menu",
+          "The working-folder path at the top of a chat is now clickable — click it to open the folder in Finder",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.3.3",
     date: "2026-07-06",
     sections: [

@@ -25,6 +25,7 @@ import { getWebSearchStatus, setWebSearchConfig } from "./webSearch";
 import { getExtensionDetail, setExtensionConfig } from "./extensionDetail";
 import { getAddonContributions } from "./addonContributions";
 import { getSdkVersion } from "./pi/sdkVersion";
+import { loadFavorites, saveFavorites, type Favorite } from "./favorites";
 import { shell } from "electron";
 
 /**
@@ -232,6 +233,12 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
     const error = await shell.openPath(a.path);
     return error ? { success: false, error } : { success: true };
   });
+
+  // --- Favorites (persisted to userData/favorites.json) ---
+  handle("pi:favorites.get", () => loadFavorites());
+  handle("pi:favorites.set", (a: { favorites: Favorite[] }) =>
+    saveFavorites(a?.favorites ?? []),
+  );
 
   // --- Compaction (per-tab) ---
   handle("pi:compact", async (a) => {

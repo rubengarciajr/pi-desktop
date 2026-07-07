@@ -88,6 +88,8 @@ const api = {
   setCwd: invoke("pi:cwd.set"),
   pickDirectory: invoke("pi:pickDirectory"),
   openPath: invoke("pi:shell.openPath"),
+  getFavorites: invoke("pi:favorites.get"),
+  setFavorites: invoke("pi:favorites.set"),
   getGitInfo: invoke("pi:git.info"),
   getSdkVersion: invoke("pi:sdk.version"),
 

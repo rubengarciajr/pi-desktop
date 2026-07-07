@@ -209,6 +209,10 @@ export interface PiApi {
   pickDirectory: () => Promise<string | null>;
   /** Open a folder (or file) in the OS file manager / default handler. */
   openPath: (args: { path: string }) => Promise<{ success: boolean; error?: string }>;
+  /** Load favorites from userData/favorites.json (survives restarts/updates). */
+  getFavorites: () => Promise<{ path: string; name: string }[]>;
+  /** Persist favorites to userData/favorites.json. */
+  setFavorites: (args: { favorites: { path: string; name: string }[] }) => Promise<{ success: boolean; error?: string }>;
   getGitInfo: (args?: { tabId?: string }) => Promise<GitRepoInfo>;
   /** Resolved Pi SDK version (from the SDK's own VERSION export). */
   getSdkVersion: () => Promise<string>;
