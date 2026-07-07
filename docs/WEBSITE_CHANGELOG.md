@@ -1,8 +1,37 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.3.2** · Last updated: **July 6, 2026**
+> Current version: **v0.3.6** · Last updated: **July 7, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.3.6 — July 7, 2026
+
+### Fixes
+- **Conversations open at the newest message** — opening a favorite or a saved session now starts scrolled to the bottom (the most recent message) instead of jumping to the top (the oldest).
+
+---
+
+## v0.3.5 — July 7, 2026
+
+### Fixes
+- **Favorites now stick** — favorited folders are saved to a file in the app's data folder instead of browser storage that didn't survive a relaunch. They now persist across restarts and app updates, and any favorites you already had are migrated over automatically.
+
+---
+
+## v0.3.4 — July 7, 2026
+
+### Fixes
+- **One tab per folder** — opening a folder that's already open now jumps to its existing tab instead of spawning a duplicate. Applies everywhere a folder can be opened: the Sessions list, favorites, the **+** tab button, drag-and-drop, the sidebar, and the macOS **New Session** menu.
+- **Clickable working folder** — the folder path shown at the top of a chat is now a button; click it to reveal the folder in Finder.
+
+---
+
+## v0.3.3 — July 6, 2026
+
+### Fixes
+- **Fixed crash-on-launch on Apple Silicon** — the in-app update downloader now clears the macOS quarantine flag from the downloaded DMG before opening it, so the updated app launches cleanly instead of being blocked by Gatekeeper on M-series Macs.
 
 ---
 

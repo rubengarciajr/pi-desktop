@@ -5,7 +5,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
-## [Unreleased] — v0.3.3 (in progress)
+## [0.3.6] — 2026-07-07
+
+### Fixed
+- **Conversations open at the newest message** — the Virtuoso message list had no initial scroll position, so opening a favorite or saved session dropped you at the top (the oldest message). It now sets `initialTopMostItemIndex` to the last message and is keyed by tab, so a loaded conversation opens scrolled to the bottom (newest), the way a chat should.
+
+---
+
+## [0.3.5] — 2026-07-07
+
+### Fixed
+- **Favorites persist across restarts and updates** — favorites were stored in renderer `localStorage`, which does not survive relaunches under the app's `file://` origin, so they appeared to reset. They now persist to `favorites.json` in the app's `userData` directory (the same reliable location as the GitHub token) via a main-process IPC. A one-time migration carries over any favorites from the old `localStorage` location.
+
+---
+
+## [0.3.4] — 2026-07-07
+
+### Fixed
+- **One tab per folder** — opening a folder that was already open created a duplicate/clone tab. A new `focusExistingTab` store action now focuses the existing tab instead. Applied across the Sessions list, favorites, the `+` tab button, drag-and-drop, the sidebar, and the macOS *New Session* menu.
+- **Clickable working-folder path** — the folder path at the top of a chat is now a button that opens the folder in Finder (new `pi:shell.openPath` IPC).
+
+---
+
+## [0.3.3] — 2026-07-06
 
 ### Fixed
 - **Crash-on-launch on Apple Silicon** — the in-app update downloader was not stripping the `com.apple.quarantine` extended attribute from the downloaded DMG. On M-series Macs, an ad-hoc signed app cannot launch while quarantined, so the updated app crashed immediately. The downloader now runs `xattr -cr` on the DMG before opening it in Finder.
