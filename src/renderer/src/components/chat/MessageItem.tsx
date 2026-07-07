@@ -21,7 +21,7 @@ function UserMessage({ message }: { message: ChatMessage }) {
     .join("");
   return (
     <div className="group flex justify-end py-2 animate-slide-up">
-      <div className="max-w-[80%] rounded-2xl rounded-br-md bg-user/15 px-4 py-2.5 text-sm text-text selectable">
+      <div className="max-w-[80%] rounded-2xl rounded-br-md bg-user/15 px-4 py-2.5 text-[13px] text-text selectable">
         <p className="whitespace-pre-wrap break-words">{text}</p>
       </div>
     </div>

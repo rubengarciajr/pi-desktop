@@ -44,6 +44,7 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
   pool.events.on(pool.DIAG_EVENT, (msg: string) => send("pi:diag", msg));
   pool.events.on(pool.SESSION_RESET_EVENT, (data: unknown) => send("pi:sessionReset", data));
   pool.events.on(pool.EXT_UI_EVENT, (message: unknown) => send("pi:extui", message));
+  pool.events.on(pool.AUTH_EVENT, (message: unknown) => send("pi:auth.event", message));
 
   const handle = <Res>(channel: string, fn: (args: any) => Promise<Res> | Res) => {
     ipcMain.handle(channel, async (_e, args: any) => {
@@ -225,6 +226,13 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
     return { success: true };
   });
 
+  // Open a folder (or file) in the OS file manager / default handler.
+  handle("pi:shell.openPath", async (a: { path: string }) => {
+    if (!a?.path) return { success: false, error: "No path provided" };
+    const error = await shell.openPath(a.path);
+    return error ? { success: false, error } : { success: true };
+  });
+
   // --- Compaction (per-tab) ---
   handle("pi:compact", async (a) => {
     const m = await mgr(a);
@@ -251,6 +259,17 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
   handle("pi:auth.logout", async (a) => {
     const m = pool.get() ?? (await pool.getOrCreate(pool.getActiveTab()!));
     return m.logout(a.provider);
+  });
+  // OAuth subscription login (Claude Pro/Max, ChatGPT, Copilot). The interactive
+  // callbacks are bridged to the renderer over the pi:auth.event push channel.
+  handle("pi:auth.login", async (a) => {
+    const m = pool.get() ?? (await pool.getOrCreate(pool.getActiveTab()!));
+    return m.login(a.provider);
+  });
+  // Renderer's reply to a blocking OAuth prompt (onPrompt/onSelect/onManualCodeInput).
+  handle("pi:auth.respond", async (a) => {
+    const m = pool.get() ?? (await pool.getOrCreate(pool.getActiveTab()!));
+    return m.resolveAuthPrompt(a.requestId, a.value);
   });
 
   // --- Settings (shared) ---

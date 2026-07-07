@@ -102,9 +102,25 @@ export interface PiSessionStats {
 
 export interface PiAuthStatus {
   provider: string;
+  /** Display name from the SDK (e.g. "Anthropic (Claude Pro/Max)"). */
+  name?: string;
   authed: boolean;
+  /** Whether this provider offers OAuth subscription login at all. */
+  loginType?: "oauth" | "apiKey";
+  /** How it's currently authenticated — oauth subscription vs api_key. */
   type?: "apiKey" | "oauth";
 }
+
+/** An OAuth login-flow event pushed from the main process to the renderer. */
+export type AuthEvent =
+  | { kind: "auth"; provider: string; url: string; instructions?: string }
+  | { kind: "deviceCode"; provider: string; userCode: string; verificationUri: string }
+  | { kind: "progress"; provider: string; message: string }
+  | { kind: "prompt"; provider: string; requestId: string; message: string; placeholder?: string; allowEmpty?: boolean }
+  | { kind: "select"; provider: string; requestId: string; message: string; options: { id: string; label: string }[] }
+  | { kind: "manualCode"; provider: string; requestId: string; message: string; placeholder?: string }
+  | { kind: "done"; provider: string }
+  | { kind: "error"; provider: string; message: string };
 
 export interface PiCommandInfo {
   name: string;
@@ -164,8 +180,10 @@ export interface PiApi {
   // Auth
   getAuthStatus: () => Promise<PiAuthStatus[]>;
   setApiKey: (args: { provider: string; apiKey: string }) => Promise<{ success: boolean }>;
-  login: (args: { provider: string }) => Promise<{ success: boolean }>;
+  login: (args: { provider: string }) => Promise<{ success: boolean; error?: string }>;
   logout: (args: { provider: string }) => Promise<{ success: boolean }>;
+  /** Reply to a blocking OAuth prompt (onPrompt/onSelect/onManualCodeInput). */
+  respondAuth: (args: { requestId: string; value?: string }) => Promise<{ success: boolean }>;
 
   // Settings
   getSettings: () => Promise<unknown>;
@@ -189,6 +207,8 @@ export interface PiApi {
   getCwd: (args?: { tabId?: string }) => Promise<string>;
   setCwd: (args: { cwd: string; tabId?: string }) => Promise<{ success: boolean }>;
   pickDirectory: () => Promise<string | null>;
+  /** Open a folder (or file) in the OS file manager / default handler. */
+  openPath: (args: { path: string }) => Promise<{ success: boolean; error?: string }>;
   getGitInfo: (args?: { tabId?: string }) => Promise<GitRepoInfo>;
   /** Resolved Pi SDK version (from the SDK's own VERSION export). */
   getSdkVersion: () => Promise<string>;
@@ -364,6 +384,8 @@ export interface PiEventApi {
   onUpdateProgress: (listener: (data: { loaded: number; total: number }) => void) => () => void;
   onThemeChanged: (listener: (data: any) => void) => () => void;
   onExtUi: (listener: (message: any) => void) => () => void;
+  /** OAuth login-flow events (open browser, show device code, prompt for input). */
+  onAuthEvent: (listener: (message: AuthEvent) => void) => () => void;
   restartForUpdate: () => void;
   checkForUpdates: () => Promise<{
     status: "up-to-date" | "available" | "error";

@@ -63,6 +63,7 @@ const api = {
   setApiKey: invoke("pi:auth.setApiKey"),
   login: invoke("pi:auth.login"),
   logout: invoke("pi:auth.logout"),
+  respondAuth: invoke("pi:auth.respond"),
 
   // Settings
   getSettings: invoke("pi:settings.get"),
@@ -86,6 +87,7 @@ const api = {
   getCwd: invoke("pi:cwd.get"),
   setCwd: invoke("pi:cwd.set"),
   pickDirectory: invoke("pi:pickDirectory"),
+  openPath: invoke("pi:shell.openPath"),
   getGitInfo: invoke("pi:git.info"),
   getSdkVersion: invoke("pi:sdk.version"),
 
@@ -182,6 +184,11 @@ const events = {
     const wrapped = (_e: IpcRendererEvent, message: any) => listener(message);
     ipcRenderer.on("pi:extui", wrapped);
     return () => ipcRenderer.removeListener("pi:extui", wrapped);
+  },
+  onAuthEvent: (listener: (message: any) => void) => {
+    const wrapped = (_e: IpcRendererEvent, message: any) => listener(message);
+    ipcRenderer.on("pi:auth.event", wrapped);
+    return () => ipcRenderer.removeListener("pi:auth.event", wrapped);
   },
   restartForUpdate: () => {},
   checkForUpdates: invoke("pi:update:check"),

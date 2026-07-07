@@ -17,6 +17,7 @@ export function SessionsView() {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const addTab = useAppStore((s) => s.addTab);
+  const focusExistingTab = useAppStore((s) => s.focusExistingTab);
   const favorites = useAppStore((s) => s.favorites);
   const addFavorite = useAppStore((s) => s.addFavorite);
   const removeFavorite = useAppStore((s) => s.removeFavorite);
@@ -41,6 +42,8 @@ export function SessionsView() {
   const handleNew = async () => {
     const cwd = await window.pi.api.pickDirectory();
     if (!cwd) return;
+    // A folder can only be open in one tab — focus it if it's already open.
+    if (focusExistingTab(cwd)) return;
     const tabId = `tab-${Date.now()}`;
     await window.pi.api.createTab({ tabId, cwd });
     addTab({ id: tabId, title: cwd.split("/").pop() || cwd, cwd });
@@ -113,6 +116,9 @@ export function SessionsView() {
                           // Opening a favorite auto-closes the Sessions panel
                           // (only favorites do this — regular session items don't).
                           setSessionsPanelOpen(false);
+                          // A folder can only be open in one tab — focus it if
+                          // it's already open instead of cloning.
+                          if (focusExistingTab(f.path)) return;
                           const tabId = `tab-${Date.now()}`;
                           await window.pi.api.createTab({ tabId, cwd: f.path });
                           addTab({ id: tabId, title: f.name, cwd: f.path });
@@ -175,6 +181,9 @@ export function SessionsView() {
                     <button
                       key={s.id}
                       onClick={async () => {
+                        // A folder can only be open in one tab — if it's already
+                        // open, focus that tab instead of cloning the session.
+                        if (focusExistingTab(s.cwd)) return;
                         const tabId = `tab-${Date.now()}`;
                         await window.pi.api.createTab({ tabId, cwd: s.cwd });
                         addTab({ id: tabId, title: s.cwd?.split("/").pop() || s.name || s.id.slice(0, 8), cwd: s.cwd });

@@ -7,8 +7,10 @@ import { SystemPanel } from "./SystemPanel";
 
 interface AuthStatus {
   provider: string;
+  name?: string;
   authed: boolean;
-  type?: string;
+  loginType?: "oauth" | "apiKey";
+  type?: "apiKey" | "oauth";
 }
 
 interface GitHubAuth {
@@ -75,10 +77,15 @@ function SettingsPanel() {
   const [ghVerifying, setGhVerifying] = useState(false);
 
   useEffect(() => {
-    window.pi.api.getAuthStatus().then(setAuthStatus).catch(() => {});
+    refreshAuth();
     window.pi.api.getCwd().then(setCwd).catch(() => {});
     window.pi.github.getAuthStatus().then((s: GitHubAuth) => setGhAuth(s)).catch(() => {});
   }, []);
+
+  // Re-fetch auth status (called after login/logout/apiKey-save so the UI updates).
+  const refreshAuth = () => {
+    window.pi.api.getAuthStatus().then(setAuthStatus).catch(() => {});
+  };
 
   return (
     <div className="space-y-6">
@@ -110,45 +117,75 @@ function SettingsPanel() {
       </Section>
 
       <Section title="Authentication">
+        <p className="mb-3 text-xs text-text-faint">
+          Log in with your Claude Pro/Max, ChatGPT, or Copilot subscription — no API key needed.
+          Or paste an API key for any provider.
+        </p>
         <div className="space-y-3">
-          {authStatus.map((a) => (
-            <div key={a.provider} className="rounded-lg border border-border bg-bg-subtle px-4 py-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-medium capitalize text-text">{a.provider}</span>
-                <span className={`text-xs ${a.authed ? "text-success" : "text-text-faint"}`}>
-                  {a.authed ? "Authenticated" : "Not set"}
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  placeholder={`${a.provider.toUpperCase()}_API_KEY`}
-                  value={apiKeyInputs[a.provider] ?? ""}
-                  onChange={(e) =>
-                    setApiKeyInputs((s) => ({ ...s, [a.provider]: e.target.value }))
-                  }
-                  className="flex-1 rounded-lg border border-border bg-bg px-3 py-1.5 text-xs font-mono text-text focus:border-accent/50 focus:outline-none selectable"
-                />
-                <button
-                  onClick={() => {
-                    const key = apiKeyInputs[a.provider];
-                    if (key) window.pi.api.setApiKey({ provider: a.provider, apiKey: key });
-                  }}
-                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover"
-                >
-                  Save
-                </button>
-                {a.authed && (
+          {authStatus.map((a) => {
+            const label = a.name || a.provider.charAt(0).toUpperCase() + a.provider.slice(1);
+            const supportsOAuth = a.loginType === "oauth";
+            const isOauth = a.type === "oauth";
+            return (
+              <div key={a.provider} className="rounded-lg border border-border bg-bg-subtle px-4 py-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-text">{label}</span>
+                    {a.authed && (
+                      <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
+                        isOauth ? "bg-accent/15 text-accent" : "bg-success/15 text-success"
+                      }`}>
+                        {isOauth ? "Subscription" : "API key"}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-xs ${a.authed ? "text-success" : "text-text-faint"}`}>
+                    {a.authed ? "Connected" : "Not connected"}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {supportsOAuth && (
+                    <button
+                      onClick={() => {
+                        window.pi.api.login({ provider: a.provider }).catch(() => {});
+                      }}
+                      className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover"
+                    >
+                      {a.authed ? "Reconnect subscription" : "Log in with subscription"}
+                    </button>
+                  )}
+                  <input
+                    type="password"
+                    placeholder={`${a.provider.toUpperCase()}_API_KEY`}
+                    value={apiKeyInputs[a.provider] ?? ""}
+                    onChange={(e) =>
+                      setApiKeyInputs((s) => ({ ...s, [a.provider]: e.target.value }))
+                    }
+                    className="flex-1 rounded-lg border border-border bg-bg px-3 py-1.5 text-xs font-mono text-text focus:border-accent/50 focus:outline-none selectable"
+                  />
                   <button
-                    onClick={() => window.pi.api.logout({ provider: a.provider })}
-                    className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs text-danger hover:bg-danger/20"
+                    onClick={() => {
+                      const key = apiKeyInputs[a.provider];
+                      if (key) {
+                        window.pi.api.setApiKey({ provider: a.provider, apiKey: key }).then(() => refreshAuth());
+                      }
+                    }}
+                    className="rounded-lg border border-border bg-bg-hover px-3 py-1.5 text-xs text-text-muted hover:bg-bg-active hover:text-text"
                   >
-                    Remove
+                    Save key
                   </button>
-                )}
+                  {a.authed && (
+                    <button
+                      onClick={() => window.pi.api.logout({ provider: a.provider }).then(() => refreshAuth())}
+                      className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs text-danger hover:bg-danger/20"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Section>
 

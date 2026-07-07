@@ -16,6 +16,8 @@ export function TabBar() {
     const file = files[0];
     const path = (file as any).path;
     if (!path) return;
+    // A folder can only be open in one tab — focus it if already open.
+    if (useAppStore.getState().focusExistingTab(path)) return;
     const tabId = `tab-${Date.now()}`;
     await window.pi.api.createTab({ tabId, cwd: path });
     useAppStore.getState().addTab({ id: tabId, title: path.split("/").pop() || path, cwd: path });
@@ -83,6 +85,8 @@ export function TabBar() {
         onClick={async () => {
           const cwd = await window.pi.api.pickDirectory();
           if (!cwd) return;
+          // A folder can only be open in one tab — focus it if already open.
+          if (useAppStore.getState().focusExistingTab(cwd)) return;
           const tabId = `tab-${Date.now()}`;
           await window.pi.api.createTab({ tabId, cwd });
           useAppStore.getState().addTab({ id: tabId, title: cwd.split("/").pop() || cwd, cwd });

@@ -58,12 +58,16 @@ export function ChatView() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Working folder display */}
+      {/* Working folder display — click to open the folder in Finder */}
       {cwd && (
-        <div className="flex items-center gap-2 px-6 py-2">
-          <FolderIcon size={13} className="text-text-faint" />
-          <span className="truncate text-xs font-mono text-text-faint">{cwd}</span>
-        </div>
+        <button
+          onClick={() => window.pi.api.openPath({ path: cwd })}
+          title="Open folder in Finder"
+          className="group flex items-center gap-2 px-6 py-2 text-left transition-colors hover:text-text"
+        >
+          <FolderIcon size={13} className="text-text-faint group-hover:text-text" />
+          <span className="truncate text-xs font-mono text-text-faint group-hover:text-text group-hover:underline">{cwd}</span>
+        </button>
       )}
 
       {/* Messages */}
@@ -117,6 +121,7 @@ export function ChatView() {
 
 function EmptyState() {
   const addTab = useAppStore((s) => s.addTab);
+  const focusExistingTab = useAppStore((s) => s.focusExistingTab);
   const setActiveView = useAppStore((s) => s.setActiveView);
   const defaultTabMode = useAppStore((s) => s.defaultTabMode);
   const activeTabId = useAppStore((s) => s.activeTabId);
@@ -124,6 +129,11 @@ function EmptyState() {
   const handleNewSession = async () => {
     const cwd = await window.pi.api.pickDirectory();
     if (!cwd) return;
+    // A folder can only be open in one tab — focus it if already open.
+    if (focusExistingTab(cwd)) {
+      window.dispatchEvent(new CustomEvent("pi:focusPrompt"));
+      return;
+    }
     const tabId = `tab-${Date.now()}`;
     await window.pi.api.createTab({ tabId, cwd, mode: "code" });
     addTab({ id: tabId, title: cwd.split("/").pop() || cwd, cwd, mode: "code" });

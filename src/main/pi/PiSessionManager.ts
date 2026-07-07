@@ -10,6 +10,7 @@ import { mkdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { shell } from "electron";
 import * as undici from "undici";
 import type {
   AgentSession,
@@ -20,7 +21,7 @@ import type {
   SessionManager as PiSessionManagerType,
   SettingsManager as PiSettingsManagerType,
 } from "@earendil-works/pi-coding-agent";
-import { getSharedDeps } from "./SharedDepsCache";
+import { getSharedDeps, invalidateSharedDeps } from "./SharedDepsCache";
 import { getCachedMessages, setCachedMessages, invalidateCache } from "./MessageCache";
 import {
   createExtensionUiBridge,
@@ -160,6 +161,8 @@ export class PiSessionManager {
   readonly SESSION_RESET_EVENT = "pi:sessionReset";
   /** Extension-driven UI (status badges, widgets, dialogs, toasts). */
   readonly EXT_UI_EVENT = "pi:extui";
+  /** OAuth login flow events (open browser, show device code, prompt for input). */
+  readonly AUTH_EVENT = "pi:auth.event";
 
   private unsubscribe: (() => void) | null = null;
   private _deps: PiManagerDeps | null = null;
@@ -169,6 +172,10 @@ export class PiSessionManager {
   /** Blocking extension dialogs awaiting a renderer response, keyed by id. */
   private pendingDialogs = new Map<string, (response: ExtUiDialogResponse) => void>();
   private dialogSeq = 0;
+  /** Blocking OAuth prompts (onPrompt/onSelect/onManualCodeInput) awaiting the
+   *  renderer's reply, keyed by id. Mirrors pendingDialogs. */
+  private pendingAuthPrompts = new Map<string, (response: string | undefined) => void>();
+  private authPromptSeq = 0;
   /** UI adapter handed to Pi's extension runner. Built once, reused per session. */
   private readonly uiBridge = createExtensionUiBridge({
     emit: (message) => this.events.emit(this.EXT_UI_EVENT, message),
@@ -205,10 +212,24 @@ export class PiSessionManager {
     return { success: true };
   }
 
+  /** Resolve a pending OAuth prompt with the renderer's answer (a string for
+   *  onPrompt/onManualCodeInput, or an option id for onSelect; undefined cancels). */
+  resolveAuthPrompt(id: string, value: string | undefined) {
+    const resolve = this.pendingAuthPrompts.get(id);
+    if (resolve) {
+      this.pendingAuthPrompts.delete(id);
+      resolve(value);
+    }
+    return { success: true };
+  }
+
   /** Cancel every pending dialog (on session swap / dispose) so extensions don't hang. */
   private cancelPendingDialogs() {
     for (const resolve of this.pendingDialogs.values()) resolve({ cancelled: true });
     this.pendingDialogs.clear();
+    // OAuth prompts too — resolve as cancelled so the login promise rejects cleanly.
+    for (const resolve of this.pendingAuthPrompts.values()) resolve(undefined);
+    this.pendingAuthPrompts.clear();
   }
 
   /** Chat mode = pure conversation: no file/bash tools, runs in a scratch dir. */
@@ -1078,33 +1099,143 @@ export class PiSessionManager {
   // --- Misc --------------------------------------------------------------
 
   async getAuthStatus() {
-    const pi = await import("@earendil-works/pi-coding-agent");
-    const providers = ["anthropic", "openai", "google"];
+    if (!this._deps?.authStorage) return [];
+    const authStorage = this._deps.authStorage;
+    // Build the provider set from (a) the SDK's registered OAuth providers —
+    // Anthropic (Claude Pro/Max), OpenAI (ChatGPT), GitHub Copilot — plus
+    // (b) the legacy API-key-only providers so both surfaces show in Settings.
+    const oauthProviders: { id: string; name: string }[] = [];
+    try {
+      for (const p of authStorage.getOAuthProviders() ?? []) {
+        oauthProviders.push({ id: p.id, name: p.name });
+      }
+    } catch {
+      /* getOAuthProviders not available — fall back to API-key providers only */
+    }
+    const apiKeyProviders = ["openai", "google", "anthropic"];
+    // Merge, dedupe by id (OAuth "anthropic" overlaps the API-key one).
+    const seen = new Set<string>();
+    const providers: { id: string; name: string; oauth: boolean }[] = [];
+    for (const p of oauthProviders) {
+      if (!seen.has(p.id)) { seen.add(p.id); providers.push({ ...p, oauth: true }); }
+    }
+    for (const id of apiKeyProviders) {
+      if (!seen.has(id)) { seen.add(id); providers.push({ id, name: id, oauth: false }); }
+    }
+
     const status: any[] = [];
-    const authStorage = pi.AuthStorage.create();
-    for (const provider of providers) {
-      const statusInfo = authStorage.getAuthStatus(provider);
+    for (const { id, name, oauth } of providers) {
+      const statusInfo = authStorage.getAuthStatus(id);
+      const credential = authStorage.get(id);
+      const isOauth = credential?.type === "oauth";
       status.push({
-        provider,
+        provider: id,
+        name,
         authed: statusInfo.configured,
-        type: statusInfo.source,
+        // Whether the provider offers subscription (OAuth) login at all.
+        loginType: oauth ? "oauth" : "apiKey",
+        // How it's currently authenticated — oauth subscription vs api_key.
+        type: isOauth ? "oauth" : "apiKey",
       });
     }
     return status;
   }
 
   async setApiKey(provider: string, apiKey: string) {
-    const pi = await import("@earendil-works/pi-coding-agent");
-    const authStorage = pi.AuthStorage.create();
-    authStorage.set(provider, { type: "api_key", key: apiKey });
+    if (!this._deps?.authStorage) return { success: false, error: "Auth not initialized" };
+    this._deps.authStorage.set(provider, { type: "api_key", key: apiKey });
     return { success: true };
   }
 
   async logout(provider: string) {
-    const pi = await import("@earendil-works/pi-coding-agent");
-    const authStorage = pi.AuthStorage.create();
-    authStorage.remove(provider);
+    if (!this._deps?.authStorage) return { success: false, error: "Auth not initialized" };
+    this._deps.authStorage.remove(provider);
     return { success: true };
+  }
+
+  /**
+   * Run an OAuth subscription login (Claude Pro/Max, ChatGPT, Copilot) using the
+   * SDK's AuthStorage.login(). All PKCE / device-code / token-exchange work
+   * happens inside the SDK; we only bridge the interactive callbacks to the
+   * renderer over the AUTH_EVENT channel so the user sees a login modal.
+   */
+  async login(providerId: string): Promise<{ success: boolean; error?: string }> {
+    if (!this._deps?.authStorage) return { success: false, error: "Auth not initialized" };
+    const authStorage = this._deps.authStorage;
+    try {
+      await authStorage.login(providerId, {
+        // Browser PKCE flow (Anthropic, Codex browser method): open the authorize
+        // URL in the system browser AND tell the renderer to show a "complete
+        // sign-in" panel with a manual-code-paste fallback.
+        onAuth: (info: { url: string; instructions?: string }) => {
+          shell.openExternal(info.url).catch(() => {});
+          this.events.emit(this.AUTH_EVENT, {
+            kind: "auth",
+            provider: providerId,
+            url: info.url,
+            instructions: info.instructions,
+          });
+        },
+        // Device-code flow (Copilot, Codex device method): show the user code and
+        // open the verification page. The renderer displays the code prominently.
+        onDeviceCode: (info: { userCode: string; verificationUri: string }) => {
+          if (info.verificationUri) shell.openExternal(info.verificationUri).catch(() => {});
+          this.events.emit(this.AUTH_EVENT, {
+            kind: "deviceCode",
+            provider: providerId,
+            userCode: info.userCode,
+            verificationUri: info.verificationUri,
+          });
+        },
+        onProgress: (message: string) => {
+          this.events.emit(this.AUTH_EVENT, { kind: "progress", provider: providerId, message });
+        },
+        // Blocking: ask the renderer for a text input (e.g. manual auth code).
+        onPrompt: (prompt: { message: string; placeholder?: string; allowEmpty?: boolean }) =>
+          this.requestAuthInput(providerId, "prompt", {
+            message: prompt.message,
+            placeholder: prompt.placeholder,
+            allowEmpty: prompt.allowEmpty,
+          }),
+        // Blocking: ask the renderer to pick an option (e.g. Codex browser vs device).
+        onSelect: (prompt: { message: string; options: { id: string; label: string }[] }) =>
+          this.requestAuthInput(providerId, "select", {
+            message: prompt.message,
+            options: prompt.options,
+          }),
+        // Blocking: manual code paste fallback for callback-server flows.
+        onManualCodeInput: () =>
+          this.requestAuthInput(providerId, "manualCode", {
+            message: "Paste the authorization code from the browser:",
+            placeholder: "code",
+          }),
+      });
+      // Credentials persisted by the SDK to auth.json. Rebuild deps so model
+      // registries pick up the new OAuth token.
+      invalidateSharedDeps();
+      this.events.emit(this.AUTH_EVENT, { kind: "done", provider: providerId });
+      return { success: true };
+    } catch (err: any) {
+      const message = err?.message ?? String(err);
+      this.events.emit(this.AUTH_EVENT, { kind: "error", provider: providerId, message });
+      return { success: false, error: message };
+    }
+  }
+
+  /**
+   * Push a blocking OAuth prompt to the renderer and await its reply. Mirrors
+   * the pendingDialogs/registerDialog pattern for extension dialogs.
+   */
+  private requestAuthInput(
+    provider: string,
+    kind: "prompt" | "select" | "manualCode",
+    payload: { message: string; placeholder?: string; allowEmpty?: boolean; options?: { id: string; label: string }[] },
+  ): Promise<string> {
+    return new Promise((resolve) => {
+      const requestId = `auth-${++this.authPromptSeq}`;
+      this.pendingAuthPrompts.set(requestId, (value) => resolve(value ?? ""));
+      this.events.emit(this.AUTH_EVENT, { kind, provider, requestId, ...payload });
+    });
   }
 
   getCwd() {

@@ -77,6 +77,24 @@ export interface ExtDialogRequest {
   options?: string[];
 }
 
+/**
+ * State of an in-flight OAuth subscription login, driven by AuthEvent messages
+ * pushed from the main process. `null` when no login is active.
+ */
+export interface AuthFlow {
+  provider: string;
+  phase: "browser" | "deviceCode" | "progress" | "prompt" | "select" | "manualCode" | "done" | "error";
+  /** Present only for blocking phases (prompt/select/manualCode). */
+  requestId?: string;
+  message?: string;
+  url?: string;
+  userCode?: string;
+  verificationUri?: string;
+  placeholder?: string;
+  options?: { id: string; label: string }[];
+  error?: string;
+}
+
 export interface ExtToast {
   id: number;
   message: string;
@@ -132,6 +150,9 @@ interface AppState {
   extDialog: ExtDialogRequest | null;
   toasts: ExtToast[];
 
+  // OAuth subscription login flow (Claude Pro/Max, ChatGPT, Copilot)
+  authFlow: AuthFlow | null;
+
   // Addon contributions (Tier 2: declarative panels + status items)
   panels: PanelContribution[];
   statusItems: StatusItemContribution[];
@@ -159,6 +180,12 @@ interface AppState {
   setActiveTab: (id: string) => void;
   updateTab: (id: string, patch: Partial<Tab>) => void;
   setDefaultTabMode: (mode: TabMode) => void;
+  /**
+   * If a tab is already open for `cwd`, focus it (and return true) instead of
+   * letting the caller open a duplicate. Returns false when no such tab exists,
+   * so the caller should proceed to create a new one. One tab per folder.
+   */
+  focusExistingTab: (cwd?: string) => boolean;
 
   // Per-tab state actions
   setTabPiState: (tabId: string, s: Partial<PiState>) => void;
@@ -181,6 +208,10 @@ interface AppState {
   handleExtUi: (tabId: string, message: any) => void;
   clearExtDialog: () => void;
   dismissToast: (id: number) => void;
+
+  // OAuth login actions
+  handleAuthEvent: (message: any) => void;
+  clearAuthFlow: () => void;
 
   // Addon actions
   loadAddons: () => void;
@@ -220,6 +251,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   diagnostics: [],
   extDialog: null,
   toasts: [],
+  authFlow: null,
   panels: [],
   statusItems: [],
   activePanelId: null,
@@ -268,6 +300,19 @@ export const useAppStore = create<AppState>((set, get) => ({
       activeTabId: id,
       activeTab: st.tabStates[id] ?? emptyTabState("", ""),
     })),
+
+  focusExistingTab: (cwd) => {
+    if (!cwd) return false;
+    const st = get();
+    const existing = st.tabs.find((t) => t.cwd === cwd);
+    if (!existing) return false;
+    set({
+      activeTabId: existing.id,
+      activeTab: st.tabStates[existing.id] ?? emptyTabState("", ""),
+      activeView: "chat",
+    });
+    return true;
+  },
 
   updateTab: (id, patch) =>
     set((st) => {
@@ -545,6 +590,83 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   clearExtDialog: () => set({ extDialog: null }),
   dismissToast: (id) => set((st) => ({ toasts: st.toasts.filter((t) => t.id !== id) })),
+
+  // Map an AuthEvent push from the main process onto the authFlow UI state.
+  handleAuthEvent: (message) =>
+    set(() => {
+      const kind = message?.kind as string | undefined;
+      if (!kind) return {};
+      const provider = message.provider as string;
+      switch (kind) {
+        case "auth":
+          return {
+            authFlow: {
+              provider,
+              phase: "browser",
+              url: message.url,
+              message: message.instructions,
+            } as AuthFlow,
+          };
+        case "deviceCode":
+          return {
+            authFlow: {
+              provider,
+              phase: "deviceCode",
+              userCode: message.userCode,
+              verificationUri: message.verificationUri,
+            } as AuthFlow,
+          };
+        case "progress":
+          return {
+            authFlow: { provider, phase: "progress", message: message.message } as AuthFlow,
+          };
+        case "prompt":
+          return {
+            authFlow: {
+              provider,
+              phase: "prompt",
+              requestId: message.requestId,
+              message: message.message,
+              placeholder: message.placeholder,
+            } as AuthFlow,
+          };
+        case "select":
+          return {
+            authFlow: {
+              provider,
+              phase: "select",
+              requestId: message.requestId,
+              message: message.message,
+              options: message.options,
+            } as AuthFlow,
+          };
+        case "manualCode":
+          return {
+            authFlow: {
+              provider,
+              phase: "manualCode",
+              requestId: message.requestId,
+              message: message.message,
+              placeholder: message.placeholder,
+            } as AuthFlow,
+          };
+        case "done":
+          // Refresh auth status so the new credential shows as authenticated.
+          window.pi.api.getAuthStatus().catch(() => {});
+          return { authFlow: null };
+        case "error":
+          return {
+            authFlow: {
+              provider,
+              phase: "error",
+              error: message.message ?? "Login failed.",
+            } as AuthFlow,
+          };
+        default:
+          return {};
+      }
+    }),
+  clearAuthFlow: () => set({ authFlow: null }),
 
   loadAddons: () => {
     window.pi.addons

@@ -7,6 +7,7 @@ import { SessionsView } from "./components/sessions/SessionsView";
 import { StatusBar } from "./components/StatusBar";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { ExtensionDialog, ExtensionToasts } from "./components/extensions/ExtensionUi";
+import { AuthFlowModal } from "./components/AuthFlowModal";
 import { PanelView } from "./components/extensions/PanelView";
 
 // Secondary views are code-split so their (considerable) code — settings,
@@ -43,6 +44,7 @@ export default function App() {
   const resetTabMessages = useAppStore((s) => s.resetTabMessages);
   const addDiagnostic = useAppStore((s) => s.addDiagnostic);
   const handleExtUi = useAppStore((s) => s.handleExtUi);
+  const handleAuthEvent = useAppStore((s) => s.handleAuthEvent);
   const panels = useAppStore((s) => s.panels);
   const activePanelId = useAppStore((s) => s.activePanelId);
   const loadAddons = useAppStore((s) => s.loadAddons);
@@ -145,6 +147,12 @@ export default function App() {
       if (tabId) handleExtUi(tabId, message);
     });
 
+    // OAuth login-flow events (browser opened, device code, input prompts).
+    // Auth is shared/global, so these don't need a tabId gate.
+    const offAuth = pi.events.onAuthEvent((message: any) => {
+      handleAuthEvent(message);
+    });
+
     const offReset = pi.events.onSessionReset((data: any) => {
       const tabId = data.tabId;
       if (!tabId) return;
@@ -165,6 +173,8 @@ export default function App() {
           }
           const cwd = await window.pi.api.pickDirectory();
           if (!cwd) return;
+          // A folder can only be open in one tab — focus it if already open.
+          if (useAppStore.getState().focusExistingTab(cwd)) break;
           await window.pi.api.createTab({ tabId, cwd, mode: "code" });
           addTab({ id: tabId, title: cwd.split("/").pop() || cwd, cwd, mode: "code" });
           break;
@@ -203,10 +213,11 @@ export default function App() {
       offDiag();
       offPkgChanged();
       offExtUi();
+      offAuth();
       offReset();
       offMenu();
     };
-  }, [handleTabAgentEvent, setTabPiState, setTabQueue, loadTabMessages, resetTabMessages, addDiagnostic, handleExtUi, loadAddons, addTab, setActiveView, setSidebarOpen]);
+  }, [handleTabAgentEvent, setTabPiState, setTabQueue, loadTabMessages, resetTabMessages, addDiagnostic, handleExtUi, handleAuthEvent, loadAddons, addTab, setActiveView, setSidebarOpen]);
 
   // Sync active tab to backend when renderer switches tabs.
   useEffect(() => {
@@ -288,6 +299,7 @@ export default function App() {
       <UpdateBanner />
       <ExtensionToasts />
       <ExtensionDialog />
+      <AuthFlowModal />
     </div>
   );
 }

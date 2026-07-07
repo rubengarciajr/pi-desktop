@@ -20,6 +20,8 @@ export class SessionPool {
   readonly DIAG_EVENT = "pi:diag";
   readonly SESSION_RESET_EVENT = "pi:sessionReset";
   readonly EXT_UI_EVENT = "pi:extui";
+  /** OAuth login flow events (shared, not per-tab). */
+  readonly AUTH_EVENT = "pi:auth.event";
 
   constructor() {
     // The pool fans every per-tab manager's events through this single emitter,
@@ -103,6 +105,11 @@ export class SessionPool {
     });
     mgr.events.on(mgr.EXT_UI_EVENT, (message: any) => {
       this.events.emit(this.EXT_UI_EVENT, { ...message, tabId });
+    });
+    // OAuth events are shared (auth.json is global), but we still tag with the
+    // originating tabId so the renderer can route the modal if needed.
+    mgr.events.on(mgr.AUTH_EVENT, (message: any) => {
+      this.events.emit(this.AUTH_EVENT, { ...message, tabId });
     });
   }
 

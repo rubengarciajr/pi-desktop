@@ -77,7 +77,7 @@ interface MarkdownProps {
 const CodeBlock = memo(function CodeBlock({ language, value }: { language: string; value: string }) {
   const lineCount = value.split("\n").length;
   return (
-    <div className="group relative my-3 max-w-full overflow-hidden rounded-lg border border-border bg-bg">
+    <div className="group relative my-2.5 max-w-full overflow-hidden rounded-lg border border-border bg-bg">
       <div className="flex items-center justify-between border-b border-border bg-bg-subtle px-3 py-1.5">
         <span className="text-[10px] font-medium uppercase tracking-wider text-text-faint">
           {language || "text"}
@@ -175,13 +175,16 @@ function filenameFromSrc(src: string): string {
 const REMARK_PLUGINS = [remarkGfm];
 
 const MARKDOWN_COMPONENTS: Components = {
-  h1: ({ node, ...props }) => <h1 className="mb-3 mt-4 text-lg font-semibold text-text" {...props} />,
-  h2: ({ node, ...props }) => <h2 className="mb-2 mt-4 text-base font-semibold text-text" {...props} />,
-  h3: ({ node, ...props }) => <h3 className="mb-2 mt-3 text-sm font-semibold text-text" {...props} />,
-  h4: ({ node, ...props }) => <h4 className="mb-1 mt-3 text-sm font-semibold text-text" {...props} />,
-  h5: ({ node, ...props }) => <h5 className="mb-1 mt-2 text-xs font-semibold text-text" {...props} />,
-  h6: ({ node, ...props }) => <h6 className="mb-1 mt-2 text-xs font-medium text-text-muted" {...props} />,
-  p: ({ node, ...props }) => <p className="mb-3 leading-relaxed last:mb-0" {...props} />,
+  // Tight, chat-appropriate heading scale: distinguish by weight + small size
+  // steps, not dramatic jumps. Body is 13px (text-[13px] on the wrapper), so
+  // headings stay within 1-3px of it for visual cohesion.
+  h1: ({ node, ...props }) => <h1 className="mb-2 mt-3 text-[15px] font-semibold text-text" {...props} />,
+  h2: ({ node, ...props }) => <h2 className="mb-2 mt-3 text-[14px] font-semibold text-text" {...props} />,
+  h3: ({ node, ...props }) => <h3 className="mb-1.5 mt-2.5 text-[13px] font-semibold text-text" {...props} />,
+  h4: ({ node, ...props }) => <h4 className="mb-1.5 mt-2.5 text-[13px] font-semibold text-text-muted" {...props} />,
+  h5: ({ node, ...props }) => <h5 className="mb-1 mt-2 text-[13px] font-medium text-text-muted" {...props} />,
+  h6: ({ node, ...props }) => <h6 className="mb-1 mt-2 text-[13px] font-medium text-text-faint" {...props} />,
+  p: ({ node, ...props }) => <p className="mb-2.5 leading-relaxed last:mb-0" {...props} />,
   a: ({ node, ...props }) => (
     <a
       className="text-accent underline decoration-accent/30 underline-offset-2 hover:decoration-accent"
@@ -190,30 +193,32 @@ const MARKDOWN_COMPONENTS: Components = {
       {...props}
     />
   ),
-  ul: ({ node, ...props }) => <ul className="mb-3 ml-5 list-disc space-y-1" {...props} />,
-  ol: ({ node, ...props }) => <ol className="mb-3 ml-5 list-decimal space-y-1" {...props} />,
+  ul: ({ node, ...props }) => <ul className="mb-2.5 ml-4 list-disc space-y-0.5" {...props} />,
+  ol: ({ node, ...props }) => <ol className="mb-2.5 ml-4 list-decimal space-y-0.5" {...props} />,
   li: ({ node, ...props }) => <li className="leading-relaxed" {...props} />,
   blockquote: ({ node, ...props }) => (
     <blockquote
-      className="my-3 border-l-2 border-border-strong pl-4 text-text-muted italic"
+      className="my-2.5 border-l-2 border-border-strong pl-3 text-text-muted italic"
       {...props}
     />
   ),
-  hr: ({ node, ...props }) => <hr className="my-4 border-border" {...props} />,
-  strong: ({ node, ...props }) => <strong className="font-semibold text-text" {...props} />,
+  hr: ({ node, ...props }) => <hr className="my-3 border-border" {...props} />,
+  // Bold keeps the inherited color — don't force text-text (the brightest
+  // shade), which made bolded words look like a different element.
+  strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
   em: ({ node, ...props }) => <em className="italic" {...props} />,
   del: ({ node, ...props }) => <del className="text-text-muted line-through" {...props} />,
   table: ({ node, ...props }) => (
-    <div className="my-3 overflow-x-auto">
-      <table className="w-full border-collapse text-xs" {...props} />
+    <div className="my-2.5 overflow-x-auto">
+      <table className="w-full border-collapse text-[12px]" {...props} />
     </div>
   ),
   thead: ({ node, ...props }) => <thead className="border-b border-border" {...props} />,
   th: ({ node, ...props }) => (
-    <th className="px-3 py-1.5 text-left font-medium text-text" {...props} />
+    <th className="px-2.5 py-1 text-left font-medium text-text" {...props} />
   ),
   td: ({ node, ...props }) => (
-    <td className="border-t border-border px-3 py-1.5 text-text-muted" {...props} />
+    <td className="border-t border-border px-2.5 py-1 text-text-muted" {...props} />
   ),
   code({ node, inline, className, children, ...props }: any) {
     const match = /language-(\w+)/.exec(className || "");
@@ -223,7 +228,7 @@ const MARKDOWN_COMPONENTS: Components = {
     }
     return (
       <code
-        className="rounded bg-bg-hover px-1.5 py-0.5 text-xs font-mono text-accent break-words"
+        className="rounded bg-bg-hover px-1 py-0.5 text-[12px] font-mono text-accent break-words"
         {...props}
       >
         {children}
@@ -244,7 +249,7 @@ const MARKDOWN_COMPONENTS: Components = {
 export const Markdown = memo(function Markdown({ children, streaming }: MarkdownProps) {
   return (
     <div
-      className={`selectable min-w-0 max-w-full break-words text-sm leading-relaxed text-assistant ${streaming ? "streaming-cursor" : ""}`}
+      className={`selectable min-w-0 max-w-full break-words text-[13px] leading-relaxed text-assistant ${streaming ? "streaming-cursor" : ""}`}
     >
       <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_COMPONENTS}>
         {children}

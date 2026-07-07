@@ -39,6 +39,8 @@ export function Sidebar() {
     }
     const cwd = await window.pi.api.pickDirectory();
     if (!cwd) return;
+    // A folder can only be open in one tab — focus it if already open.
+    if (useAppStore.getState().focusExistingTab(cwd)) return;
     await window.pi.api.createTab({ tabId, cwd, mode: "code" });
     useAppStore.getState().addTab({ id: tabId, title: cwd.split("/").pop() || cwd, cwd, mode: "code" });
   };
