@@ -1,8 +1,15 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.4.2** · Last updated: **July 8, 2026**
+> Current version: **v0.4.3** · Last updated: **July 8, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.4.3 — July 8, 2026
+
+### Custom Models
+- **See what a local server offers** — Test connection now lists the models available on the server as clickable chips. Click one to fill in the Model ID — no more guessing the exact name.
 
 ---
 

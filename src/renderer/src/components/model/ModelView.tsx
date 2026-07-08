@@ -372,7 +372,11 @@ function AddModelForm({ onDone, initial }: { onDone: () => void; initial?: EditT
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ level: "ok" | "warn" | "error"; msg: string } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    level: "ok" | "warn" | "error";
+    msg: string;
+    models?: string[];
+  } | null>(null);
 
   const handleTest = async () => {
     if (!baseUrl.trim()) {
@@ -393,11 +397,11 @@ function AddModelForm({ onDone, initial }: { onDone: () => void; initial?: EditT
         const count = r.models?.length ?? 0;
         const base = `Reachable — ${count} model${count === 1 ? "" : "s"} available`;
         if (modelId.trim() && r.modelFound === false) {
-          setTestResult({ level: "warn", msg: `${base}, but "${modelId.trim()}" isn't in the list` });
+          setTestResult({ level: "warn", msg: `${base}, but "${modelId.trim()}" isn't in the list`, models: r.models });
         } else if (modelId.trim() && r.modelFound) {
-          setTestResult({ level: "ok", msg: `${base} — "${modelId.trim()}" found ✓` });
+          setTestResult({ level: "ok", msg: `${base} — "${modelId.trim()}" found ✓`, models: r.models });
         } else {
-          setTestResult({ level: "ok", msg: base });
+          setTestResult({ level: "ok", msg: base, models: r.models });
         }
       }
     } catch (e) {
@@ -580,17 +584,49 @@ function AddModelForm({ onDone, initial }: { onDone: () => void; initial?: EditT
       )}
 
       {testResult && (
-        <p
-          className={`mt-3 text-xs ${
-            testResult.level === "ok"
-              ? "text-success"
-              : testResult.level === "warn"
-                ? "text-warning"
-                : "text-danger"
-          }`}
-        >
-          {testResult.msg}
-        </p>
+        <div className="mt-3">
+          <p
+            className={`text-xs ${
+              testResult.level === "ok"
+                ? "text-success"
+                : testResult.level === "warn"
+                  ? "text-warning"
+                  : "text-danger"
+            }`}
+          >
+            {testResult.msg}
+          </p>
+          {testResult.models && testResult.models.length > 0 && (
+            <div className="mt-2">
+              <div className="mb-1 text-[10px] uppercase tracking-wider text-text-faint">
+                Available on this server — click to use
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {testResult.models.map((id) => {
+                  const selected = id === modelId.trim();
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => {
+                        setModelId(id);
+                        setTestResult((prev) =>
+                          prev ? { ...prev, level: "ok", msg: `Selected "${id}" ✓` } : prev,
+                        );
+                      }}
+                      className={`rounded-md border px-2 py-0.5 text-[11px] font-mono transition-colors ${
+                        selected
+                          ? "border-accent/50 bg-accent/10 text-accent"
+                          : "border-border bg-bg text-text-muted hover:border-accent/40 hover:text-text"
+                      }`}
+                    >
+                      {id}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="mt-4 flex items-center gap-2">

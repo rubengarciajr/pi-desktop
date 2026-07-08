@@ -6,6 +6,18 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.4.3",
+    date: "2026-07-08",
+    sections: [
+      {
+        title: "Custom Models",
+        items: [
+          "Test connection now lists the models the server actually offers — click one to fill in the Model ID (handy when your model name doesn't match, e.g. it showed \"gemme4:e2b isn't in the list\")",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.4.2",
     date: "2026-07-08",
     sections: [

@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.4.3] — 2026-07-08
+
+### Changed
+- **Test connection now shows the server's models** — when a model server is reachable, the test lists its available model IDs as clickable chips; clicking one fills the Model ID field (and highlights the current match). Makes it obvious what to enter when the typed model name doesn't match the server's.
+
+---
+
 ## [0.4.2] — 2026-07-08
 
 ### Added
