@@ -276,7 +276,7 @@ export default function App() {
           </div>
           {/* Sessions panel (persistent drawer) */}
           {sessionsPanelOpen && (
-            <div className="flex w-80 shrink-0 flex-col border-l border-border bg-bg-subtle/50 backdrop-blur-xl">
+            <div className="flex w-80 shrink-0 flex-col border-l border-border-strong bg-bg-subtle">
               <div className="no-drag flex h-12 shrink-0 items-center justify-between px-4 pt-7">
                 <span className="text-xs font-semibold uppercase tracking-wider text-text-faint">Sessions</span>
                 <button

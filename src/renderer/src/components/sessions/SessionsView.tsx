@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { PlusIcon, FolderIcon } from "../Icons";
 import { GitRepoHeader } from "../GitRepoBadge";
@@ -22,6 +22,9 @@ export function SessionsView() {
   const addFavorite = useAppStore((s) => s.addFavorite);
   const removeFavorite = useAppStore((s) => s.removeFavorite);
   const setSessionsPanelOpen = useAppStore((s) => s.setSessionsPanelOpen);
+  // The session file of the active tab, so we can mark the open session.
+  const activeSessionFile = useAppStore((s) => s.activeTab.piState.sessionFile);
+  const activeCwd = useAppStore((s) => s.activeTab.piState.cwd ?? s.activeTab.cwd);
 
   const refresh = async () => {
     setLoading(true);
@@ -67,7 +70,7 @@ export function SessionsView() {
   return (
     <div className="flex h-full flex-col">
       {/* Compact header */}
-      <div className="no-drag flex items-center justify-between px-4 pb-2">
+      <div className="no-drag flex items-center justify-between px-4 pb-3">
         <div className="flex items-center gap-1">
           <button
             onClick={handleNew}
@@ -102,113 +105,138 @@ export function SessionsView() {
             {/* Favorites section */}
             {favorites.length > 0 && (
               <div>
-                <h3 className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wider text-text-faint">
+                <h3 className="mb-2 px-1 text-[10px] font-medium uppercase tracking-wider text-text-faint">
                   Favorites
                 </h3>
-                <div className="space-y-0.5">
-                  {favorites.map((f) => (
-                    <div
-                      key={f.path}
-                      className="group flex items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors hover:bg-bg-hover"
-                    >
-                      <button
-                        onClick={async () => {
-                          // Opening a favorite auto-closes the Sessions panel
-                          // (only favorites do this — regular session items don't).
-                          setSessionsPanelOpen(false);
-                          // A folder can only be open in one tab — focus it if
-                          // it's already open instead of cloning.
-                          if (focusExistingTab(f.path)) return;
-                          const tabId = `tab-${Date.now()}`;
-                          await window.pi.api.createTab({ tabId, cwd: f.path });
-                          addTab({ id: tabId, title: f.name, cwd: f.path });
-                          // Find the most recent session in this folder and load it.
-                          const folderSessions = sessions.filter((s) => s.cwd === f.path);
-                          if (folderSessions.length > 0) {
-                            const mostRecent = folderSessions.sort((a, b) =>
-                              (b.timestamp ?? 0) - (a.timestamp ?? 0)
-                            )[0];
-                            await window.pi.api.switchSession({
-                              sessionPath: mostRecent.file,
-                              cwd: f.path,
-                              tabId,
-                            });
-                          }
-                        }}
-                        className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
-                        title={f.path}
+                <div className="space-y-1.5">
+                  {favorites.map((f) => {
+                    const isActiveFolder = activeCwd === f.path;
+                    return (
+                      <div
+                        key={f.path}
+                        className={`group flex items-center gap-1.5 rounded-lg border px-2.5 py-2 transition-colors ${
+                          isActiveFolder
+                            ? "border-accent/40 bg-accent/10"
+                            : "border-border bg-bg-hover hover:border-border-strong hover:bg-bg-active"
+                        }`}
                       >
-                        <StarIcon size={11} filled />
-                        <FolderIcon size={11} className="shrink-0 text-text-faint" />
-                        <span className="truncate text-xs text-text">{f.name}</span>
-                      </button>
-                      <button
-                        onClick={() => removeFavorite(f.path)}
-                        className="shrink-0 text-text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
-                        title="Remove from favorites"
-                      >
-                        <StarIcon size={11} filled />
-                      </button>
-                    </div>
-                  ))}
+                        <button
+                          onClick={async () => {
+                            setSessionsPanelOpen(false);
+                            if (focusExistingTab(f.path)) return;
+                            const tabId = `tab-${Date.now()}`;
+                            await window.pi.api.createTab({ tabId, cwd: f.path });
+                            addTab({ id: tabId, title: f.name, cwd: f.path });
+                            const folderSessions = sessions.filter((s) => s.cwd === f.path);
+                            if (folderSessions.length > 0) {
+                              const mostRecent = folderSessions.sort((a, b) =>
+                                (b.timestamp ?? 0) - (a.timestamp ?? 0)
+                              )[0];
+                              await window.pi.api.switchSession({
+                                sessionPath: mostRecent.file,
+                                cwd: f.path,
+                                tabId,
+                              });
+                            }
+                          }}
+                          className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                          title={f.path}
+                        >
+                          <StarIcon size={11} filled />
+                          <FolderIcon size={11} className="shrink-0 text-text-faint" />
+                          <span className="truncate text-xs text-text">{f.name}</span>
+                          {isActiveFolder && (
+                            <span className="ml-auto shrink-0 rounded-full bg-accent/20 px-1.5 py-0.5 text-[9px] font-medium text-accent">
+                              open
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => removeFavorite(f.path)}
+                          className="shrink-0 text-text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+                          title="Remove from favorites"
+                        >
+                          <StarIcon size={11} filled />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
             {/* Sessions grouped by folder */}
-            {Object.entries(grouped).map(([dir, dirSessions]) => (
-              <div key={dir}>
-                {/* Folder header with star */}
-                <div className="mb-1 flex items-center gap-1.5 px-1">
-                  <button
-                    onClick={() => toggleFavorite(dir)}
-                    className="text-text-faint transition-colors hover:text-warning"
-                    title={isFavorite(dir) ? "Remove from favorites" : "Add to favorites"}
-                  >
-                    <StarIcon size={11} filled={isFavorite(dir)} />
-                  </button>
-                  <FolderIcon size={11} className="text-text-faint" />
-                  <span className="truncate text-[11px] font-medium text-text-muted">{dir.split("/").pop() || dir}</span>
-                  <span className="text-[10px] text-text-faint">({dirSessions.length})</span>
-                </div>
-                {/* Git info */}
-                <div className="mb-1 px-1">
-                  <GitRepoHeader cwd={dir} />
-                </div>
-                {/* Session items */}
-                <div className="space-y-0.5">
-                  {dirSessions.map((s) => (
+            {Object.entries(grouped).map(([dir, dirSessions]) => {
+              const isFolderActive = activeCwd === dir;
+              return (
+                <div key={dir}>
+                  {/* Folder header with star */}
+                  <div className="mb-2 flex items-center gap-1.5 px-1">
                     <button
-                      key={s.id}
-                      onClick={async () => {
-                        // A folder can only be open in one tab — if it's already
-                        // open, focus that tab instead of cloning the session.
-                        if (focusExistingTab(s.cwd)) return;
-                        const tabId = `tab-${Date.now()}`;
-                        await window.pi.api.createTab({ tabId, cwd: s.cwd });
-                        addTab({ id: tabId, title: s.cwd?.split("/").pop() || s.name || s.id.slice(0, 8), cwd: s.cwd });
-                        await window.pi.api.switchSession({ sessionPath: s.file, cwd: s.cwd, tabId });
-                      }}
-                      className="no-drag flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left transition-colors hover:bg-bg-hover"
+                      onClick={() => toggleFavorite(dir)}
+                      className="text-text-faint transition-colors hover:text-warning"
+                      title={isFavorite(dir) ? "Remove from favorites" : "Add to favorites"}
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-xs font-medium text-text">
-                          {s.name || s.firstMessage?.slice(0, 50) || s.id.slice(0, 8)}
-                        </div>
-                        <div className="truncate text-[10px] text-text-faint">
-                          {s.timestamp ? new Date(s.timestamp).toLocaleDateString() : ""}
-                        </div>
-                      </div>
-                      {s.messageCount != null && (
-                        <span className="ml-2 shrink-0 text-[10px] text-text-faint">
-                          {s.messageCount} msgs
-                        </span>
-                      )}
+                      <StarIcon size={11} filled={isFavorite(dir)} />
                     </button>
-                  ))}
+                    <FolderIcon size={11} className={isFolderActive ? "text-accent" : "text-text-faint"} />
+                    <span className={`truncate text-[11px] font-medium ${isFolderActive ? "text-accent" : "text-text-muted"}`}>
+                      {dir.split("/").pop() || dir}
+                    </span>
+                    <span className="text-[10px] text-text-faint">({dirSessions.length})</span>
+                  </div>
+                  {/* Git info */}
+                  <div className="mb-2 px-1">
+                    <GitRepoHeader cwd={dir} />
+                  </div>
+                  {/* Session cards */}
+                  <div className="space-y-1.5">
+                    {dirSessions.map((s) => {
+                      const isActive = s.file === activeSessionFile;
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={async () => {
+                            if (focusExistingTab(s.cwd)) return;
+                            const tabId = `tab-${Date.now()}`;
+                            await window.pi.api.createTab({ tabId, cwd: s.cwd });
+                            addTab({ id: tabId, title: s.cwd?.split("/").pop() || s.name || s.id.slice(0, 8), cwd: s.cwd });
+                            await window.pi.api.switchSession({ sessionPath: s.file, cwd: s.cwd, tabId });
+                          }}
+                          className={`no-drag flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-all ${
+                            isActive
+                              ? "border-accent/50 bg-accent/10 shadow-[0_0_0_1px_rgb(var(--color-accent-rgb)/0.2)]"
+                              : "border-border bg-bg-hover hover:border-border-strong hover:bg-bg-active"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className={`truncate text-xs font-medium ${isActive ? "text-accent" : "text-text"}`}>
+                              {s.name || s.firstMessage?.slice(0, 50) || s.id.slice(0, 8)}
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-2 truncate text-[10px] text-text-faint">
+                              {s.timestamp && <span>{new Date(s.timestamp).toLocaleDateString()}</span>}
+                              {isActive && (
+                                <span className="flex items-center gap-0.5 font-medium text-accent">
+                                  <span className="h-1 w-1 rounded-full bg-accent" />
+                                  current
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {s.messageCount != null && (
+                            <span className={`ml-2 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] ${
+                              isActive ? "bg-accent/20 text-accent" : "bg-bg-active text-text-faint"
+                            }`}>
+                              {s.messageCount}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -6,6 +6,21 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.3.8",
+    date: "2026-07-08",
+    sections: [
+      {
+        title: "Sessions Panel",
+        items: [
+          "Sessions are now cards with clear borders instead of flat rows — easier to scan and distinguish from the panel background",
+          "The session you're currently in is highlighted with an accent border, glow ring, and a 'current' label, so you always know where you are",
+          "The folder you're working in is also marked with accent color in the folder header and favorites list",
+          "Panel background is now fully separated from the main chat area with a stronger divider",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.3.7",
     date: "2026-07-07",
     sections: [
