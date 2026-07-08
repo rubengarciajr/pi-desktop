@@ -248,6 +248,53 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
     return { success: true };
   });
 
+  // Probe an OpenAI-compatible endpoint (GET {baseUrl}/models) to confirm a
+  // model server — typically a local one — is reachable before the user saves.
+  // Runs in the main process to sidestep the renderer's CORS/CSP restrictions.
+  handle(
+    "pi:models.testConnection",
+    async (a: { baseUrl: string; apiKey?: string; modelId?: string }) => {
+      const base = (a?.baseUrl ?? "").trim().replace(/\/+$/, "");
+      if (!base) return { ok: false as const, error: "Enter a Base URL first." };
+      const key = a.apiKey?.trim();
+      const headers: Record<string, string> = {};
+      // Only send a literal key; $ENV_VAR / !command forms are resolved by the
+      // SDK at runtime, not here, and local servers accept any (or no) key.
+      if (key && !key.startsWith("$") && !key.startsWith("!")) {
+        headers.Authorization = `Bearer ${key}`;
+      }
+      try {
+        const res = await fetch(`${base}/models`, {
+          headers,
+          signal: AbortSignal.timeout(6000),
+        });
+        if (!res.ok) {
+          return {
+            ok: false as const,
+            status: res.status,
+            error: `Server responded ${res.status} ${res.statusText}`.trim(),
+          };
+        }
+        const data: any = await res.json().catch(() => null);
+        const models: string[] = Array.isArray(data?.data)
+          ? data.data.map((m: any) => m?.id).filter((id: any): id is string => typeof id === "string")
+          : [];
+        const modelFound = a.modelId ? models.includes(a.modelId.trim()) : undefined;
+        return { ok: true as const, status: res.status, models, modelFound };
+      } catch (err: any) {
+        const name = err?.name;
+        const code = err?.cause?.code ?? err?.code;
+        const msg =
+          name === "TimeoutError" || name === "AbortError"
+            ? "Timed out — is the server running at that URL?"
+            : code === "ECONNREFUSED"
+              ? "Connection refused — is the server running at that URL?"
+              : (err?.message ?? String(err));
+        return { ok: false as const, error: msg };
+      }
+    },
+  );
+
   // Open a folder (or file) in the OS file manager / default handler.
   handle("pi:shell.openPath", async (a: { path: string }) => {
     if (!a?.path) return { success: false, error: "No path provided" };

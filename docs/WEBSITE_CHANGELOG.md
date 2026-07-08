@@ -1,8 +1,16 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.4.0** · Last updated: **July 8, 2026**
+> Current version: **v0.4.1** · Last updated: **July 8, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.4.1 — July 8, 2026
+
+### Local Models
+- **Connect a local model in two clicks** — a new **Local** preset in the Add Model form fills in a localhost template for Ollama, LM Studio, or llama.cpp, so you don't have to remember the endpoint.
+- **Test connection** — a new button pings your local server before you save, confirming it's reachable and that your chosen model is available. No more guessing why a model isn't showing up.
 
 ---
 

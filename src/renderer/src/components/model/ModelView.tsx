@@ -21,7 +21,38 @@ const API_OPTIONS = [
   { value: "google-generative-ai", label: "Google Generative AI" },
 ];
 
-const PRESETS = [
+interface Preset {
+  id: string;
+  label: string;
+  description: string;
+  baseUrl: string;
+  api: string;
+  modelId: string;
+  modelName: string;
+  reasoning: boolean;
+  contextWindow?: number;
+  /** Pre-filled API key (e.g. a dummy value for local servers that ignore it). */
+  apiKey?: string;
+  apiKeyPlaceholder: string;
+  signupUrl: string;
+}
+
+const PRESETS: Preset[] = [
+  {
+    id: "local",
+    label: "Local",
+    description: "Ollama / LM Studio / llama.cpp",
+    // Generic localhost template — 11434 is Ollama's port; change it for
+    // LM Studio (1234), llama.cpp (8080), or your own server.
+    baseUrl: "http://localhost:11434/v1",
+    api: "openai-completions",
+    modelId: "",
+    modelName: "",
+    reasoning: false,
+    apiKey: "local", // local servers ignore the value but a non-empty key registers the provider
+    apiKeyPlaceholder: "any value (local servers ignore it)",
+    signupUrl: "",
+  },
   {
     id: "claude",
     label: "Claude",
@@ -279,15 +310,52 @@ function AddModelForm({ onDone }: { onDone: () => void }) {
   const [contextWindow, setContextWindow] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ level: "ok" | "warn" | "error"; msg: string } | null>(null);
 
-  const applyPreset = (preset: typeof PRESETS[0]) => {
+  const handleTest = async () => {
+    if (!baseUrl.trim()) {
+      setTestResult({ level: "error", msg: "Enter a Base URL first." });
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const r = await window.pi.api.testModelConnection({
+        baseUrl: baseUrl.trim(),
+        apiKey: apiKey.trim() || undefined,
+        modelId: modelId.trim() || undefined,
+      });
+      if (!r.ok) {
+        setTestResult({ level: "error", msg: r.error ?? "Could not reach the server." });
+      } else {
+        const count = r.models?.length ?? 0;
+        const base = `Reachable — ${count} model${count === 1 ? "" : "s"} available`;
+        if (modelId.trim() && r.modelFound === false) {
+          setTestResult({ level: "warn", msg: `${base}, but "${modelId.trim()}" isn't in the list` });
+        } else if (modelId.trim() && r.modelFound) {
+          setTestResult({ level: "ok", msg: `${base} — "${modelId.trim()}" found ✓` });
+        } else {
+          setTestResult({ level: "ok", msg: base });
+        }
+      }
+    } catch (e) {
+      setTestResult({ level: "error", msg: String(e) });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const applyPreset = (preset: Preset) => {
     setProvider(preset.label);
     setBaseUrl(preset.baseUrl);
     setApi(preset.api);
     setModelId(preset.modelId);
     setModelName(preset.modelName);
     setReasoning(preset.reasoning);
+    setApiKey(preset.apiKey ?? "");
     if (preset.contextWindow) setContextWindow(String(preset.contextWindow));
+    setTestResult(null);
   };
 
   const handleSubmit = async () => {
@@ -431,6 +499,20 @@ function AddModelForm({ onDone }: { onDone: () => void }) {
         <p className="mt-3 text-xs text-danger">{error}</p>
       )}
 
+      {testResult && (
+        <p
+          className={`mt-3 text-xs ${
+            testResult.level === "ok"
+              ? "text-success"
+              : testResult.level === "warn"
+                ? "text-warning"
+                : "text-danger"
+          }`}
+        >
+          {testResult.msg}
+        </p>
+      )}
+
       <div className="mt-4 flex items-center gap-2">
         <button
           onClick={handleSubmit}
@@ -438,6 +520,14 @@ function AddModelForm({ onDone }: { onDone: () => void }) {
           className="rounded-lg bg-accent px-4 py-2 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-40"
         >
           {saving ? "Saving..." : "Add model"}
+        </button>
+        <button
+          onClick={handleTest}
+          disabled={testing || !baseUrl.trim()}
+          title="Ping the Base URL to check the server is reachable"
+          className="rounded-lg border border-border bg-bg px-4 py-2 text-xs text-text-muted hover:bg-bg-hover disabled:opacity-40"
+        >
+          {testing ? "Testing..." : "Test connection"}
         </button>
         <button
           onClick={onDone}

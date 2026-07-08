@@ -205,6 +205,14 @@ export interface PiApi {
   customModelRemove: (args: { provider: string; modelId: string }) => Promise<{ success: boolean }>;
   modelsJsonPath: () => Promise<string>;
   openModelsJson: () => Promise<{ success: boolean }>;
+  /** Probe an OpenAI-compatible endpoint (GET {baseUrl}/models) to confirm reachability. */
+  testModelConnection: (args: { baseUrl: string; apiKey?: string; modelId?: string }) => Promise<{
+    ok: boolean;
+    status?: number;
+    models?: string[];
+    modelFound?: boolean;
+    error?: string;
+  }>;
   systemCheck: () => Promise<{ npm: boolean; node: boolean; git: boolean; pi: boolean }>;
 
   // Misc

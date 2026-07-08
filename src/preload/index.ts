@@ -88,6 +88,7 @@ const api = {
   customModelRemove: invoke("pi:models.custom.remove"),
   modelsJsonPath: invoke("pi:models.json.path"),
   openModelsJson: invoke("pi:models.json.open"),
+  testModelConnection: invoke("pi:models.testConnection"),
 
   // Misc
   getCwd: invoke("pi:cwd.get"),

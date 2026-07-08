@@ -5,6 +5,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.4.1] — 2026-07-08
+
+### Added
+- **"Local" model preset** — a new quick preset in the Add Model form fills a generic `http://localhost:11434/v1` template (Ollama / LM Studio / llama.cpp) with the OpenAI-compatible API type and a dummy key, so a local model can be added without typing the endpoint by hand.
+- **"Test connection" button** — pings the endpoint (`GET {baseUrl}/models`) before saving to confirm the server is reachable and reports whether the entered model ID is in the server's list. Runs via a new `pi:models.testConnection` main-process IPC to sidestep renderer CORS/CSP.
+
+---
+
+## [0.4.0] — 2026-07-08
+
+### Added — Pi Routing (Mixture of Agents)
+- **Pi Desktop exclusive** — create teams of models that collaborate on your prompts in parallel, synthesize a briefing, and let the main model build its response enriched by the team's analysis.
+- New **Pi Routing** button in the chat toolbar (next to Tools and Web): toggle it on, pick a team, and every prompt is pre-processed by the MOA team before the main model responds.
+- **Basic mode**: team fans out once per prompt, aggregator synthesizes, main model builds (single layer). **Advanced mode**: aggregator scores each response (0–10); low scorers are automatically re-queried with refined prompts (up to 5 layers), with manual re-query support.
+- New **Mixture of Agents** settings tab with team CRUD, member/aggregator model selection, a test runner, and advanced tuning (max layers, confidence threshold, visibility toggles).
+- Live progress indicator in the chat area ("Pi Routing: consulting N models…") during fan-out; the icon adapts to dark/light themes.
+
+---
+
+## [0.3.8] — 2026-07-08
+
+### Changed — Sessions Panel
+- Sessions are now **cards** with clear borders instead of flat rows — easier to scan and distinguish from the panel background.
+- The **current session** is highlighted with an accent border, glow ring, and a "current" label, so you always know where you are.
+- The active working folder is marked with accent color in the folder header and favorites list.
+- The panel background is more strongly separated from the main chat area with a heavier divider.
+
+---
+
 ## [0.3.7] — 2026-07-07
 
 ### Added

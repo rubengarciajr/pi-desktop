@@ -6,6 +6,19 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.4.1",
+    date: "2026-07-08",
+    sections: [
+      {
+        title: "Local Models",
+        items: [
+          "New 'Local' quick preset in Add Model — fills a localhost template (Ollama / LM Studio / llama.cpp) so you can connect a local model without typing the endpoint by hand",
+          "New 'Test connection' button that pings the endpoint before you save — confirms the server is reachable and whether your model ID is available",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.4.0",
     date: "2026-07-08",
     sections: [
