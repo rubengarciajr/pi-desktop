@@ -1,6 +1,6 @@
 {
   "name": "pi-desktop",
-  "version": "0.3.8",
+  "version": "0.4.0",
   "description": "Pi Desktop - a full-featured macOS desktop app for the Pi coding agent",
   "main": "out/main/index.js",
   "author": "Pi Desktop",

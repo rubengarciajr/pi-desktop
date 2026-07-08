@@ -6,6 +6,24 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.4.0",
+    date: "2026-07-08",
+    sections: [
+      {
+        title: "Pi Routing — Mixture of Agents",
+        items: [
+          "Pi Desktop exclusive: create teams of models that collaborate on your prompts in parallel, synthesize a briefing, and let the main model build its response enriched by the team's analysis",
+          "New Pi Routing button in the chat toolbar (next to Tools and Web) — toggle it on, pick a team, and every prompt is pre-processed by the MOA team before the main model responds",
+          "Basic mode: team fans out once per prompt, aggregator synthesizes, main model builds — single layer",
+          "Advanced mode: aggregator scores each team response (0–10); low-scoring members are automatically re-queried with refined prompts (up to 5 layers), with manual re-query support",
+          "New 'Mixture of Agents' settings tab with team CRUD, member/aggregator model selection, test runner, and advanced tuning (max layers, confidence threshold, visibility toggles)",
+          "Pi Routing icon adapts to dark/light themes automatically via currentColor",
+          "Live progress indicator in the chat area shows 'Pi Routing: consulting N models…' during fan-out",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.3.8",
     date: "2026-07-08",
     sections: [

@@ -26,6 +26,12 @@ const api = {
   removeQueued: invoke("pi:queue.remove"),
   setChatWeb: invoke("pi:chat.setWeb"),
   setChatTools: invoke("pi:chat.setTools"),
+  setChatRouting: invoke("pi:chat.setRouting"),
+
+  // Pi Routing / Mixture of Agents
+  getMoaConfig: invoke("pi:moa.get"),
+  setMoaConfig: invoke("pi:moa.set"),
+  moaTest: invoke("pi:moa.test"),
 
   // Web search config
   getWebSearchStatus: invoke("pi:webSearch.status"),
@@ -177,6 +183,11 @@ const events = {
     const wrapped = (_e: IpcRendererEvent, data: { loaded: number; total: number }) => listener(data);
     ipcRenderer.on("pi:update:progress", wrapped);
     return () => ipcRenderer.removeListener("pi:update:progress", wrapped);
+  },
+  onMoaProgress: (listener: (data: any) => void) => {
+    const wrapped = (_e: IpcRendererEvent, data: any) => listener(data);
+    ipcRenderer.on("pi:moa:progress", wrapped);
+    return () => ipcRenderer.removeListener("pi:moa:progress", wrapped);
   },
   onThemeChanged: (listener: (data: any) => void) => {
     const wrapped = (_e: IpcRendererEvent, data: any) => listener(data);

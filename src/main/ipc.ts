@@ -26,6 +26,7 @@ import { getExtensionDetail, setExtensionConfig } from "./extensionDetail";
 import { getAddonContributions } from "./addonContributions";
 import { getSdkVersion } from "./pi/sdkVersion";
 import { loadFavorites, saveFavorites, type Favorite } from "./favorites";
+import { loadMoaConfig, saveMoaConfig, findTeam } from "./moa/config";
 import { shell } from "electron";
 import { homedir } from "node:os";
 
@@ -122,6 +123,18 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
   handle("pi:chat.setTools", async (a) => {
     const m = await mgr(a);
     return m.setToolsEnabled(!!a.enabled);
+  });
+  handle("pi:chat.setRouting", async (a) => {
+    const m = await mgr(a);
+    return m.setRoutingEnabled(!!a.enabled, a.teamId);
+  });
+
+  // --- Pi Routing / Mixture of Agents config (userData/moa-teams.json) ---
+  handle("pi:moa.get", () => loadMoaConfig());
+  handle("pi:moa.set", (a) => saveMoaConfig(a));
+  handle("pi:moa.test", async (a) => {
+    const m = await mgr(a);
+    return m.runMoaTest(a.message, a.teamId);
   });
 
   // --- Web search config (~/.pi/web-search.json) ---

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { SendIcon, StopIcon } from "../Icons";
 import { GitHubBadge } from "../GitHubBadge";
+import { RoutingToggle } from "./RoutingToggle";
 
 interface CommandItem {
   name: string;
@@ -32,6 +33,7 @@ export function PromptInput() {
   const mode = useAppStore((s) => s.activeTab.mode);
   const webEnabled = useAppStore((s) => s.activeTab.piState.webEnabled);
   const toolsEnabled = useAppStore((s) => s.activeTab.piState.toolsEnabled);
+  const routingEnabled = useAppStore((s) => s.activeTab.piState.routingEnabled);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -330,7 +332,7 @@ export function PromptInput() {
               isStreaming
                 ? "Queue a steering message... (Enter to steer, Cmd+Shift+Enter for follow-up)"
                 : mode === "chat" && (webEnabled || toolsEnabled)
-                  ? `${[toolsEnabled && "🛠 Tools", webEnabled && "🔍 Web"].filter(Boolean).join(" + ")} on — ask away`
+                  ? `${[toolsEnabled && "🛠 Tools", webEnabled && "🔍 Web", routingEnabled && "🔀 Routing"].filter(Boolean).join(" + ")} on — ask away`
                   : "Message Pi Desktop (Enter to send) or type / for commands"
             }
             rows={1}
@@ -382,6 +384,7 @@ export function PromptInput() {
                   Web
                 </button>
               )}
+              {mode === "chat" && <RoutingToggle />}
               {mode === "chat" && !isStreaming && (
                 <button
                   onClick={handleConvertToCode}

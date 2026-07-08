@@ -147,6 +147,10 @@ export interface PiApi {
   removeQueued: (args: { kind: "steering" | "followUp"; index: number; tabId?: string }) => Promise<{ success: boolean }>;
   setChatWeb: (args: { enabled: boolean; tabId?: string }) => Promise<{ success: boolean; webEnabled?: boolean; available?: boolean }>;
   setChatTools: (args: { enabled: boolean; tabId?: string }) => Promise<{ success: boolean; toolsEnabled?: boolean }>;
+  setChatRouting: (args: { enabled: boolean; teamId?: string; tabId?: string }) => Promise<{ success: boolean; routingEnabled?: boolean }>;
+  getMoaConfig: () => Promise<MoaConfig>;
+  setMoaConfig: (args: MoaConfig) => Promise<{ success: boolean; error?: string }>;
+  moaTest: (args: { message: string; teamId: string; tabId?: string }) => Promise<MoaResult>;
   getWebSearchStatus: () => Promise<{ exa: boolean; perplexity: boolean; gemini: boolean; allowBrowserCookies: boolean; curator: boolean; webAccessInstalled: boolean }>;
   setWebSearchConfig: (args: { exaApiKey?: string; perplexityApiKey?: string; geminiApiKey?: string; allowBrowserCookies?: boolean; workflow?: "none" | "summary-review" }) => Promise<{ success: boolean }>;
 
@@ -354,6 +358,60 @@ export interface PackageUpdateInfo {
   type: "npm" | "git";
 }
 
+// --- Pi Routing (Mixture of Agents) ---
+
+export interface MoaMember {
+  provider: string;
+  modelId: string;
+  role?: string;
+}
+
+export interface MoaTeam {
+  id: string;
+  name: string;
+  members: MoaMember[];
+  aggregatorModel: { provider: string; modelId: string };
+}
+
+export interface MoaAdvancedConfig {
+  maxLayers: number;
+  confidenceThreshold: number;
+  showTeamResponses: boolean;
+  allowManualRequery: boolean;
+}
+
+export interface MoaConfig {
+  teams: MoaTeam[];
+  defaultMode: "basic" | "advanced";
+  advanced: MoaAdvancedConfig;
+}
+
+export interface MoaMemberResult {
+  provider: string;
+  modelId: string;
+  modelName: string;
+  role?: string;
+  response?: string;
+  error?: string;
+  score?: number;
+}
+
+export interface MoaResult {
+  briefing: string;
+  teamResponses: MoaMemberResult[];
+  layers: number;
+  confidence: number;
+  teamName: string;
+}
+
+export interface MoaProgressEvent {
+  phase: "fanning-out" | "aggregating" | "scoring" | "re-querying" | "done" | "error";
+  layer: number;
+  member?: string;
+  progress: number;
+  message?: string;
+}
+
 /** Packages API surface. */
 export interface PackagesApi {
   search: () => Promise<PackageInfo[]>;
@@ -388,6 +446,7 @@ export interface PiEventApi {
   onPackagesChanged: (listener: () => void) => () => void;
   onUpdate: (listener: (data: any) => void) => () => void;
   onUpdateProgress: (listener: (data: { loaded: number; total: number }) => void) => () => void;
+  onMoaProgress: (listener: (data: MoaProgressEvent) => void) => () => void;
   onThemeChanged: (listener: (data: any) => void) => () => void;
   onExtUi: (listener: (message: any) => void) => () => void;
   /** OAuth login-flow events (open browser, show device code, prompt for input). */

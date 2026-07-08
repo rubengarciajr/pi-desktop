@@ -35,6 +35,10 @@ export interface PiState {
   webEnabled?: boolean;
   /** Chat-mode native-tools toggle (read/bash/edit/…). */
   toolsEnabled?: boolean;
+  /** Pi Routing: MOA pre-processing enabled for this session. */
+  routingEnabled?: boolean;
+  /** The MOA team id selected for routing. */
+  routingTeamId?: string | null;
   /** Per-session auto-compaction toggle. */
   autoCompactionEnabled?: boolean;
   modelId?: string;

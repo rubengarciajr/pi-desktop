@@ -238,6 +238,10 @@ export class PiSessionManager {
   webEnabled = false;
   /** In chat mode, whether the native Pi tools (read/bash/edit/…) are enabled. */
   toolsEnabled = false;
+  /** Pi Routing: when true, prompts are pre-processed by an MOA team. */
+  routingEnabled = false;
+  /** The MOA team id to use for routing (resolved from config at prompt time). */
+  routingTeamId: string | null = null;
 
   get isReady() {
     return this.initialized;
@@ -283,6 +287,15 @@ export class PiSessionManager {
     this.applyChatTools();
     this.emitState();
     return { success: true, toolsEnabled: enabled };
+  }
+
+  /** Toggle Pi Routing (MOA pre-processing) for this session. */
+  setRoutingEnabled(enabled: boolean, teamId?: string) {
+    this.routingEnabled = enabled;
+    if (teamId) this.routingTeamId = teamId;
+    if (!enabled) this.routingTeamId = null;
+    this.emitState();
+    return { success: true, routingEnabled: enabled };
   }
 
   /** Toggle the web-search tools in a chat session without losing context. */
@@ -537,6 +550,8 @@ export class PiSessionManager {
       chatMode: this.chatMode,
       webEnabled: this.webEnabled,
       toolsEnabled: this.toolsEnabled,
+      routingEnabled: this.routingEnabled,
+      routingTeamId: this.routingTeamId,
       modelId: model?.id,
       modelName: model?.name,
       provider: model?.provider,
@@ -557,11 +572,100 @@ export class PiSessionManager {
 
   async prompt(message: string, opts?: { images?: any[]; streamingBehavior?: "steer" | "followUp" }) {
     if (!this.session) throw new Error("Session not initialized");
+
+    // Pi Routing: pre-process the prompt through an MOA team before the main
+    // model builds its response. The synthesized briefing is injected as a
+    // hidden context message (same pattern as injectWebNudge). If MOA fails
+    // entirely, we fall through to a normal prompt — the user isn't blocked.
+    if (this.routingEnabled && this.routingTeamId && !opts?.streamingBehavior) {
+      try {
+        await this.runMoaEnrichment(message);
+      } catch (err) {
+        console.error("[pi-desktop] MOA enrichment failed, proceeding without:", err);
+        this.events.emit(this.DIAG_EVENT, `Pi Routing failed: ${err instanceof Error ? err.message : String(err)}. Proceeding without enrichment.`);
+      }
+    }
+
     await this.session.prompt(message, {
       images: opts?.images,
       streamingBehavior: opts?.streamingBehavior,
     } as any);
     return { success: true };
+  }
+
+  /**
+   * Run the MOA pipeline for the current prompt and inject the synthesized
+   * briefing into the session context as a hidden custom message. The main
+   * model then sees both the user's prompt and the team's analysis when it
+   * builds its response. Uses the same appendCustomMessageEntry pattern as
+   * injectWebNudge.
+   */
+  private async runMoaEnrichment(message: string): Promise<void> {
+    if (!this.session || !this.routingTeamId || !this.deps?.modelRegistry) return;
+
+    const { loadMoaConfig, findTeam } = await import("../moa/config");
+    const { runMoa } = await import("../moa/engine");
+    const config = loadMoaConfig();
+    const team = findTeam(config, this.routingTeamId);
+    if (!team) {
+      throw new Error(`Team not found: ${this.routingTeamId}`);
+    }
+
+    const sessionMessages = this.session.messages ?? [];
+    const result = await runMoa({
+      message,
+      team,
+      modelRegistry: this.deps.modelRegistry,
+      sessionMessages,
+      mode: config.defaultMode,
+      maxLayers: config.advanced.maxLayers,
+      confidenceThreshold: config.advanced.confidenceThreshold,
+      onProgress: (event) => {
+        this.events.emit(this.EXT_UI_EVENT, {
+          type: "moa:progress",
+          ...event,
+        });
+      },
+    });
+
+    // Inject the briefing as a hidden context message — the main model sees it
+    // in its context window but it's not displayed as a chat message.
+    const sm = (this.session as any).sessionManager ?? this.sessionManager;
+    sm?.appendCustomMessageEntry?.(
+      "moa-briefing",
+      `[Pi Routing Briefing — Team: ${result.teamName}, Confidence: ${result.confidence}/10, Layers: ${result.layers}]\n\n${result.briefing}`,
+      false,
+      {
+        team: result.teamName,
+        layers: result.layers,
+        confidence: result.confidence,
+        teamResponses: config.advanced.showTeamResponses ? result.teamResponses : undefined,
+      },
+    );
+
+    this.events.emit(this.DIAG_EVENT, `Pi Routing complete: ${result.teamName} · ${result.layers} layer(s) · ${result.confidence}/10 confidence`);
+  }
+
+  /**
+   * Run a MOA test from the settings panel. Returns the full result (briefing
+   * + per-member responses) so the user can preview how a team performs.
+   */
+  async runMoaTest(message: string, teamId: string): Promise<any> {
+    if (!this.deps?.modelRegistry) throw new Error("Model registry not available");
+    const { loadMoaConfig, findTeam } = await import("../moa/config");
+    const { runMoa } = await import("../moa/engine");
+    const config = loadMoaConfig();
+    const team = findTeam(config, teamId);
+    if (!team) throw new Error(`Team not found: ${teamId}`);
+    return runMoa({
+      message,
+      team,
+      modelRegistry: this.deps.modelRegistry,
+      sessionMessages: this.session?.messages ?? [],
+      mode: config.defaultMode,
+      maxLayers: config.advanced.maxLayers,
+      confidenceThreshold: config.advanced.confidenceThreshold,
+    });
   }
 
   async steer(message: string, images?: any[]) {
@@ -775,6 +879,8 @@ export class PiSessionManager {
       chatMode: this.chatMode,
       webEnabled: this.webEnabled,
       toolsEnabled: this.toolsEnabled,
+      routingEnabled: this.routingEnabled,
+      routingTeamId: this.routingTeamId,
       modelId: model?.id,
       modelName: model?.name,
       provider: model?.provider,

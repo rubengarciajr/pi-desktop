@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { useAppStore } from "../../store/useAppStore";
 import { MessageItem } from "./MessageItem";
@@ -6,6 +6,7 @@ import { PromptInput } from "./PromptInput";
 import { QueueChips } from "./QueueChips";
 import { ExtensionWidgets } from "../extensions/ExtensionUi";
 import { PiLogoIcon, FolderIcon } from "../Icons";
+import { PiRoutingIcon } from "../Icons";
 
 export function ChatView() {
   // Select only the fields this component uses, so unrelated tab state changes
@@ -23,6 +24,21 @@ export function ChatView() {
   // so a token arriving while the user scrolled up never yanks the view back.
   const atBottomRef = useRef(true);
   const [showJump, setShowJump] = useState(false);
+  const [moaProgress, setMoaProgress] = useState<{ phase: string; message?: string } | null>(null);
+
+  // Listen for MOA (Pi Routing) progress events during prompt pre-processing.
+  useEffect(() => {
+    const off = window.pi.events.onExtUi((message: any) => {
+      if (message?.type === "moa:progress") {
+        if (message.phase === "done" || message.phase === "error") {
+          setMoaProgress(null);
+        } else {
+          setMoaProgress({ phase: message.phase, message: message.message });
+        }
+      }
+    });
+    return off;
+  }, []);
 
   // followOutput is invoked on every change that could add content. Return
   // "smooth" while pinned to follow streaming output; false once the user has
@@ -100,6 +116,12 @@ export function ChatView() {
             )}
             components={{ Footer: () => <div className="h-6" /> }}
           />
+        )}
+        {moaProgress && (
+          <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-1.5 py-1 text-xs text-accent animate-pulse-subtle">
+            <PiRoutingIcon size={12} />
+            {moaProgress.message ?? "Pi Routing…"}
+          </div>
         )}
         {isStreaming && atBottomRef.current && !isEmpty && (
           <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 py-1 text-xs text-thinking animate-pulse-subtle">
