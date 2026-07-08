@@ -1,8 +1,15 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.4.3** · Last updated: **July 8, 2026**
+> Current version: **v0.4.4** · Last updated: **July 8, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.4.4 — July 8, 2026
+
+### Custom Models
+- **Changes apply instantly** — models you add, edit, or remove now show up in the model switcher (⌘M) right away, with no new tab or restart needed.
 
 ---
 

@@ -37,6 +37,17 @@ export class SessionPool {
     return this.pools.get(id) ?? null;
   }
 
+  /**
+   * Refresh every live manager's model registry from models.json so custom
+   * model changes (add/edit/remove) show up in all open tabs immediately.
+   * Call after invalidateSharedDeps() so the shared cache rebuilds fresh.
+   */
+  async refreshAllModelRegistries(): Promise<void> {
+    await Promise.all(
+      [...this.pools.values()].map((mgr) => mgr.refreshModelRegistry().catch(() => {})),
+    );
+  }
+
   /** Get or create a manager for a tab. */
   async getOrCreate(tabId: string): Promise<PiSessionManager> {
     let mgr = this.pools.get(tabId);

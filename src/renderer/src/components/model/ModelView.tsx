@@ -324,7 +324,7 @@ export function ModelView() {
                 })}
               </div>
               <p className="mt-2 text-xs text-text-faint">
-                Custom models appear in Available models after creating a new tab or restarting the app.
+                Custom models are available immediately in the model switcher (Cmd+M).
               </p>
             </section>
           )}

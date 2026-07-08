@@ -232,6 +232,7 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
     const result = addCustomModel(a);
     if (result.success) {
       invalidateSharedDeps();
+      await pool.refreshAllModelRegistries();
     }
     return result;
   });
@@ -239,6 +240,7 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
     const result = editCustomModel(a);
     if (result.success) {
       invalidateSharedDeps();
+      await pool.refreshAllModelRegistries();
     }
     return result;
   });
@@ -246,6 +248,7 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
     const result = removeCustomModel(a.provider, a.modelId);
     if (result.success) {
       invalidateSharedDeps();
+      await pool.refreshAllModelRegistries();
     }
     return result;
   });

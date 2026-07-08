@@ -6,6 +6,18 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.4.4",
+    date: "2026-07-08",
+    sections: [
+      {
+        title: "Custom Models",
+        items: [
+          "Added, edited, and removed custom models now appear in the model switcher (Cmd+M) immediately — no more needing to open a new tab or restart the app",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.4.3",
     date: "2026-07-08",
     sections: [

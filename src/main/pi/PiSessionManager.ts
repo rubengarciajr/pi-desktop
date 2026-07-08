@@ -973,6 +973,20 @@ export class PiSessionManager {
     return { level };
   }
 
+  /**
+   * Rebuild the model registry from models.json so newly added/edited/removed
+   * custom models appear immediately — without opening a new tab or restarting.
+   * Mirrors init(): pulls a fresh registry from the (just-invalidated) shared
+   * deps cache. Call invalidateSharedDeps() before this so the cache rebuilds.
+   */
+  async refreshModelRegistry(): Promise<void> {
+    if (!this._deps || !this.agentDir || !this.cwd) return;
+    const pi = await import("@earendil-works/pi-coding-agent");
+    const shared = await getSharedDeps(this.agentDir, pi, this.cwd);
+    this._deps.modelRegistry = shared.modelRegistry;
+    this._deps.authStorage = shared.authStorage;
+  }
+
   async getAvailableModels() {
     if (!this.deps) throw new Error("Deps not initialized");
     const models = await this.deps.modelRegistry.getAvailable();

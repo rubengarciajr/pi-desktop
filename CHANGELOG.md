@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.4.4] — 2026-07-08
+
+### Fixed
+- **Custom model changes apply live** — adding, editing, or removing a custom model now refreshes the model registry for every open tab immediately, so it appears in the ⌘M switcher and the Available models list without opening a new tab or restarting. Adds `refreshModelRegistry()` on the session manager and `refreshAllModelRegistries()` on the pool, called from the custom-model IPC handlers after `invalidateSharedDeps()`.
+
+---
+
 ## [0.4.3] — 2026-07-08
 
 ### Changed
