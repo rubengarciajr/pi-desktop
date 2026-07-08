@@ -64,6 +64,25 @@ export function listCustomModels(): { providers: Record<string, { baseUrl?: stri
   return { providers: data.providers };
 }
 
+/** True for localhost / loopback base URLs (local model servers). */
+function isLocalUrl(url: string): boolean {
+  return /\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[?::1\]?)(:|\/|$)/i.test(url ?? "");
+}
+
+/**
+ * Normalize the stored API key. Local servers ignore the key, but the SDK's
+ * model registry HIDES providers whose key is empty or the unresolved
+ * `$API_KEY` placeholder (it reads `$…` as an env var). For a localhost URL we
+ * substitute a harmless literal so the provider's models actually show up in
+ * the switcher; otherwise we leave the value as the caller supplied it.
+ */
+function normalizeApiKey(apiKey: string | undefined, baseUrl: string): string {
+  const key = apiKey?.trim();
+  if (key && key !== "$API_KEY") return key;
+  if (isLocalUrl(baseUrl)) return "local";
+  return key || "$API_KEY";
+}
+
 export function addCustomModel(config: {
   provider: string;
   baseUrl: string;
@@ -77,20 +96,21 @@ export function addCustomModel(config: {
   const data = readModelsJson();
 
   const providerKey = config.provider.toLowerCase().replace(/\s+/g, "-");
+  const apiKey = normalizeApiKey(config.apiKey, config.baseUrl);
 
   // Create or update the provider.
   if (!data.providers[providerKey]) {
     data.providers[providerKey] = {
       baseUrl: config.baseUrl,
       api: config.api,
-      apiKey: config.apiKey,
+      apiKey,
       models: [],
     };
   } else {
     // Update provider-level fields.
     if (config.baseUrl) data.providers[providerKey].baseUrl = config.baseUrl;
     if (config.api) data.providers[providerKey].api = config.api;
-    if (config.apiKey) data.providers[providerKey].apiKey = config.apiKey;
+    data.providers[providerKey].apiKey = apiKey;
   }
 
   // Check if model already exists under this provider (upsert by id).
@@ -137,9 +157,10 @@ export function editCustomModel(config: {
   }
   const data = readModelsJson();
 
-  // Preserve the current key unless the caller provides a new one.
+  // Preserve the current key unless the caller provides a new one, then
+  // normalize so a localhost provider never keeps the hidden $API_KEY placeholder.
   const existingKey = data.providers[config.originalProvider]?.apiKey;
-  const apiKey = config.apiKey?.trim() || existingKey || "$API_KEY";
+  const apiKey = normalizeApiKey(config.apiKey?.trim() || existingKey, config.baseUrl);
 
   // Remove the original entry first (cleanly handles provider/model rename).
   const original = data.providers[config.originalProvider];

@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.4.5] — 2026-07-08
+
+### Fixed
+- **Local models with a blank API key were hidden from the switcher** — a blank key was stored as the `$API_KEY` placeholder, which the SDK reads as an (unset) env var, so the provider was treated as unauthenticated and its models were filtered out of `getAvailable()`. Custom models on a localhost base URL now store a harmless literal key (`local`) instead — both when added and when edited — so they appear in ⌘M. Re-saving an affected model heals it. (`normalizeApiKey` / `isLocalUrl` in `models.ts`.)
+
+---
+
 ## [0.4.4] — 2026-07-08
 
 ### Fixed

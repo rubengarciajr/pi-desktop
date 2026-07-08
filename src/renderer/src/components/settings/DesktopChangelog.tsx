@@ -6,6 +6,18 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.4.5",
+    date: "2026-07-08",
+    sections: [
+      {
+        title: "Custom Models",
+        items: [
+          "Fixed local models not appearing in the switcher when added with a blank API key — a localhost server now stores a harmless placeholder key instead of the unresolved $API_KEY that the model list was hiding. Re-saving an affected model fixes it",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.4.4",
     date: "2026-07-08",
     sections: [

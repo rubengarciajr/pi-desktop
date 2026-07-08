@@ -1,8 +1,15 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.4.4** · Last updated: **July 8, 2026**
+> Current version: **v0.4.5** · Last updated: **July 8, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.4.5 — July 8, 2026
+
+### Custom Models
+- **Fixed: local models could stay hidden** — a local model added without an API key wasn't showing in the model switcher. Local servers now get a harmless placeholder key automatically, so they appear right away. (If you already hit this, just re-save the model.)
 
 ---
 
