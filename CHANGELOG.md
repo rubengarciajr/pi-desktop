@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.4.7] — 2026-07-08
+
+### Fixed
+- **Model repairs apply to all models automatically — no re-saving each one.** On launch, any localhost provider with a missing/`$API_KEY` placeholder key is healed in place (`healCustomModelKeys()` in `models.ts`, run at startup before the session pool initializes), and every custom provider's literal key is registered into the shared `authStorage` at session start and on refresh (`registerCustomProviderKeys()`). Because the session resolves request keys from `authStorage` first, this also makes an **edited API key take effect in the running session immediately** — no restart, no re-saving. (`listLocalProviderCredentials` generalized to `listCustomProviderCredentials`.)
+
+---
+
 ## [0.4.6] — 2026-07-08
 
 ### Fixed

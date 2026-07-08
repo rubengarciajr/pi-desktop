@@ -14,6 +14,7 @@ import { registerShortcuts, unregisterShortcuts } from "./shortcuts";
 import { initAutoUpdater } from "./updater";
 import { SessionPool } from "./pi/SessionPool";
 import { ensureHeadlessDefault } from "./webSearch";
+import { healCustomModelKeys } from "./models";
 
 let mainWindow: BrowserWindow | null = null;
 const pool = new SessionPool();
@@ -44,6 +45,15 @@ app.whenReady().then(async () => {
 
   // Default web search to headless (no browser curator) unless the user opted in.
   ensureHeadlessDefault();
+
+  // Repair any local model providers whose key is a placeholder, all at once,
+  // so the user never has to open and re-save each affected model.
+  try {
+    const healed = healCustomModelKeys();
+    if (healed > 0) console.log(`[pi-desktop] Healed ${healed} local model provider key(s).`);
+  } catch (err) {
+    console.error("[pi-desktop] healCustomModelKeys failed:", err);
+  }
 
   // Initialize session pool AFTER window is created and showing.
   try {

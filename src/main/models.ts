@@ -84,22 +84,43 @@ function normalizeApiKey(apiKey: string | undefined, baseUrl: string): string {
 }
 
 /**
- * Literal API keys for localhost providers, so the caller can register them in
- * the SDK's authStorage. The already-built session validates model selection
- * against authStorage, so a local model added mid-session is otherwise rejected
- * with "No API key" until restart. Env (`$…`) and command (`!…`) refs are left
- * to the SDK to resolve and are skipped here.
+ * Literal API keys for every custom provider, so the caller can register them in
+ * the SDK's authStorage. The already-built session validates model selection and
+ * resolves request keys against authStorage, so registering here makes a model
+ * added OR edited mid-session take effect immediately — without a restart and
+ * without re-saving each model. Env (`$…`) and command (`!…`) refs are left to
+ * the SDK to resolve and are skipped.
  */
-export function listLocalProviderCredentials(): { provider: string; apiKey: string }[] {
+export function listCustomProviderCredentials(): { provider: string; apiKey: string }[] {
   const data = readModelsJson();
   const out: { provider: string; apiKey: string }[] = [];
   for (const [provider, p] of Object.entries(data.providers)) {
     const key = p.apiKey?.trim();
-    if (key && isLocalUrl(p.baseUrl ?? "") && !key.startsWith("$") && !key.startsWith("!")) {
+    if (key && !key.startsWith("$") && !key.startsWith("!")) {
       out.push({ provider, apiKey: key });
     }
   }
   return out;
+}
+
+/**
+ * One-shot repair, run at startup: rewrite any localhost provider whose key is
+ * missing or the hidden `$API_KEY` placeholder to a harmless literal, so ALL
+ * affected local models are fixed at once — the user never has to open and
+ * re-save each one. Returns how many providers were changed.
+ */
+export function healCustomModelKeys(): number {
+  const data = readModelsJson();
+  let changed = 0;
+  for (const p of Object.values(data.providers)) {
+    const cur = p.apiKey?.trim();
+    if ((!cur || cur === "$API_KEY") && isLocalUrl(p.baseUrl ?? "")) {
+      p.apiKey = "local";
+      changed++;
+    }
+  }
+  if (changed > 0) writeModelsJson(data);
+  return changed;
 }
 
 export function addCustomModel(config: {

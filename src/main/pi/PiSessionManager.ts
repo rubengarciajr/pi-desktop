@@ -22,7 +22,7 @@ import type {
   SettingsManager as PiSettingsManagerType,
 } from "@earendil-works/pi-coding-agent";
 import { getSharedDeps, invalidateSharedDeps } from "./SharedDepsCache";
-import { listLocalProviderCredentials } from "../models";
+import { listCustomProviderCredentials } from "../models";
 import { getCachedMessages, setCachedMessages, invalidateCache } from "./MessageCache";
 import {
   createExtensionUiBridge,
@@ -375,6 +375,9 @@ export class PiSessionManager {
     };
 
     await this.buildRuntime(pi, this.cwd, pi.SessionManager.create(this.cwd));
+    // Ensure every custom provider's key is in authStorage from the start, so
+    // model selection works without depending on which registry instance is hit.
+    this.registerCustomProviderKeys();
     this.initialized = true;
   }
 
@@ -980,26 +983,34 @@ export class PiSessionManager {
    * Mirrors init(): pulls a fresh registry from the (just-invalidated) shared
    * deps cache. Call invalidateSharedDeps() before this so the cache rebuilds.
    */
-  async refreshModelRegistry(): Promise<void> {
-    if (!this._deps || !this.agentDir) return;
-    const pi = await import("@earendil-works/pi-coding-agent");
-    // Keep the SAME authStorage the live session was built with — the session's
-    // internal model registry validates model selection against it. Registering
-    // local providers' (dummy) keys here makes a just-added local model
-    // selectable without a restart; otherwise setModel throws "No API key"
-    // because the session's registry never saw the new/healed models.json entry.
-    const authStorage = this._deps.authStorage;
-    for (const cred of listLocalProviderCredentials()) {
+  /**
+   * Mirror every custom provider's literal key into the SDK's authStorage. The
+   * live session's model registry validates selection and resolves request keys
+   * against this same authStorage, so registering here makes a model that was
+   * added OR edited mid-session take effect immediately — no restart, and no
+   * need to re-save every model.
+   */
+  private registerCustomProviderKeys(): void {
+    if (!this._deps) return;
+    for (const cred of listCustomProviderCredentials()) {
       try {
-        authStorage.set(cred.provider, { type: "api_key", key: cred.apiKey });
+        this._deps.authStorage.set(cred.provider, { type: "api_key", key: cred.apiKey });
       } catch {
         /* best-effort: a failed registration just means restart-to-apply */
       }
     }
+  }
+
+  async refreshModelRegistry(): Promise<void> {
+    if (!this._deps || !this.agentDir) return;
+    const pi = await import("@earendil-works/pi-coding-agent");
+    // Keep the SAME authStorage the live session was built with, and sync all
+    // custom keys into it, so selection/edits apply to the running session.
+    this.registerCustomProviderKeys();
     // Fresh listing registry (sharing that authStorage) so add/edit/remove show
     // up in the model list immediately.
     this._deps.modelRegistry = pi.ModelRegistry.create(
-      authStorage,
+      this._deps.authStorage,
       join(this.agentDir, "models.json"),
     );
   }

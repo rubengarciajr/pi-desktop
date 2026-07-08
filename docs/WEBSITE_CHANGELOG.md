@@ -1,8 +1,15 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.4.6** · Last updated: **July 8, 2026**
+> Current version: **v0.4.7** · Last updated: **July 8, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.4.7 — July 8, 2026
+
+### Custom Models
+- **Fixes apply to all your models at once** — you no longer have to open and re-save each model to pick up a fix; repairs run automatically on launch. And editing a model's API key now takes effect immediately, without a restart.
 
 ---
 

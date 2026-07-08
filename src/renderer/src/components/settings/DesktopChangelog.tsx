@@ -6,6 +6,19 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.4.7",
+    date: "2026-07-08",
+    sections: [
+      {
+        title: "Custom Models",
+        items: [
+          "Model fixes now apply to all your models automatically on launch — no need to open and re-save each one",
+          "Editing a model's API key now takes effect immediately in the running session, without a restart",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.4.6",
     date: "2026-07-08",
     sections: [
