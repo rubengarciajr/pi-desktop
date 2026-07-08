@@ -6,6 +6,18 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.4.6",
+    date: "2026-07-08",
+    sections: [
+      {
+        title: "Custom Models",
+        items: [
+          "Fixed the \"No API key\" error when selecting a local model that had just been added — local models are now selectable immediately, without restarting. (Local servers still don't need a real key; Pi registers a harmless placeholder automatically.)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.4.5",
     date: "2026-07-08",
     sections: [

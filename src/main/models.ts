@@ -83,6 +83,25 @@ function normalizeApiKey(apiKey: string | undefined, baseUrl: string): string {
   return key || "$API_KEY";
 }
 
+/**
+ * Literal API keys for localhost providers, so the caller can register them in
+ * the SDK's authStorage. The already-built session validates model selection
+ * against authStorage, so a local model added mid-session is otherwise rejected
+ * with "No API key" until restart. Env (`$…`) and command (`!…`) refs are left
+ * to the SDK to resolve and are skipped here.
+ */
+export function listLocalProviderCredentials(): { provider: string; apiKey: string }[] {
+  const data = readModelsJson();
+  const out: { provider: string; apiKey: string }[] = [];
+  for (const [provider, p] of Object.entries(data.providers)) {
+    const key = p.apiKey?.trim();
+    if (key && isLocalUrl(p.baseUrl ?? "") && !key.startsWith("$") && !key.startsWith("!")) {
+      out.push({ provider, apiKey: key });
+    }
+  }
+  return out;
+}
+
 export function addCustomModel(config: {
   provider: string;
   baseUrl: string;

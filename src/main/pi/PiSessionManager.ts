@@ -22,6 +22,7 @@ import type {
   SettingsManager as PiSettingsManagerType,
 } from "@earendil-works/pi-coding-agent";
 import { getSharedDeps, invalidateSharedDeps } from "./SharedDepsCache";
+import { listLocalProviderCredentials } from "../models";
 import { getCachedMessages, setCachedMessages, invalidateCache } from "./MessageCache";
 import {
   createExtensionUiBridge,
@@ -980,11 +981,27 @@ export class PiSessionManager {
    * deps cache. Call invalidateSharedDeps() before this so the cache rebuilds.
    */
   async refreshModelRegistry(): Promise<void> {
-    if (!this._deps || !this.agentDir || !this.cwd) return;
+    if (!this._deps || !this.agentDir) return;
     const pi = await import("@earendil-works/pi-coding-agent");
-    const shared = await getSharedDeps(this.agentDir, pi, this.cwd);
-    this._deps.modelRegistry = shared.modelRegistry;
-    this._deps.authStorage = shared.authStorage;
+    // Keep the SAME authStorage the live session was built with — the session's
+    // internal model registry validates model selection against it. Registering
+    // local providers' (dummy) keys here makes a just-added local model
+    // selectable without a restart; otherwise setModel throws "No API key"
+    // because the session's registry never saw the new/healed models.json entry.
+    const authStorage = this._deps.authStorage;
+    for (const cred of listLocalProviderCredentials()) {
+      try {
+        authStorage.set(cred.provider, { type: "api_key", key: cred.apiKey });
+      } catch {
+        /* best-effort: a failed registration just means restart-to-apply */
+      }
+    }
+    // Fresh listing registry (sharing that authStorage) so add/edit/remove show
+    // up in the model list immediately.
+    this._deps.modelRegistry = pi.ModelRegistry.create(
+      authStorage,
+      join(this.agentDir, "models.json"),
+    );
   }
 
   async getAvailableModels() {

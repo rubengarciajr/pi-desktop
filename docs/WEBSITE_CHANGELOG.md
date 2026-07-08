@@ -1,8 +1,15 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.4.5** · Last updated: **July 8, 2026**
+> Current version: **v0.4.6** · Last updated: **July 8, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.4.6 — July 8, 2026
+
+### Custom Models
+- **Fixed: "No API key" when picking a new local model** — a local model you'd just added could show in the switcher but fail to select. It now works immediately, with no restart. Local models still don't need a real API key.
 
 ---
 

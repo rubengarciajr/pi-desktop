@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.4.6] — 2026-07-08
+
+### Fixed
+- **"No API key" when selecting a freshly-added local model** — the model list was refreshed live (v0.4.4) but the running session's own model registry wasn't, so a just-added local model appeared in ⌘M yet failed selection with `No API key for …`. The session validates model selection against the shared `authStorage`, so live-refresh now registers local providers' placeholder keys there (keeping the session's authStorage instead of swapping it). Local models are selectable immediately, no restart. (`listLocalProviderCredentials()` in `models.ts`; reworked `refreshModelRegistry()`.)
+
+---
+
 ## [0.4.5] — 2026-07-08
 
 ### Fixed
