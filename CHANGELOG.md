@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.4.2] — 2026-07-08
+
+### Added
+- **Edit custom models** — the "Your custom models" list now has an **Edit** action alongside Remove. It reuses the Add Model form pre-filled with the model's current values (provider, base URL, API type, model id, display name, reasoning, context window), shown inline under the model. Renaming the provider or model id is handled by re-keying the entry, and leaving the API key blank preserves the existing key. Backed by a new `editCustomModel` in `models.ts` and a `pi:models.custom.edit` IPC.
+
+---
+
 ## [0.4.1] — 2026-07-08
 
 ### Added

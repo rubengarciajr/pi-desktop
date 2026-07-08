@@ -20,7 +20,7 @@ import {
   readRepoLinkage,
 } from "./github";
 import { searchPackages, getDownloadCounts } from "./packages";
-import { listCustomModels, addCustomModel, removeCustomModel, getModelsPath } from "./models";
+import { listCustomModels, addCustomModel, editCustomModel, removeCustomModel, getModelsPath } from "./models";
 import { getWebSearchStatus, setWebSearchConfig } from "./webSearch";
 import { getExtensionDetail, setExtensionConfig } from "./extensionDetail";
 import { getAddonContributions } from "./addonContributions";
@@ -230,6 +230,13 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
   handle("pi:models.custom.list", () => listCustomModels());
   handle("pi:models.custom.add", async (a) => {
     const result = addCustomModel(a);
+    if (result.success) {
+      invalidateSharedDeps();
+    }
+    return result;
+  });
+  handle("pi:models.custom.edit", async (a) => {
+    const result = editCustomModel(a);
     if (result.success) {
       invalidateSharedDeps();
     }

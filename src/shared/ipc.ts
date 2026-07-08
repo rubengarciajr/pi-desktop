@@ -202,6 +202,8 @@ export interface PiApi {
   // Custom models management
   customModelsList: () => Promise<{ providers: Record<string, { baseUrl?: string; api?: string; models: any[] }> }>;
   customModelAdd: (args: { provider: string; baseUrl: string; api: string; apiKey: string; modelId: string; modelName?: string; reasoning?: boolean; contextWindow?: number }) => Promise<{ success: boolean; error?: string }>;
+  /** Edit an existing custom model. Renames are handled; a blank apiKey keeps the current one. */
+  customModelEdit: (args: { originalProvider: string; originalModelId: string; provider: string; baseUrl: string; api: string; apiKey?: string; modelId: string; modelName?: string; reasoning?: boolean; contextWindow?: number }) => Promise<{ success: boolean; error?: string }>;
   customModelRemove: (args: { provider: string; modelId: string }) => Promise<{ success: boolean }>;
   modelsJsonPath: () => Promise<string>;
   openModelsJson: () => Promise<{ success: boolean }>;

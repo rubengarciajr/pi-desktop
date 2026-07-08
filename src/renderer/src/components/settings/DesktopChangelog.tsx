@@ -6,6 +6,18 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.4.2",
+    date: "2026-07-08",
+    sections: [
+      {
+        title: "Custom Models",
+        items: [
+          "You can now Edit a custom model, not just remove it — fix a typo in the base URL, model ID, provider name, API type, or context window without deleting and re-adding. Leave the API key blank to keep the current one",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.4.1",
     date: "2026-07-08",
     sections: [

@@ -85,6 +85,7 @@ const api = {
   // Custom models management
   customModelsList: invoke("pi:models.custom.list"),
   customModelAdd: invoke("pi:models.custom.add"),
+  customModelEdit: invoke("pi:models.custom.edit"),
   customModelRemove: invoke("pi:models.custom.remove"),
   modelsJsonPath: invoke("pi:models.json.path"),
   openModelsJson: invoke("pi:models.json.open"),

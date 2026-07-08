@@ -21,6 +21,19 @@ const API_OPTIONS = [
   { value: "google-generative-ai", label: "Google Generative AI" },
 ];
 
+/** Identity + current values of a custom model being edited (pre-fills the form). */
+interface EditTarget {
+  originalProvider: string; // provider key in models.json
+  originalModelId: string;
+  providerName: string;
+  baseUrl: string;
+  api: string;
+  modelId: string;
+  modelName: string;
+  reasoning: boolean;
+  contextWindow?: number;
+}
+
 interface Preset {
   id: string;
   label: string;
@@ -137,6 +150,7 @@ export function ModelView() {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [customData, setCustomData] = useState<CustomModelsData>({ providers: {} });
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
 
   const refreshModels = useCallback(() => {
     window.pi.api.getAvailableModels({ tabId: useAppStore.getState().activeTabId ?? undefined }).then((res) => setModels(res.models)).catch(() => {});
@@ -183,7 +197,10 @@ export function ModelView() {
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-xs uppercase tracking-wider text-text-faint">Available models</h2>
               <button
-                onClick={() => setShowAddForm(!showAddForm)}
+                onClick={() => {
+                  setEditTarget(null); // don't leave an inline edit form open alongside
+                  setShowAddForm((v) => !v);
+                }}
                 className="no-drag rounded-lg bg-accent px-3 py-1 text-xs font-medium text-white hover:bg-accent-hover"
               >
                 {showAddForm ? "Cancel" : "+ Add Model"}
@@ -243,26 +260,67 @@ export function ModelView() {
               <div className="space-y-2">
                 {customProviderKeys.map((providerKey) => {
                   const provider = customData.providers[providerKey];
-                  return provider.models.map((model: any) => (
-                    <div
-                      key={`${providerKey}/${model.id}`}
-                      className="flex items-center justify-between rounded-lg border border-border bg-bg-subtle px-3 py-2"
-                    >
-                      <div>
-                        <span className="text-sm text-text">{model.name || model.id}</span>
-                        <span className="ml-2 text-xs text-text-faint">{providerKey}</span>
+                  return provider.models.map((model: any) => {
+                    const isEditing =
+                      editTarget?.originalProvider === providerKey &&
+                      editTarget?.originalModelId === model.id;
+                    return (
+                      <div key={`${providerKey}/${model.id}`}>
+                        <div className="flex items-center justify-between rounded-lg border border-border bg-bg-subtle px-3 py-2">
+                          <div>
+                            <span className="text-sm text-text">{model.name || model.id}</span>
+                            <span className="ml-2 text-xs text-text-faint">{providerKey}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                if (isEditing) {
+                                  setEditTarget(null);
+                                  return;
+                                }
+                                setShowAddForm(false);
+                                setEditTarget({
+                                  originalProvider: providerKey,
+                                  originalModelId: model.id,
+                                  providerName: providerKey,
+                                  baseUrl: provider.baseUrl ?? "",
+                                  api: provider.api ?? "openai-completions",
+                                  modelId: model.id,
+                                  modelName: model.name ?? "",
+                                  reasoning: !!model.reasoning,
+                                  contextWindow: model.contextWindow,
+                                });
+                              }}
+                              className="no-drag rounded-md border border-border bg-bg px-2 py-1 text-xs text-text-muted hover:bg-bg-hover"
+                            >
+                              {isEditing ? "Close" : "Edit"}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (isEditing) setEditTarget(null);
+                                await window.pi.api.customModelRemove({ provider: providerKey, modelId: model.id });
+                                refreshModels();
+                              }}
+                              className="no-drag rounded-md border border-danger/30 bg-danger/10 px-2 py-1 text-xs text-danger hover:bg-danger/20"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                        {isEditing && (
+                          <div className="mt-2">
+                            <AddModelForm
+                              initial={editTarget}
+                              onDone={() => {
+                                setEditTarget(null);
+                                refreshModels();
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
-                      <button
-                        onClick={async () => {
-                          await window.pi.api.customModelRemove({ provider: providerKey, modelId: model.id });
-                          refreshModels();
-                        }}
-                        className="no-drag rounded-md border border-danger/30 bg-danger/10 px-2 py-1 text-xs text-danger hover:bg-danger/20"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ));
+                    );
+                  });
                 })}
               </div>
               <p className="mt-2 text-xs text-text-faint">
@@ -299,15 +357,18 @@ export function ModelView() {
   );
 }
 
-function AddModelForm({ onDone }: { onDone: () => void }) {
-  const [provider, setProvider] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
-  const [api, setApi] = useState("openai-completions");
+function AddModelForm({ onDone, initial }: { onDone: () => void; initial?: EditTarget }) {
+  const isEdit = !!initial;
+  const [provider, setProvider] = useState(initial?.providerName ?? "");
+  const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? "");
+  const [api, setApi] = useState(initial?.api ?? "openai-completions");
   const [apiKey, setApiKey] = useState("");
-  const [modelId, setModelId] = useState("");
-  const [modelName, setModelName] = useState("");
-  const [reasoning, setReasoning] = useState(false);
-  const [contextWindow, setContextWindow] = useState("");
+  const [modelId, setModelId] = useState(initial?.modelId ?? "");
+  const [modelName, setModelName] = useState(initial?.modelName ?? "");
+  const [reasoning, setReasoning] = useState(initial?.reasoning ?? false);
+  const [contextWindow, setContextWindow] = useState(
+    initial?.contextWindow ? String(initial.contextWindow) : "",
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
@@ -366,16 +427,30 @@ function AddModelForm({ onDone }: { onDone: () => void }) {
     setSaving(true);
     setError(null);
     try {
-      const result = await window.pi.api.customModelAdd({
-        provider: provider.trim(),
-        baseUrl: baseUrl.trim(),
-        api,
-        apiKey: apiKey.trim() || "$API_KEY",
-        modelId: modelId.trim(),
-        modelName: modelName.trim() || undefined,
-        reasoning,
-        contextWindow: contextWindow ? parseInt(contextWindow, 10) : undefined,
-      });
+      const result = isEdit
+        ? await window.pi.api.customModelEdit({
+            originalProvider: initial!.originalProvider,
+            originalModelId: initial!.originalModelId,
+            provider: provider.trim(),
+            baseUrl: baseUrl.trim(),
+            api,
+            // Blank = keep the existing key (the field starts empty on edit).
+            apiKey: apiKey.trim() || undefined,
+            modelId: modelId.trim(),
+            modelName: modelName.trim() || undefined,
+            reasoning,
+            contextWindow: contextWindow ? parseInt(contextWindow, 10) : undefined,
+          })
+        : await window.pi.api.customModelAdd({
+            provider: provider.trim(),
+            baseUrl: baseUrl.trim(),
+            api,
+            apiKey: apiKey.trim() || "$API_KEY",
+            modelId: modelId.trim(),
+            modelName: modelName.trim() || undefined,
+            reasoning,
+            contextWindow: contextWindow ? parseInt(contextWindow, 10) : undefined,
+          });
       if (!result.success) {
         setError(result.error ?? "Failed to save model.");
         setSaving(false);
@@ -390,24 +465,26 @@ function AddModelForm({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="no-drag rounded-lg border border-border bg-bg-subtle px-4 py-4">
-      {/* Presets */}
-      <div className="mb-4">
-        <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-text-faint">
-          Quick presets
+      {/* Presets — only when adding; editing starts from the existing values. */}
+      {!isEdit && (
+        <div className="mb-4">
+          <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-text-faint">
+            Quick presets
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {PRESETS.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => applyPreset(p)}
+                className="rounded-lg border border-border bg-bg px-3 py-1.5 text-xs text-text-muted transition-colors hover:border-accent/40 hover:text-text"
+                title={p.signupUrl}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {PRESETS.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => applyPreset(p)}
-              className="rounded-lg border border-border bg-bg px-3 py-1.5 text-xs text-text-muted transition-colors hover:border-accent/40 hover:text-text"
-              title={p.signupUrl}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Form fields */}
       <div className="space-y-3">
@@ -441,12 +518,15 @@ function AddModelForm({ onDone }: { onDone: () => void }) {
           </select>
         </FormField>
 
-        <FormField label="API key" hint="Direct key, $ENV_VAR, or !command">
+        <FormField
+          label="API key"
+          hint={isEdit ? "leave blank to keep current" : "Direct key, $ENV_VAR, or !command"}
+        >
           <input
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-... or $MY_API_KEY"
+            placeholder={isEdit ? "•••••• (unchanged)" : "sk-... or $MY_API_KEY"}
             className="form-input font-mono text-xs"
           />
         </FormField>
@@ -519,7 +599,7 @@ function AddModelForm({ onDone }: { onDone: () => void }) {
           disabled={saving}
           className="rounded-lg bg-accent px-4 py-2 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-40"
         >
-          {saving ? "Saving..." : "Add model"}
+          {saving ? "Saving..." : isEdit ? "Save changes" : "Add model"}
         </button>
         <button
           onClick={handleTest}

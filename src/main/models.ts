@@ -114,6 +114,65 @@ export function addCustomModel(config: {
   return { success: true };
 }
 
+/**
+ * Edit an existing custom model. Handles renaming the provider or model id by
+ * removing the original entry and re-adding under the new identity. When no new
+ * apiKey is supplied, the original provider's key is preserved (so users don't
+ * have to re-enter it just to fix a typo elsewhere).
+ */
+export function editCustomModel(config: {
+  originalProvider: string;
+  originalModelId: string;
+  provider: string;
+  baseUrl: string;
+  api: string;
+  apiKey?: string;
+  modelId: string;
+  modelName?: string;
+  reasoning?: boolean;
+  contextWindow?: number;
+}): { success: boolean; error?: string } {
+  if (!config.provider?.trim() || !config.baseUrl?.trim() || !config.modelId?.trim()) {
+    return { success: false, error: "Provider, Base URL, and Model ID are required." };
+  }
+  const data = readModelsJson();
+
+  // Preserve the current key unless the caller provides a new one.
+  const existingKey = data.providers[config.originalProvider]?.apiKey;
+  const apiKey = config.apiKey?.trim() || existingKey || "$API_KEY";
+
+  // Remove the original entry first (cleanly handles provider/model rename).
+  const original = data.providers[config.originalProvider];
+  if (original) {
+    original.models = original.models.filter((m) => m.id !== config.originalModelId);
+    if (original.models.length === 0) delete data.providers[config.originalProvider];
+  }
+
+  // Upsert the edited model under its (possibly new) provider key.
+  const providerKey = config.provider.toLowerCase().replace(/\s+/g, "-");
+  if (!data.providers[providerKey]) {
+    data.providers[providerKey] = { baseUrl: config.baseUrl, api: config.api, apiKey, models: [] };
+  } else {
+    data.providers[providerKey].baseUrl = config.baseUrl;
+    data.providers[providerKey].api = config.api;
+    data.providers[providerKey].apiKey = apiKey;
+  }
+
+  const models = data.providers[providerKey].models;
+  const model: CustomModel = {
+    id: config.modelId,
+    ...(config.modelName ? { name: config.modelName } : {}),
+    ...(config.reasoning != null ? { reasoning: config.reasoning } : {}),
+    ...(config.contextWindow != null ? { contextWindow: config.contextWindow } : {}),
+  };
+  const idx = models.findIndex((m) => m.id === config.modelId);
+  if (idx >= 0) models[idx] = model;
+  else models.push(model);
+
+  writeModelsJson(data);
+  return { success: true };
+}
+
 export function removeCustomModel(providerKey: string, modelId: string): { success: boolean } {
   const data = readModelsJson();
   const provider = data.providers[providerKey];
