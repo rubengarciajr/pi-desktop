@@ -1,6 +1,6 @@
 # Pi Desktop — Features
 
-_Website-ready feature copy. Version 0.3.0 · macOS (Apple Silicon + Intel)._
+_Website-ready feature copy. Version 0.4.0 · macOS (Apple Silicon + Intel)._
 
 **Pi Desktop is a native macOS app for the [Pi coding agent](https://pi.dev) — a polished, multi-tab GUI that replaces the terminal. No CLI, no Node.js setup. Just open it and start.**
 
@@ -8,6 +8,7 @@ _Website-ready feature copy. Version 0.3.0 · macOS (Apple Silicon + Intel)._
 
 ## Highlights
 
+- **🔀 Pi Routing (Mixture of Agents).** A Pi Desktop exclusive. Create a team of models that collaborate on every prompt — they respond in parallel, synthesize a briefing, and the main model builds its answer enriched by the team's analysis. Basic and Advanced modes.
 - **Launches into chat.** Open the app and start typing — no folder, no setup.
 - **Chat or Code, your choice.** Quick conversations or full project sessions, one toggle away.
 - **⚡ Turn a chat into code.** Promote any conversation into a real project session — with the whole chat carried forward as context.
@@ -39,6 +40,30 @@ The view follows streaming output, but the moment you scroll up to read, it stop
 
 **Queue control**
 Line up follow-up messages while the agent works — and remove any of them without stopping the run.
+
+---
+
+## Pi Routing — Mixture of Agents
+
+**A Pi Desktop exclusive.** No other Pi client offers this.
+
+**Team-based model routing**
+Create a team of any models you have configured — Claude, GPT, GLM, Grok, MiniMax, and more. When Pi Routing is enabled, every prompt you send is fanned out to all team members in parallel. Their responses are collected, and an aggregator model synthesizes them into a briefing. The main model then builds its response with the team's analysis available as enriched context — pre-processing, not replacement.
+
+**Basic mode**
+The team responds once per prompt. The aggregator synthesizes. The main model builds. One layer — fast and cost-effective.
+
+**Advanced mode**
+The aggregator scores each team member's response on a 0–10 confidence scale. If any response falls below your threshold, the aggregator automatically re-queries that member with a refined prompt that includes feedback — up to 5 layers. You can also trigger a manual re-query, and confidence scores are visible in the chat.
+
+**Team management**
+A dedicated **Mixture of Agents** tab in Settings lets you create and edit teams, assign roles to members (architect, reviewer, implementer), pick the aggregator model, and test the team with a sample prompt before using it live.
+
+**One-click toggle**
+The Pi Routing button in the chat toolbar (next to Tools and Web) turns routing on or off instantly. If you have multiple teams, a dropdown lets you pick which one to use. Right-click the button to switch teams anytime.
+
+**Live progress**
+A subtle indicator in the chat area shows "Pi Routing: consulting 3 models…" during fan-out, so you always know the team is working.
 
 ---
 

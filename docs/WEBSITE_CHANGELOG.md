@@ -1,8 +1,39 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.3.7** · Last updated: **July 7, 2026**
+> Current version: **v0.4.0** · Last updated: **July 8, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.4.0 — July 8, 2026
+
+### 🧠 Pi Routing — Mixture of Agents (Pi Desktop Exclusive)
+
+A first-of-its-kind feature for the Pi ecosystem. Create a **team of models** that collaborate on your prompts in parallel, synthesize their insights into a briefing, and let the main model build its response enriched by the team's analysis.
+
+- **Team-based routing**: Pick any combination of your configured models (Claude, GPT, GLM, Grok, etc.) to form a team. Each prompt fans out to all members simultaneously — their responses are aggregated into an enriched context briefing that the main model uses to build a better answer.
+- **Basic mode**: Single-pass — the team responds once, the aggregator synthesizes, the main model builds. Fast and cost-effective.
+- **Advanced mode**: The aggregator scores each team member's response (0–10). Low-scoring members are automatically re-queried with refined prompts (up to 5 layers). You can also trigger a manual re-query, and confidence scores are visible in the chat.
+- **New "Mixture of Agents" settings tab** with team CRUD, member/aggregator model selection, a built-in test runner, and advanced tuning (max layers, confidence threshold, visibility toggles).
+- **Pi Routing button** in the chat toolbar (next to Tools and Web) — toggle it on, pick a team, and every prompt is pre-processed by the team.
+- **Live progress indicator** shows "Pi Routing: consulting N models…" during fan-out, so you know the team is working.
+- The routing icon adapts to dark/light themes automatically.
+
+### Sessions Panel
+
+- **Session cards** — sessions are now bordered cards instead of flat rows, with clear visual hierarchy and the active session highlighted with an accent border and "current" label.
+- **Panel separation** — the sessions panel background is now fully distinct from the main chat area.
+
+---
+
+## v0.3.8 — July 8, 2026
+
+### Sessions Panel
+- Sessions are now cards with clear borders instead of flat rows — easier to scan and distinguish from the panel background.
+- The session you're currently in is highlighted with an accent border, glow ring, and "current" label.
+- The folder you're working in is marked with accent color in the folder header and favorites list.
+- Panel background is now fully separated from the main chat area with a stronger divider.
 
 ---
 
@@ -101,6 +132,7 @@
 
 Use these for the homepage hero or "What's new" callouts:
 
+- **v0.4.0** — Pi Routing: Mixture of Agents 🧠 (Pi Desktop exclusive)
 - **v0.3.0** — Open source 🎉
 - **v0.3.1** — One-click in-app updates
 - **v0.2.9** — Major performance overhaul (5s freezes eliminated, bundle halved)
