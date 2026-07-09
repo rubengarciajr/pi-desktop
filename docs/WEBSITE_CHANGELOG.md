@@ -1,8 +1,20 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.5.3** · Last updated: **July 9, 2026**
+> Current version: **v0.5.4** · Last updated: **July 9, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.5.4 — July 9, 2026
+
+### Models
+- **New Codex models** — **GPT-5.6 Luna**, **GPT-5.6 Sol**, and **GPT-5.6 Terra** are now available with your ChatGPT sign-in, via the Pi SDK 0.80.5 upgrade. They appear in the model switcher (⌘M) automatically.
+- **Claude Sonnet 5 via Copilot** — Sonnet 5 was added to the GitHub Copilot model catalog.
+
+### Reliability
+- **Long Codex sessions stay connected** — connections now rotate before the backend's 60-minute limit, so marathon sessions no longer fail mid-stream.
+- **Copilot sign-in fix** — device-code login no longer appears to hang after you authorize in the browser.
 
 ---
 

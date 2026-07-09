@@ -6,6 +6,26 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.5.4",
+    date: "2026-07-09",
+    sections: [
+      {
+        title: "Models",
+        items: [
+          "New Codex models — GPT-5.6 Luna, GPT-5.6 Sol, and GPT-5.6 Terra are now available with your ChatGPT sign-in (Pi SDK 0.80.5)",
+          "Claude Sonnet 5 is now available through GitHub Copilot sign-in too",
+        ],
+      },
+      {
+        title: "Reliability",
+        items: [
+          "Long Codex sessions no longer hit connection limits — connections rotate before the backend's 60-minute cap",
+          "GitHub Copilot sign-in no longer appears to hang after authorizing in the browser",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.5.3",
     date: "2026-07-09",
     sections: [

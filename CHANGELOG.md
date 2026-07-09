@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.5.4] — 2026-07-09
+
+### Changed
+- **Pi SDK 0.80.3 → 0.80.5** — brings the new `openai-codex` models **GPT-5.6 Luna / Sol / Terra** (verified for ChatGPT OAuth), Claude Sonnet 5 in the GitHub Copilot catalog, zstd compression for the Codex SSE transport, Codex WebSocket rotation before the 60-minute backend cap, and the Copilot device-code login polling fix. Purely an SDK bump — no app-code changes; the model list picks up the new catalog automatically.
+
+---
+
 ## [0.5.3] — 2026-07-09
 
 ### Added
