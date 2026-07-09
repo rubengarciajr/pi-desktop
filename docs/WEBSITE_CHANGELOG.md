@@ -1,8 +1,15 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.5.0** · Last updated: **July 9, 2026**
+> Current version: **v0.5.1** · Last updated: **July 9, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.5.1 — July 9, 2026
+
+### Tag Team
+- **New icon** — Tag Team now uses its dedicated collaboration icon everywhere it appears: the sidebar, the chat toolbar, handoff tabs, and the Tag Team panel.
 
 ---
 

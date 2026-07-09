@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.5.1] — 2026-07-09
+
+### Changed
+- **Tag Team icon** — swapped the placeholder inline glyph for the `collaboration.svg` artwork, inlined as `TagTeamIcon` (wired to `currentColor` so it themes on the dark UI). Because every placement renders `TagTeamIcon`, it now shows in all of them: the sidebar panel, the chat toolbar toggle, handoff/TAG tabs, and the Tag Team settings view.
+
+---
+
 ## [0.5.0] — 2026-07-09
 
 ### Added — Tag Team (sequential model relay)

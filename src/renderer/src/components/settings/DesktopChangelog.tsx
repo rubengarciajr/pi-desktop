@@ -6,6 +6,18 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.5.1",
+    date: "2026-07-09",
+    sections: [
+      {
+        title: "Tag Team",
+        items: [
+          "Tag Team now uses the collaboration icon everywhere it appears — the sidebar panel, the chat toolbar toggle, handoff tabs, and the Tag Team settings view",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.5.0",
     date: "2026-07-09",
     sections: [
