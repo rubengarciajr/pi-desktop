@@ -248,6 +248,9 @@ export class PiSessionManager {
   tagTeamEnabled = false;
   /** The Tag Team id to use for the relay. */
   tagTeamTeamId: string | null = null;
+  /** Which relay stage THIS session represents (0 = starter). When this session
+   *  finishes a turn, it hands off to stage `tagTeamStageIndex + 1` if one exists. */
+  tagTeamStageIndex = 0;
   /**
    * Callback set by SessionPool to create a new tab for the next Tag Team
    * stage. Receives the source tab's cwd, the next model spec, the previous
@@ -256,6 +259,7 @@ export class PiSessionManager {
    */
   tagTeamHandoffCallback: ((opts: {
     cwd?: string;
+    teamId: string;
     provider: string;
     modelId: string;
     previousOutput: string;
@@ -265,6 +269,8 @@ export class PiSessionManager {
     teamName: string;
     fromStage: number;
     toStage: number;
+    /** True when a stage exists after `toStage`, so the new tab keeps relaying. */
+    continueRelay: boolean;
   }) => Promise<string>) | null = null;
 
   get isReady() {
@@ -327,6 +333,8 @@ export class PiSessionManager {
     this.tagTeamEnabled = enabled;
     if (teamId) this.tagTeamTeamId = teamId;
     if (!enabled) this.tagTeamTeamId = null;
+    // Toggling from the UI always (re)starts the relay at the starter stage.
+    this.tagTeamStageIndex = 0;
     this.emitState();
     return { success: true, tagTeamEnabled: enabled };
   }
@@ -722,10 +730,11 @@ export class PiSessionManager {
   }
 
   /**
-   * Tag Team handoff: after the starter model (stage 0) finishes, create a new
-   * tab for stage 1's model, seed it with the starter's output + the handoff
-   * prompt, and auto-prompt. The new tab's manager handles the actual model
-   * call; this method just orchestrates the relay.
+   * Tag Team handoff: after the model at the current relay stage finishes,
+   * create a new tab for the NEXT stage's model, hand it the previous output +
+   * the handoff prompt, and auto-prompt. The relay continues stage-by-stage —
+   * each new tab is itself Tag Team-enabled and points at the following stage —
+   * until the final stage, which has no successor and ends the chain.
    */
   private async runTagTeamHandoff(): Promise<void> {
     if (!this.session || !this.tagTeamTeamId || !this.deps?.modelRegistry) return;
@@ -739,11 +748,16 @@ export class PiSessionManager {
     const team = findTagTeam(config, this.tagTeamTeamId);
     if (!team || team.stages.length < 2) return;
 
-    // We're handing off from stage 0 (the starter) to stage 1.
-    const starterStage = team.stages[0];
-    const nextStage = team.stages[1];
+    // Hand off from the current stage to the next. If we're already at the last
+    // stage, the relay is complete — nothing to do.
+    const fromStage = this.tagTeamStageIndex;
+    const toStage = fromStage + 1;
+    if (toStage >= team.stages.length) return;
 
-    // Extract the starter model's output — the last assistant message.
+    const currentStage = team.stages[fromStage];
+    const nextStage = team.stages[toStage];
+
+    // Extract this model's output — the last assistant message.
     const messages = this.session.messages ?? [];
     const lastAssistant = [...messages].reverse().find(
       (m: any) => m?.role === "assistant" || m?.type === "assistant",
@@ -751,26 +765,19 @@ export class PiSessionManager {
     const previousOutput = extractMessageText(lastAssistant);
     if (!previousOutput) return;
 
-    const fromModelName = this.deps.modelRegistry.find(starterStage.provider, starterStage.modelId)?.name ?? starterStage.modelId;
+    const fromModelName = this.deps.modelRegistry.find(currentStage.provider, currentStage.modelId)?.name ?? currentStage.modelId;
     const toModelName = this.deps.modelRegistry.find(nextStage.provider, nextStage.modelId)?.name ?? nextStage.modelId;
     const handoffPrompt = nextStage.handoffPrompt || "Review and improve the work above.";
+    // Is there a stage AFTER the one we're handing to? If so, the new tab must
+    // keep relaying; if not, it's the finalizer and the chain ends there.
+    const continueRelay = toStage + 1 < team.stages.length;
 
-    // Emit a progress event so the UI can show the handoff indicator.
-    this.events.emit(this.EXT_UI_EVENT, {
-      type: "tagteam:handoff",
-      fromTabId: null, // filled by pool attachEvents
-      toTabId: null, // filled after tab creation
-      fromModel: fromModelName,
-      toModel: toModelName,
-      teamName: team.name,
-      fromStage: 0,
-      toStage: 1,
-    });
-
-    // Create the new tab for stage 1. The callback (set by SessionPool) handles
-    // session creation, model switching, context seeding, and auto-prompting.
-    const toTabId = await this.tagTeamHandoffCallback({
+    // Create the tab for the next stage. The callback (set by SessionPool)
+    // handles session creation, model switching, context seeding, auto-prompt,
+    // relay continuation, and emitting the handoff event with the real tab ids.
+    await this.tagTeamHandoffCallback({
       cwd: this.cwd,
+      teamId: this.tagTeamTeamId,
       provider: nextStage.provider,
       modelId: nextStage.modelId,
       previousOutput,
@@ -778,8 +785,9 @@ export class PiSessionManager {
       fromModelName,
       toModelName,
       teamName: team.name,
-      fromStage: 0,
-      toStage: 1,
+      fromStage,
+      toStage,
+      continueRelay,
     });
 
     this.events.emit(this.DIAG_EVENT, `🏷 Tag Team: ${fromModelName} tagged ${toModelName} → new tab`);

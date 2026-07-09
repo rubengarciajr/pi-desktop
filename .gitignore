@@ -8,5 +8,6 @@ dist/
 .env
 .env.local
 .claude/
+.zcode/
 *.tsbuildinfo
 index.js

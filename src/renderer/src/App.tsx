@@ -160,7 +160,7 @@ export default function App() {
           });
         }
         setActiveTab(toTabId);
-        window.pi.api.setActiveTab(toTabId).catch(() => {});
+        window.pi.api.setActiveTab({ tabId: toTabId }).catch(() => {});
         return;
       }
       if (tabId) handleExtUi(tabId, message);
