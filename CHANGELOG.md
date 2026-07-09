@@ -5,6 +5,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.5.3] — 2026-07-09
+
+### Added
+- **Open in external editor** — a prompt-bar button opens the current draft in a configured editor (Pi's `externalEditor`), waits for it to close, and replaces the prompt with the saved contents. Resolution order: `userData/app-settings.json` `externalEditor` → Pi `settings.json` `externalEditor` → `$VISUAL` → `$EDITOR`. Runs in the main process via a temp file + `spawn`; GUI editors need a blocking flag (`code --wait`). Available in chat and code sessions. New `src/main/externalEditor.ts`, `src/main/appSettings.ts`.
+- **Message spacing setting** — a Compact / Comfortable / Spacious control (Settings → Appearance) drives message horizontal padding via a `--msg-pad-x` CSS var (GUI analog of Pi's terminal `outputPad`). Persisted in `userData/app-settings.json` (not `localStorage`, which is unreliable under `file://`).
+- **Live session-name updates** — the SDK's `session_info_changed` event (Pi 0.80.3) now renames the corresponding tab live in the store.
+
+### Changed
+- **Claude Sonnet 5 preset** — the Anthropic "Add Model" template now defaults to `claude-sonnet-5` (was `claude-sonnet-4-20250514`).
+
+### Fixed
+- **Model list refreshes on auth change** — OAuth login/logout and set-API-key now `invalidateSharedDeps()` + `refreshAllModelRegistries()` (the same path custom-model add/edit/remove already used), and `login()` rebuilds the active session's listing registry before emitting `done`. `ModelView` re-fetches on the auth `done` event. Previously a provider (re)connect — e.g. Codex — left the model list and ⌘M switcher stale until an app restart. (Note: the codex catalog is static in the SDK and tops out at GPT-5.5; models beyond that need **+ Add Model** with an explicit ID.)
+
+---
+
 ## [0.5.2] — 2026-07-09
 
 ### Changed

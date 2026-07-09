@@ -516,6 +516,27 @@ function AppearanceSection() {
     () => localStorage.getItem("pi-accent") || "purple"
   );
 
+  // Desktop UI prefs persisted in the main process (userData/app-settings.json).
+  const [density, setDensity] = useState<"compact" | "comfortable" | "spacious">("comfortable");
+  const [externalEditor, setExternalEditor] = useState("");
+
+  useEffect(() => {
+    window.pi.api.getAppSettings().then((s) => {
+      setDensity(s.messageDensity);
+      setExternalEditor(s.externalEditor);
+    }).catch(() => {});
+  }, []);
+
+  const applyDensity = (value: "compact" | "comfortable" | "spacious") => {
+    setDensity(value);
+    document.documentElement.setAttribute("data-msg-density", value);
+    window.pi.api.setAppSettings({ patch: { messageDensity: value } }).catch(() => {});
+  };
+
+  const saveExternalEditor = (value: string) => {
+    window.pi.api.setAppSettings({ patch: { externalEditor: value.trim() } }).catch(() => {});
+  };
+
   // Determine effective theme (resolve "system" to dark/light)
   const [systemDark, setSystemDark] = useState(true);
 
@@ -594,6 +615,46 @@ function AppearanceSection() {
               />
             ))}
           </div>
+        </div>
+
+        {/* Message density — GUI analog of Pi's terminal outputPad. */}
+        <div>
+          <p className="mb-2 text-xs font-medium text-text-muted">Message spacing</p>
+          <div className="flex gap-2">
+            {(["compact", "comfortable", "spacious"] as const).map((opt) => (
+              <button
+                key={opt}
+                onClick={() => applyDensity(opt)}
+                className={`no-drag rounded-lg border px-3 py-1.5 text-xs capitalize transition-colors ${
+                  density === opt
+                    ? "border-accent/40 bg-accent/10 text-accent"
+                    : "border-border bg-bg text-text-muted hover:bg-bg-hover"
+                }`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] text-text-faint">Horizontal padding around messages in the conversation.</p>
+        </div>
+
+        {/* External editor — Pi 0.80.3 externalEditor, for the prompt input. */}
+        <div>
+          <p className="mb-2 text-xs font-medium text-text-muted">External editor</p>
+          <input
+            type="text"
+            value={externalEditor}
+            onChange={(e) => setExternalEditor(e.target.value)}
+            onBlur={(e) => saveExternalEditor(e.target.value)}
+            placeholder="code --wait"
+            spellCheck={false}
+            className="no-drag w-full rounded-lg border border-border bg-bg px-3 py-1.5 text-xs text-text placeholder:text-text-faint focus:border-accent/40 focus:outline-none"
+          />
+          <p className="mt-1.5 text-[11px] text-text-faint">
+            Command used by the editor button in the prompt bar. Use a GUI editor with a blocking flag (e.g.
+            <span className="mx-1 font-mono">code --wait</span>,
+            <span className="mx-1 font-mono">subl -w</span>). Leave blank to use $VISUAL / $EDITOR.
+          </p>
         </div>
       </div>
     </Section>

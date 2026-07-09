@@ -105,6 +105,9 @@ const api = {
   revealPath: invoke("pi:shell.revealPath"),
   getFavorites: invoke("pi:favorites.get"),
   setFavorites: invoke("pi:favorites.set"),
+  getAppSettings: invoke("pi:appSettings.get"),
+  setAppSettings: invoke("pi:appSettings.set"),
+  openExternalEditor: invoke("pi:editor.openExternal"),
   getGitInfo: invoke("pi:git.info"),
   getSdkVersion: invoke("pi:sdk.version"),
 

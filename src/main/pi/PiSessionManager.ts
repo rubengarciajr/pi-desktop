@@ -1500,6 +1500,14 @@ export class PiSessionManager {
       // Credentials persisted by the SDK to auth.json. Rebuild deps so model
       // registries pick up the new OAuth token.
       invalidateSharedDeps();
+      // Rebuild THIS session's listing registry before announcing "done" so the
+      // provider's (possibly newly-released) models are pulled and the model
+      // list is already fresh when the renderer refreshes on the done event.
+      try {
+        await this.refreshModelRegistry();
+      } catch (err) {
+        console.error("[pi-desktop] Failed to refresh model registry after login:", err);
+      }
       this.events.emit(this.AUTH_EVENT, { kind: "done", provider: providerId });
       return { success: true };
     } catch (err: any) {

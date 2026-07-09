@@ -26,6 +26,8 @@ import { getExtensionDetail, setExtensionConfig } from "./extensionDetail";
 import { getAddonContributions } from "./addonContributions";
 import { getSdkVersion } from "./pi/sdkVersion";
 import { loadFavorites, saveFavorites, type Favorite } from "./favorites";
+import { loadAppSettings, saveAppSettings, type AppSettings } from "./appSettings";
+import { openInExternalEditor } from "./externalEditor";
 import { loadMoaConfig, saveMoaConfig } from "./moa/config";
 import { loadTagTeamConfig, saveTagTeamConfig } from "./tagteam/config";
 import { shell } from "electron";
@@ -265,6 +267,12 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
     }
     return result;
   });
+  // --- Desktop UI preferences (userData/app-settings.json) ---
+  handle("pi:appSettings.get", () => loadAppSettings());
+  handle("pi:appSettings.set", (a: { patch: Partial<AppSettings> }) => saveAppSettings(a.patch ?? {}));
+  // Open the prompt text in the user's external editor and return the result.
+  handle("pi:editor.openExternal", (a: { text: string }) => openInExternalEditor(a.text ?? ""));
+
   handle("pi:models.json.path", () => getModelsPath());
   handle("pi:models.json.open", () => {
     shell.showItemInFolder(getModelsPath());
@@ -359,17 +367,32 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
   });
   handle("pi:auth.setApiKey", async (a) => {
     const m = pool.get() ?? (await pool.getOrCreate(pool.getActiveTab()!));
-    return m.setApiKey(a.provider, a.apiKey);
+    const result = await m.setApiKey(a.provider, a.apiKey);
+    // Re-pull every session's model catalog so newly-authorized provider models
+    // appear immediately (same refresh path as custom-model add/edit/remove).
+    invalidateSharedDeps();
+    await pool.refreshAllModelRegistries();
+    return result;
   });
   handle("pi:auth.logout", async (a) => {
     const m = pool.get() ?? (await pool.getOrCreate(pool.getActiveTab()!));
-    return m.logout(a.provider);
+    const result = await m.logout(a.provider);
+    invalidateSharedDeps();
+    await pool.refreshAllModelRegistries();
+    return result;
   });
   // OAuth subscription login (Claude Pro/Max, ChatGPT, Copilot). The interactive
   // callbacks are bridged to the renderer over the pi:auth.event push channel.
   handle("pi:auth.login", async (a) => {
     const m = pool.get() ?? (await pool.getOrCreate(pool.getActiveTab()!));
-    return m.login(a.provider);
+    const result = await m.login(a.provider);
+    // On (re)connect the provider's model catalog may have new models — rebuild
+    // the listing registries so they show up without an app restart.
+    if (result.success) {
+      invalidateSharedDeps();
+      await pool.refreshAllModelRegistries();
+    }
+    return result;
   });
   // Renderer's reply to a blocking OAuth prompt (onPrompt/onSelect/onManualCodeInput).
   handle("pi:auth.respond", async (a) => {

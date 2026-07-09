@@ -3,6 +3,20 @@
 @tailwind utilities;
 
 /* ========================================
+   Message density — GUI analog of Pi's terminal `outputPad`. Drives the
+   horizontal padding around conversation messages (see ChatView).
+   ======================================== */
+:root {
+  --msg-pad-x: 1.5rem; /* comfortable (default) */
+}
+:root[data-msg-density="compact"] {
+  --msg-pad-x: 0.75rem;
+}
+:root[data-msg-density="spacious"] {
+  --msg-pad-x: 3rem;
+}
+
+/* ========================================
    Theme Variables - Dark (default)
    Using RGB triplets so Tailwind can compute opacity with /10, /40, etc.
    ======================================== */

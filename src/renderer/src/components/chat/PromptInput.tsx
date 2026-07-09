@@ -27,6 +27,7 @@ export function PromptInput() {
   const [slashIndex, setSlashIndex] = useState(0);
   const [dropdownDismissed, setDropdownDismissed] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [editingInEditor, setEditingInEditor] = useState(false);
   const isStreaming = useAppStore((s) => s.activeTab.piState.isStreaming);
   const queue = useAppStore((s) => s.activeTab.queue);
   const hasMessages = useAppStore((s) => s.activeTab.messages.length > 0);
@@ -55,6 +56,28 @@ export function PromptInput() {
     const next = !toolsEnabled;
     useAppStore.getState().setTabPiState(tabId, { toolsEnabled: next });
     window.pi.api.setChatTools({ tabId, enabled: next }).catch(() => {});
+  };
+
+  // Open the current draft in the user's external editor (Pi 0.80.3
+  // `externalEditor`), then replace the prompt with whatever they saved.
+  const openInExternalEditor = async () => {
+    if (editingInEditor) return;
+    setEditingInEditor(true);
+    try {
+      const res = await window.pi.api.openExternalEditor({ text });
+      if (res.ok && typeof res.text === "string") {
+        setText(res.text.replace(/\n$/, ""));
+      } else if (res.error) {
+        useAppStore.getState().addDiagnostic(res.error);
+      }
+    } catch (err) {
+      useAppStore.getState().addDiagnostic(
+        `External editor failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setEditingInEditor(false);
+      textareaRef.current?.focus();
+    }
   };
 
   // Chat → code: pick a folder, archive the chat to docs/, rebind with tools.
@@ -389,6 +412,15 @@ export function PromptInput() {
               {/* Routing (MOA) and Tag Team work in both chat and code sessions. */}
               <RoutingToggle />
               <TagTeamToggle />
+              <button
+                onClick={openInExternalEditor}
+                disabled={editingInEditor}
+                aria-label="Open in external editor"
+                title="Open in external editor — edit this prompt in your configured editor (e.g. code --wait). Set it in Settings → Appearance."
+                className="flex items-center justify-center rounded-lg border border-border bg-bg-subtle px-2 py-1.5 text-text-faint transition-colors hover:text-text-muted disabled:opacity-40"
+              >
+                <ExternalEditorIcon size={14} />
+              </button>
               {mode === "chat" && !isStreaming && (
                 <button
                   onClick={handleConvertToCode}
@@ -446,6 +478,15 @@ function WrenchIcon({ size = 12 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
       <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6z" />
+    </svg>
+  );
+}
+
+function ExternalEditorIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
     </svg>
   );
 }

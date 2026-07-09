@@ -72,8 +72,8 @@ const PRESETS: Preset[] = [
     description: "Anthropic",
     baseUrl: "https://api.anthropic.com/v1",
     api: "anthropic-messages",
-    modelId: "claude-sonnet-4-20250514",
-    modelName: "Claude Sonnet 4",
+    modelId: "claude-sonnet-5",
+    modelName: "Claude Sonnet 5",
     reasoning: true,
     apiKeyPlaceholder: "sk-ant-...",
     signupUrl: "https://console.anthropic.com/",
@@ -159,6 +159,17 @@ export function ModelView() {
 
   useEffect(() => {
     refreshModels();
+  }, [refreshModels]);
+
+  // Re-pull the model list when a provider (re)connects or disconnects, so
+  // newly-authorized models (e.g. Codex after an OAuth reconnect) show up live
+  // without switching views. The main process rebuilds the registry before
+  // emitting "done", so the list is already fresh here.
+  useEffect(() => {
+    const off = window.pi.events.onAuthEvent((message: any) => {
+      if (message?.kind === "done") refreshModels();
+    });
+    return () => { off?.(); };
   }, [refreshModels]);
 
   const grouped = groupBy(models, (m) => m.provider);

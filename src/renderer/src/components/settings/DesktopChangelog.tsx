@@ -6,6 +6,27 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.5.3",
+    date: "2026-07-09",
+    sections: [
+      {
+        title: "Models",
+        items: [
+          "New models pull in the moment you connect — signing in (or out) of a provider like Codex now refreshes the model list live, so newly available models show up without an app restart",
+          "The Claude 'Add Model' preset now defaults to Claude Sonnet 5",
+        ],
+      },
+      {
+        title: "Editing & Interface",
+        items: [
+          "Open in external editor — a new button in the prompt bar opens your draft in your editor of choice (e.g. VS Code) and pulls your edits back in. Set the command in Settings → Appearance (works in chat and code sessions)",
+          "Message spacing — choose Compact, Comfortable, or Spacious in Settings → Appearance to tune the padding around messages",
+          "Tab titles now update live when a session is renamed",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.5.2",
     date: "2026-07-09",
     sections: [

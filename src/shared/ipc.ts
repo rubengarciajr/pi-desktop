@@ -1,5 +1,13 @@
 /** Shared IPC types used by main, preload, and renderer. */
 
+/** Desktop-only UI preferences persisted in userData/app-settings.json. */
+export interface AppSettings {
+  /** Horizontal padding around messages — the GUI analog of Pi's `outputPad`. */
+  messageDensity: "compact" | "comfortable" | "spacious";
+  /** External editor command for the prompt (e.g. "code --wait"). Empty = fall back to Pi settings / $VISUAL / $EDITOR. */
+  externalEditor: string;
+}
+
 export interface GitRepoInfo {
   isRepo: boolean;
   remoteUrl?: string;
@@ -234,6 +242,12 @@ export interface PiApi {
   getFavorites: () => Promise<{ path: string; name: string }[]>;
   /** Persist favorites to userData/favorites.json. */
   setFavorites: (args: { favorites: { path: string; name: string }[] }) => Promise<{ success: boolean; error?: string }>;
+  /** Load desktop UI preferences from userData/app-settings.json. */
+  getAppSettings: () => Promise<AppSettings>;
+  /** Persist a partial patch of desktop UI preferences; returns the merged result. */
+  setAppSettings: (args: { patch: Partial<AppSettings> }) => Promise<AppSettings>;
+  /** Open the prompt text in the user's external editor; returns the edited text. */
+  openExternalEditor: (args: { text: string }) => Promise<{ ok: boolean; text?: string; error?: string }>;
   getGitInfo: (args?: { tabId?: string }) => Promise<GitRepoInfo>;
   /** Resolved Pi SDK version (from the SDK's own VERSION export). */
   getSdkVersion: () => Promise<string>;

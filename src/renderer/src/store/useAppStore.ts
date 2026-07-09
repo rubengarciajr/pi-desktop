@@ -520,6 +520,19 @@ export const useAppStore = create<AppState>((set, get) => ({
             },
           };
           break;
+        case "session_info_changed": {
+          // Pi 0.80.3: the SDK emits this when a session gets a display name
+          // (e.g. an extension or auto-namer renames it). Reflect it live in the
+          // tab title so the tab bar stays in sync without a reload.
+          const name = typeof event.name === "string" ? event.name.trim() : "";
+          if (!name || ts.title === name) break;
+          updated = { ...ts, title: name };
+          return {
+            tabStates: { ...st.tabStates, [tabId]: updated },
+            activeTab: st.activeTabId === tabId ? updated : st.activeTab,
+            tabs: st.tabs.map((t) => (t.id === tabId ? { ...t, title: name } : t)),
+          };
+        }
         default:
           break;
       }

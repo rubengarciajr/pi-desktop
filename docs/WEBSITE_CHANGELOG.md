@@ -1,8 +1,21 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.5.2** · Last updated: **July 9, 2026**
+> Current version: **v0.5.3** · Last updated: **July 9, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.5.3 — July 9, 2026
+
+### Models
+- **New models pull in the moment you connect** — signing in or out of a provider (like Codex) now refreshes the model list live, so newly available models appear immediately without an app restart. The ⌘M switcher stays in sync too.
+- **Claude Sonnet 5 preset** — the "Add Model" template for Anthropic now defaults to Claude Sonnet 5.
+
+### Editing & Interface
+- **Open in external editor** — a new button in the prompt bar opens your draft in your editor of choice (e.g. VS Code with `code --wait`), waits while you edit, and pulls the result back in. Configure the command in **Settings → Appearance**. Works in both chat and code sessions.
+- **Message spacing** — a new **Compact / Comfortable / Spacious** control in Settings → Appearance tunes the horizontal padding around messages.
+- **Live session names** — a tab's title now updates the moment its session is renamed.
 
 ---
 

@@ -97,6 +97,17 @@ export default function App() {
     useAppStore.getState().loadFavorites();
   }, []);
 
+  // Apply persisted desktop UI preferences (message density) on mount. Stored
+  // in a main-process file rather than localStorage (unreliable under file://).
+  useEffect(() => {
+    window.pi.api
+      .getAppSettings()
+      .then((s) => {
+        document.documentElement.setAttribute("data-msg-density", s.messageDensity);
+      })
+      .catch(() => {});
+  }, []);
+
   // Resolve the installed Pi SDK version from the SDK's own VERSION export so
   // the displayed version never drifts after a bump (the preload's value is a
   // static fallback only).

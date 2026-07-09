@@ -118,8 +118,9 @@ export function ChatView() {
             itemContent={(_, msg) => (
               // Horizontal padding lives on each item (the old layout used a
               // padded flex column); vertical spacing comes from the message's
-              // own `py-2`.
-              <div className="min-w-0 px-6">
+              // own `py-2`. The padding is driven by --msg-pad-x so the message
+              // density setting (Settings → Appearance) can tune it.
+              <div className="min-w-0 px-[var(--msg-pad-x)]">
                 <MessageItem message={msg} />
               </div>
             )}
