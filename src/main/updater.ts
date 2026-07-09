@@ -129,7 +129,6 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
       // Read the stream chunk-by-chunk so we can report progress to the
       // renderer, which shows a percentage on the Download button.
       // (Node 20+ web streams: pump via getReader on the ReadableStream.)
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
