@@ -243,6 +243,29 @@ export class PiSessionManager {
   routingEnabled = false;
   /** The MOA team id to use for routing (resolved from config at prompt time). */
   routingTeamId: string | null = null;
+  /** Tag Team: when true, after the starter model finishes, the next stage's
+   *  model takes over in a new tab (sequential relay). */
+  tagTeamEnabled = false;
+  /** The Tag Team id to use for the relay. */
+  tagTeamTeamId: string | null = null;
+  /**
+   * Callback set by SessionPool to create a new tab for the next Tag Team
+   * stage. Receives the source tab's cwd, the next model spec, the previous
+   * model's output, and the handoff prompt. Returns the new tab's id.
+   * If null, Tag Team handoff is unavailable (pool not wired).
+   */
+  tagTeamHandoffCallback: ((opts: {
+    cwd?: string;
+    provider: string;
+    modelId: string;
+    previousOutput: string;
+    handoffPrompt: string;
+    fromModelName: string;
+    toModelName: string;
+    teamName: string;
+    fromStage: number;
+    toStage: number;
+  }) => Promise<string>) | null = null;
 
   get isReady() {
     return this.initialized;
@@ -297,6 +320,15 @@ export class PiSessionManager {
     if (!enabled) this.routingTeamId = null;
     this.emitState();
     return { success: true, routingEnabled: enabled };
+  }
+
+  /** Toggle Tag Team (sequential model relay) for this session. */
+  setTagTeamEnabled(enabled: boolean, teamId?: string) {
+    this.tagTeamEnabled = enabled;
+    if (teamId) this.tagTeamTeamId = teamId;
+    if (!enabled) this.tagTeamTeamId = null;
+    this.emitState();
+    return { success: true, tagTeamEnabled: enabled };
   }
 
   /** Toggle the web-search tools in a chat session without losing context. */
@@ -556,6 +588,8 @@ export class PiSessionManager {
       toolsEnabled: this.toolsEnabled,
       routingEnabled: this.routingEnabled,
       routingTeamId: this.routingTeamId,
+      tagTeamEnabled: this.tagTeamEnabled,
+      tagTeamTeamId: this.tagTeamTeamId,
       modelId: model?.id,
       modelName: model?.name,
       provider: model?.provider,
@@ -594,6 +628,19 @@ export class PiSessionManager {
       images: opts?.images,
       streamingBehavior: opts?.streamingBehavior,
     } as any);
+
+    // Tag Team: after the starter model (stage 0) finishes its turn, hand off
+    // to the next stage's model in a new tab. Only triggers on the initial
+    // prompt (not steer/followUp), when Tag Team is enabled with a valid team.
+    if (this.tagTeamEnabled && this.tagTeamTeamId && !opts?.streamingBehavior) {
+      try {
+        await this.runTagTeamHandoff();
+      } catch (err) {
+        console.error("[pi-desktop] Tag Team handoff failed:", err);
+        this.events.emit(this.DIAG_EVENT, `Tag Team handoff failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
     return { success: true };
   }
 
@@ -653,22 +700,104 @@ export class PiSessionManager {
   /**
    * Run a MOA test from the settings panel. Returns the full result (briefing
    * + per-member responses) so the user can preview how a team performs.
+   *
+   * Accepts the team object directly (not just an id) so unsaved drafts can be
+   * tested before they're persisted — the editor's Test button runs against the
+   * in-memory draft.
    */
-  async runMoaTest(message: string, teamId: string): Promise<any> {
+  async runMoaTest(message: string, team: any, modeOverride?: "basic" | "advanced"): Promise<any> {
     if (!this.deps?.modelRegistry) throw new Error("Model registry not available");
-    const { loadMoaConfig, findTeam } = await import("../moa/config");
+    const { loadMoaConfig } = await import("../moa/config");
     const { runMoa } = await import("../moa/engine");
     const config = loadMoaConfig();
-    const team = findTeam(config, teamId);
-    if (!team) throw new Error(`Team not found: ${teamId}`);
     return runMoa({
       message,
       team,
       modelRegistry: this.deps.modelRegistry,
       sessionMessages: this.session?.messages ?? [],
-      mode: config.defaultMode,
+      mode: modeOverride ?? config.defaultMode,
       maxLayers: config.advanced.maxLayers,
       confidenceThreshold: config.advanced.confidenceThreshold,
+    });
+  }
+
+  /**
+   * Tag Team handoff: after the starter model (stage 0) finishes, create a new
+   * tab for stage 1's model, seed it with the starter's output + the handoff
+   * prompt, and auto-prompt. The new tab's manager handles the actual model
+   * call; this method just orchestrates the relay.
+   */
+  private async runTagTeamHandoff(): Promise<void> {
+    if (!this.session || !this.tagTeamTeamId || !this.deps?.modelRegistry) return;
+    if (!this.tagTeamHandoffCallback) {
+      this.events.emit(this.DIAG_EVENT, "Tag Team: tab creation not available. Skipping handoff.");
+      return;
+    }
+
+    const { loadTagTeamConfig, findTagTeam } = await import("../tagteam/config");
+    const config = loadTagTeamConfig();
+    const team = findTagTeam(config, this.tagTeamTeamId);
+    if (!team || team.stages.length < 2) return;
+
+    // We're handing off from stage 0 (the starter) to stage 1.
+    const starterStage = team.stages[0];
+    const nextStage = team.stages[1];
+
+    // Extract the starter model's output — the last assistant message.
+    const messages = this.session.messages ?? [];
+    const lastAssistant = [...messages].reverse().find(
+      (m: any) => m?.role === "assistant" || m?.type === "assistant",
+    );
+    const previousOutput = extractMessageText(lastAssistant);
+    if (!previousOutput) return;
+
+    const fromModelName = this.deps.modelRegistry.find(starterStage.provider, starterStage.modelId)?.name ?? starterStage.modelId;
+    const toModelName = this.deps.modelRegistry.find(nextStage.provider, nextStage.modelId)?.name ?? nextStage.modelId;
+    const handoffPrompt = nextStage.handoffPrompt || "Review and improve the work above.";
+
+    // Emit a progress event so the UI can show the handoff indicator.
+    this.events.emit(this.EXT_UI_EVENT, {
+      type: "tagteam:handoff",
+      fromTabId: null, // filled by pool attachEvents
+      toTabId: null, // filled after tab creation
+      fromModel: fromModelName,
+      toModel: toModelName,
+      teamName: team.name,
+      fromStage: 0,
+      toStage: 1,
+    });
+
+    // Create the new tab for stage 1. The callback (set by SessionPool) handles
+    // session creation, model switching, context seeding, and auto-prompting.
+    const toTabId = await this.tagTeamHandoffCallback({
+      cwd: this.cwd,
+      provider: nextStage.provider,
+      modelId: nextStage.modelId,
+      previousOutput,
+      handoffPrompt,
+      fromModelName,
+      toModelName,
+      teamName: team.name,
+      fromStage: 0,
+      toStage: 1,
+    });
+
+    this.events.emit(this.DIAG_EVENT, `🏷 Tag Team: ${fromModelName} tagged ${toModelName} → new tab`);
+  }
+
+  /**
+   * Run a Tag Team test from the settings panel. Runs the message through
+   * stage 0 via completeSimple, then hands the output to stage 1. Returns both
+   * outputs so the user can preview the relay without creating tabs.
+   */
+  async runTagTeamTest(message: string, team: any): Promise<any> {
+    if (!this.deps?.modelRegistry) throw new Error("Model registry not available");
+    const { runTagTeamRelay } = await import("../tagteam/orchestrator");
+    return runTagTeamRelay({
+      message,
+      team,
+      modelRegistry: this.deps.modelRegistry,
+      sessionMessages: this.session?.messages ?? [],
     });
   }
 
@@ -885,6 +1014,8 @@ export class PiSessionManager {
       toolsEnabled: this.toolsEnabled,
       routingEnabled: this.routingEnabled,
       routingTeamId: this.routingTeamId,
+      tagTeamEnabled: this.tagTeamEnabled,
+      tagTeamTeamId: this.tagTeamTeamId,
       modelId: model?.id,
       modelName: model?.name,
       provider: model?.provider,
@@ -1557,4 +1688,22 @@ export class PiSessionManager {
     this.initialized = false;
     this.events.removeAllListeners();
   }
+}
+
+/**
+ * Extract text content from a Pi agent message. Handles both string content
+ * and content-block arrays (text/tool_use/etc.), mirroring the SDK's shape.
+ */
+function extractMessageText(message: any): string {
+  if (!message) return "";
+  const content = message.content ?? message.text ?? message.message?.content;
+  if (!content) return "";
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((c: any) => c?.type === "text" || typeof c === "string")
+      .map((c: any) => (typeof c === "string" ? c : c.text ?? ""))
+      .join("");
+  }
+  return "";
 }

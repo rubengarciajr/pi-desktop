@@ -1,8 +1,31 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.4.7** · Last updated: **July 8, 2026**
+> Current version: **v0.5.0** · Last updated: **July 9, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.5.0 — July 9, 2026
+
+### Tag Team — Sequential Model Relay
+- **A new way to combine models.** Tag Team is the opposite of Mixture of Agents: instead of running models in parallel, models work **sequentially**. The starter model (e.g. Minimax M3) builds out your idea, then **tags** the next model (e.g. Codex 5.5), which takes over in a new tab and improves the work — automatically, with no clicks needed.
+- **Custom handoff prompts.** Each stage carries a prompt that tells the next model what to do: "Review the code above and fix any bugs," "Optimize for performance," "Add tests." You write the instructions once and every relay uses them.
+- **Saves context window.** Each model gets its own fresh tab with only what it needs — Model B carries Model A's output and the handoff prompt, not the entire conversation history.
+- **Full team management.** The new **Tag Team** sidebar panel lets you build teams with 2+ stages, set each stage's model and role, reorder stages, write handoff prompts, and test the relay before using it. Create as many teams as you want and cycle through them from the chat toolbar.
+- **TAG badges in the tab bar** show at a glance which tabs are relay handoffs.
+
+### Pi Routing (Mixture of Agents)
+- The toolbar toggle now shows the **team name** instead of the word "Routing," so you always see what's active at a glance.
+
+---
+
+## v0.4.8 — July 9, 2026
+
+### Pi Routing — Mixture of Agents
+- **MOA now works** — fixed a packaging bug (ERR_PACKAGE_PATH_NOT_EXPORTED) that prevented the Mixture of Agents engine from loading the model-calling layer. Team fan-out, aggregation, and the advanced score-and-re-query loop all run now.
+- **Test before you save** — the Test button in the team editor runs against your in-progress draft, so you can iterate on a team without saving it first. Previously it threw "Team not found."
+- **Clearer model selection** — each team member row shows a colored provider badge and an accent border the moment you pick a model, so you can see the team's makeup at a glance. Dropdown chevrons are now cleanly spaced with a custom arrow.
 
 ---
 

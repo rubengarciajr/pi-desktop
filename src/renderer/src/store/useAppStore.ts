@@ -39,6 +39,10 @@ export interface PiState {
   routingEnabled?: boolean;
   /** The MOA team id selected for routing. */
   routingTeamId?: string | null;
+  /** Tag Team: sequential model relay enabled for this session. */
+  tagTeamEnabled?: boolean;
+  /** The Tag Team id selected for the relay. */
+  tagTeamTeamId?: string | null;
   /** Per-session auto-compaction toggle. */
   autoCompactionEnabled?: boolean;
   modelId?: string;
@@ -63,7 +67,7 @@ export interface QueueState {
   followUp: string[];
 }
 
-export type View = "chat" | "model" | "settings" | "extensions" | "packages" | "panel";
+export type View = "chat" | "model" | "settings" | "extensions" | "packages" | "tagteam" | "panel";
 
 export interface ExtWidget {
   lines: string[];

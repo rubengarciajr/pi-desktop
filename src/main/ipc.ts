@@ -27,6 +27,7 @@ import { getAddonContributions } from "./addonContributions";
 import { getSdkVersion } from "./pi/sdkVersion";
 import { loadFavorites, saveFavorites, type Favorite } from "./favorites";
 import { loadMoaConfig, saveMoaConfig, findTeam } from "./moa/config";
+import { loadTagTeamConfig, saveTagTeamConfig } from "./tagteam/config";
 import { shell } from "electron";
 import { homedir } from "node:os";
 
@@ -134,7 +135,19 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
   handle("pi:moa.set", (a) => saveMoaConfig(a));
   handle("pi:moa.test", async (a) => {
     const m = await mgr(a);
-    return m.runMoaTest(a.message, a.teamId);
+    return m.runMoaTest(a.message, a.team, a.mode);
+  });
+
+  // --- Tag Team config (userData/tag-teams.json) ---
+  handle("pi:chat.setTagTeam", async (a) => {
+    const m = await mgr(a);
+    return m.setTagTeamEnabled(!!a.enabled, a.teamId);
+  });
+  handle("pi:tagteam.get", () => loadTagTeamConfig());
+  handle("pi:tagteam.set", (a) => saveTagTeamConfig(a));
+  handle("pi:tagteam.test", async (a) => {
+    const m = await mgr(a);
+    return m.runTagTeamTest(a.message, a.team);
   });
 
   // --- Web search config (~/.pi/web-search.json) ---

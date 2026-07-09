@@ -150,7 +150,12 @@ export interface PiApi {
   setChatRouting: (args: { enabled: boolean; teamId?: string; tabId?: string }) => Promise<{ success: boolean; routingEnabled?: boolean }>;
   getMoaConfig: () => Promise<MoaConfig>;
   setMoaConfig: (args: MoaConfig) => Promise<{ success: boolean; error?: string }>;
-  moaTest: (args: { message: string; teamId: string; tabId?: string }) => Promise<MoaResult>;
+  moaTest: (args: { message: string; team: MoaTeam; mode?: "basic" | "advanced"; tabId?: string }) => Promise<MoaResult>;
+  // Tag Team — sequential model relay
+  setChatTagTeam: (args: { enabled: boolean; teamId?: string; tabId?: string }) => Promise<{ success: boolean; tagTeamEnabled?: boolean }>;
+  getTagTeamConfig: () => Promise<TagTeamConfig>;
+  setTagTeamConfig: (args: TagTeamConfig) => Promise<{ success: boolean; error?: string }>;
+  tagTeamTest: (args: { message: string; team: TagTeamTeam; tabId?: string }) => Promise<TagTeamResult>;
   getWebSearchStatus: () => Promise<{ exa: boolean; perplexity: boolean; gemini: boolean; allowBrowserCookies: boolean; curator: boolean; webAccessInstalled: boolean }>;
   setWebSearchConfig: (args: { exaApiKey?: string; perplexityApiKey?: string; geminiApiKey?: string; allowBrowserCookies?: boolean; workflow?: "none" | "summary-review" }) => Promise<{ success: boolean }>;
 
@@ -420,6 +425,51 @@ export interface MoaProgressEvent {
   member?: string;
   progress: number;
   message?: string;
+}
+
+// --- Tag Team (sequential model relay) ---
+
+export interface TagTeamStage {
+  provider: string;
+  modelId: string;
+  /** Role label: "Starter", "Builder", "Reviewer", "Finalizer". */
+  role?: string;
+  /** Prompt sent to the NEXT model after this stage finishes. Unused on the last stage. */
+  handoffPrompt?: string;
+}
+
+export interface TagTeamTeam {
+  id: string;
+  name: string;
+  /** Ordered stages: [0] = starter, [last] = finalizer. */
+  stages: TagTeamStage[];
+}
+
+export interface TagTeamConfig {
+  teams: TagTeamTeam[];
+}
+
+export interface TagTeamStageResult {
+  modelName: string;
+  role?: string;
+  output?: string;
+  error?: string;
+}
+
+export interface TagTeamResult {
+  teamName: string;
+  stages: TagTeamStageResult[];
+}
+
+export interface TagTeamHandoffEvent {
+  type: "tagteam:handoff";
+  fromTabId: string;
+  toTabId: string;
+  fromModel: string;
+  toModel: string;
+  teamName: string;
+  fromStage: number;
+  toStage: number;
 }
 
 /** Packages API surface. */

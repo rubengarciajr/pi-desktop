@@ -6,7 +6,7 @@ import { PromptInput } from "./PromptInput";
 import { QueueChips } from "./QueueChips";
 import { ExtensionWidgets } from "../extensions/ExtensionUi";
 import { PiLogoIcon, FolderIcon } from "../Icons";
-import { PiRoutingIcon } from "../Icons";
+import { PiRoutingIcon, TagTeamIcon } from "../Icons";
 
 export function ChatView() {
   // Select only the fields this component uses, so unrelated tab state changes
@@ -25,8 +25,9 @@ export function ChatView() {
   const atBottomRef = useRef(true);
   const [showJump, setShowJump] = useState(false);
   const [moaProgress, setMoaProgress] = useState<{ phase: string; message?: string } | null>(null);
+  const [tagTeamHandoff, setTagTeamHandoff] = useState<{ fromModel: string; toModel: string; teamName: string } | null>(null);
 
-  // Listen for MOA (Pi Routing) progress events during prompt pre-processing.
+  // Listen for MOA (Pi Routing) progress events + Tag Team handoff events.
   useEffect(() => {
     const off = window.pi.events.onExtUi((message: any) => {
       if (message?.type === "moa:progress") {
@@ -35,6 +36,14 @@ export function ChatView() {
         } else {
           setMoaProgress({ phase: message.phase, message: message.message });
         }
+      } else if (message?.type === "tagteam:handoff") {
+        setTagTeamHandoff({
+          fromModel: message.fromModel ?? "Model A",
+          toModel: message.toModel ?? "Model B",
+          teamName: message.teamName ?? "Tag Team",
+        });
+        // Auto-clear after 8 seconds — the indicator is transient.
+        setTimeout(() => setTagTeamHandoff(null), 8000);
       }
     });
     return off;
@@ -121,6 +130,12 @@ export function ChatView() {
           <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-1.5 py-1 text-xs text-accent animate-pulse-subtle">
             <PiRoutingIcon size={12} />
             {moaProgress.message ?? "Pi Routing…"}
+          </div>
+        )}
+        {tagTeamHandoff && (
+          <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-1.5 py-1 text-xs text-accent animate-pulse-subtle">
+            <TagTeamIcon size={12} />
+            🏷 {tagTeamHandoff.fromModel} → {tagTeamHandoff.toModel} · new tab
           </div>
         )}
         {isStreaming && atBottomRef.current && !isEmpty && (

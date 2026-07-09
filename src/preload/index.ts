@@ -33,6 +33,12 @@ const api = {
   setMoaConfig: invoke("pi:moa.set"),
   moaTest: invoke("pi:moa.test"),
 
+  // Tag Team — sequential model relay
+  setChatTagTeam: invoke("pi:chat.setTagTeam"),
+  getTagTeamConfig: invoke("pi:tagteam.get"),
+  setTagTeamConfig: invoke("pi:tagteam.set"),
+  tagTeamTest: invoke("pi:tagteam.test"),
+
   // Web search config
   getWebSearchStatus: invoke("pi:webSearch.status"),
   setWebSearchConfig: invoke("pi:webSearch.set"),
