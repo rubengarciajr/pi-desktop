@@ -386,8 +386,9 @@ export function PromptInput() {
                   Web
                 </button>
               )}
-              {mode === "chat" && <RoutingToggle />}
-              {mode === "chat" && <TagTeamToggle />}
+              {/* Routing (MOA) and Tag Team work in both chat and code sessions. */}
+              <RoutingToggle />
+              <TagTeamToggle />
               {mode === "chat" && !isStreaming && (
                 <button
                   onClick={handleConvertToCode}

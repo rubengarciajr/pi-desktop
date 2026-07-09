@@ -64,7 +64,10 @@ export function TagTeamToggle() {
       onClick={cycle}
       disabled={!hasTeams}
       title={title}
-      className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+      aria-label="Tag Team"
+      className={`flex items-center gap-1.5 rounded-lg border py-1.5 text-xs font-medium transition-colors ${
+        tagTeamEnabled && activeTeam ? "px-2.5" : "px-2"
+      } ${
         tagTeamEnabled
           ? "border-accent/40 bg-accent/15 text-accent"
           : hasTeams
@@ -73,7 +76,8 @@ export function TagTeamToggle() {
       }`}
     >
       <TagTeamIcon size={12} />
-      {tagTeamEnabled && activeTeam ? activeTeam.name : hasTeams ? teams[0]?.name ?? "Tag Team" : "Tag Team"}
+      {/* Show only the icon until a team is active; then show its name. */}
+      {tagTeamEnabled && activeTeam && <span>{activeTeam.name}</span>}
     </button>
   );
 }
