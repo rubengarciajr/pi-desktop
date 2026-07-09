@@ -1,8 +1,16 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.5.1** · Last updated: **July 9, 2026**
+> Current version: **v0.5.2** · Last updated: **July 9, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.5.2 — July 9, 2026
+
+### Routing & Tag Team
+- **Cleaner toggles** — the Pi Routing and Tag Team buttons show just their icon until you activate a team, then show the team's name.
+- **Available in code sessions** — both now appear after you open a folder, not only in chat, so you can route or run a relay while coding.
 
 ---
 

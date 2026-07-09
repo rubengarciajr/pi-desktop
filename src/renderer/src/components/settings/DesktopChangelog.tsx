@@ -6,6 +6,19 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.5.2",
+    date: "2026-07-09",
+    sections: [
+      {
+        title: "Routing & Tag Team",
+        items: [
+          "The Pi Routing and Tag Team toolbar buttons now show just their icon until you activate a team — then they show the team's name",
+          "Both toggles are now available in code sessions too, not only in chat — so you can route or run a relay after opening a folder",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.5.1",
     date: "2026-07-09",
     sections: [

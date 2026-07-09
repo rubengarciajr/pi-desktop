@@ -5,6 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.5.2] — 2026-07-09
+
+### Changed
+- **Routing / Tag Team toggles show icon-only until active** — the Pi Routing and Tag Team toolbar buttons no longer display a team name when off (they used to show the first team's name); they show just the icon until a team is active, then the active team's name.
+- **Routing and Tag Team now work in code sessions** — both toggles previously only appeared in chat; they now render in code mode (after selecting a folder) too. Their backend (`setRoutingEnabled` / `setTagTeamEnabled`) is already mode-agnostic. (Web and Tools remain chat-only: code sessions already have all tools on, and the chat Web/Tools path replaces the active tool set, which would wipe a code session's tools — web-in-code is a tracked follow-up.)
+
+---
+
 ## [0.5.1] — 2026-07-09
 
 ### Changed
