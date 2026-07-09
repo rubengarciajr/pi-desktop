@@ -3,6 +3,7 @@ import { useAppStore } from "../../store/useAppStore";
 import { SendIcon, StopIcon } from "../Icons";
 import { GitHubBadge } from "../GitHubBadge";
 import { RoutingToggle } from "./RoutingToggle";
+import { TagTeamToggle } from "./TagTeamToggle";
 
 interface CommandItem {
   name: string;
@@ -34,6 +35,7 @@ export function PromptInput() {
   const webEnabled = useAppStore((s) => s.activeTab.piState.webEnabled);
   const toolsEnabled = useAppStore((s) => s.activeTab.piState.toolsEnabled);
   const routingEnabled = useAppStore((s) => s.activeTab.piState.routingEnabled);
+  const tagTeamEnabled = useAppStore((s) => s.activeTab.piState.tagTeamEnabled);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -331,8 +333,8 @@ export function PromptInput() {
             placeholder={
               isStreaming
                 ? "Queue a steering message... (Enter to steer, Cmd+Shift+Enter for follow-up)"
-                : mode === "chat" && (webEnabled || toolsEnabled)
-                  ? `${[toolsEnabled && "🛠 Tools", webEnabled && "🔍 Web", routingEnabled && "🔀 Routing"].filter(Boolean).join(" + ")} on — ask away`
+                : mode === "chat" && (webEnabled || toolsEnabled || routingEnabled || tagTeamEnabled)
+                  ? `${[toolsEnabled && "🛠 Tools", webEnabled && "🔍 Web", routingEnabled && "🔀 Routing", tagTeamEnabled && "🏷 Tag Team"].filter(Boolean).join(" + ")} on — ask away`
                   : "Message Pi Desktop (Enter to send) or type / for commands"
             }
             rows={1}
@@ -385,6 +387,7 @@ export function PromptInput() {
                 </button>
               )}
               {mode === "chat" && <RoutingToggle />}
+              {mode === "chat" && <TagTeamToggle />}
               {mode === "chat" && !isStreaming && (
                 <button
                   onClick={handleConvertToCode}

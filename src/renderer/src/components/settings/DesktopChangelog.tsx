@@ -6,6 +6,45 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.5.0",
+    date: "2026-07-09",
+    sections: [
+      {
+        title: "Tag Team — Sequential Model Relay",
+        items: [
+          "New feature: Tag Team lets models work sequentially. The starter model builds out your idea, then tags the next model, which takes over in a new tab and improves the work — automatically, no clicks needed",
+          "Each stage can carry a custom handoff prompt so the next model knows exactly what to do (e.g. 'Review the code above and improve it')",
+          "Full team management in the new Tag Team sidebar panel: create teams with 2+ stages, set each stage's model and role, reorder stages, write handoff prompts, and test the relay before using it",
+          "Chat toolbar button cycles through your teams on click and shows the active team name",
+          "Tag Team tabs show a 'TAG' badge so you can tell at a glance which tabs are relay handoffs",
+          "A new tab opens for each handoff to save context window — Model B only carries what it needs, not the entire session history",
+        ],
+      },
+      {
+        title: "Pi Routing (MOA)",
+        items: [
+          "The toolbar toggle now shows the team name instead of the word 'Routing', so you always see what's active at a glance",
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.4.8",
+    date: "2026-07-09",
+    sections: [
+      {
+        title: "Pi Routing — Mixture of Agents",
+        items: [
+          "Fixed MOA failing with ERR_PACKAGE_PATH_NOT_EXPORTED — the engine now resolves the pi-ai compat module by direct file path, bypassing the nested package exports map that blocked the old import",
+          "Fixed the Test button throwing \"Team not found\" — unsaved team drafts can now be tested directly from the editor before saving",
+          "Fixed dropdown chevron spacing and contrast — selects now use a clean custom arrow with consistent right padding",
+          "Selected models in the team editor are now visible at a glance: each row shows a colored provider badge and an accent border when a model is picked",
+          "Team cards in the list now show model chips for every member plus the aggregator, so the team's makeup is readable without opening the editor",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.4.7",
     date: "2026-07-08",
     sections: [

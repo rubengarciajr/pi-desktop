@@ -8,6 +8,9 @@
  * and `convertToLlm` to convert the session's agent messages into LLM format.
  */
 
+import { pathToFileURL, fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { existsSync } from "node:fs";
 import type { MoaTeam, MoaMemberResult, MoaResult, MoaProgressEvent } from "./types";
 import { memberSystemPrompt, aggregatorSystemPrompt, reQueryPrompt } from "./prompts";
 
@@ -337,11 +340,67 @@ async function resolveAuth(modelRegistry: ModelRegistry, model: Model): Promise<
   }
 }
 
+// Cached compat module — resolved once, reused across all completeSimple calls.
+let compatModulePromise: Promise<any> | null = null;
+
+/**
+ * Resolve the pi-ai/compat module on disk and import it via a file:// URL.
+ *
+ * Why this is non-trivial: `@earendil-works/pi-ai` is a NESTED dependency of
+ * `@earendil-works/pi-coding-agent` (not a direct dep of this app). Its
+ * package.json `exports` map only declares an ESM `import` condition for
+ * "./compat" — so every standard resolution path fails:
+ *   - bare `import("@earendil-works/pi-ai/compat")` → not in our deps
+ *   - `import("…/node_modules/…/compat")`           → ERR_PACKAGE_PATH_NOT_EXPORTED
+ *   - `require.resolve("@earendil-works/pi-ai/compat")` from within the
+ *     agent package → no `require` condition in the exports map
+ *
+ * The escape hatch: locate pi-coding-agent's package directory on disk, then
+ * directly import its nested pi-ai/dist/compat.js by absolute file path. This
+ * bypasses the exports map entirely (Node allows direct file imports) and
+ * works identically in dev and inside the packaged asar bundle.
+ */
+async function getCompat(): Promise<any> {
+  if (!compatModulePromise) {
+    compatModulePromise = (async () => {
+      // import.meta.url is the ESM-safe base. Bundled output is a file:// URL
+      // under the app; falling back to cwd covers any CJS edge case.
+      const here = (import.meta as any).url ?? pathToFileURL(process.cwd() + "/").href;
+      const compatFile = resolveNestedCompat(here);
+      return await import(pathToFileURL(compatFile).href);
+    })();
+  }
+  return compatModulePromise;
+}
+
+/**
+ * Walk up from `fromUrl` looking for `node_modules/@earendil-works/pi-coding-agent`,
+ * then return the absolute path to its nested pi-ai compat entry. Throws if the
+ * package can't be located (e.g. dependency not installed).
+ */
+function resolveNestedCompat(fromUrl: string): string {
+  let dir = dirname(fileURLToPath(fromUrl));
+  const root = dirname(process.cwd());
+  while (dir && dir !== root && dir !== dirname(dir)) {
+    const agentDir = join(dir, "node_modules", "@earendil-works", "pi-coding-agent");
+    const compatFile = join(
+      agentDir,
+      "node_modules",
+      "@earendil-works",
+      "pi-ai",
+      "dist",
+      "compat.js",
+    );
+    if (existsSync(compatFile)) return compatFile;
+    dir = dirname(dir);
+  }
+  throw new Error(
+    "Could not locate @earendil-works/pi-ai/compat — is @earendil-works/pi-coding-agent installed?",
+  );
+}
+
 async function completeSimple(model: Model, context: Context, options: any): Promise<AssistantMessage> {
-  // Import from the compat entry point (the SDK's standalone streaming API).
-  // The path goes through pi-coding-agent's bundled pi-ai dependency.
-  const compatPath = "@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/compat";
-  const piAi = await import(/* @vite-ignore */ compatPath);
+  const piAi = await getCompat();
   const complete = (piAi as any).completeSimple ?? (piAi as any).complete;
   if (!complete) throw new Error("completeSimple not found in pi-ai/compat");
   return complete(model, context, options);

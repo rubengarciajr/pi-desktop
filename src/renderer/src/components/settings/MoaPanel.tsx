@@ -60,14 +60,14 @@ export function MoaPanel() {
     save({ ...config, teams: config.teams.filter((t) => t.id !== id) });
   };
 
-  const runTest = async () => {
-    if (!testMessage.trim() || !editingTeam) return;
+  const runTest = async (team: MoaTeam) => {
+    if (!testMessage.trim()) return;
     setTesting(true);
     setTestResult(null);
     try {
       const result = await window.pi.api.moaTest({
         message: testMessage,
-        teamId: editingTeam.id,
+        team,
       });
       setTestResult(result as MoaResult);
     } catch (err: any) {
@@ -76,7 +76,7 @@ export function MoaPanel() {
         teamResponses: [],
         layers: 0,
         confidence: 0,
-        teamName: editingTeam.name,
+        teamName: team.name,
       });
     } finally {
       setTesting(false);
@@ -131,35 +131,46 @@ export function MoaPanel() {
           </div>
         ) : (
           <div className="space-y-2">
-            {config.teams.map((team) => (
-              <div
-                key={team.id}
-                className="rounded-lg border border-border bg-bg-hover px-4 py-3 transition-colors hover:border-border-strong"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-text">{team.name}</div>
-                    <div className="mt-0.5 truncate text-[11px] text-text-faint">
-                      {team.members.length} member{team.members.length !== 1 ? "s" : ""} · Aggregator: {team.aggregatorModel.modelId || "not set"}
+            {config.teams.map((team) => {
+              const memberNames = team.members.map((m) => models.find((mo) => mo.provider === m.provider && mo.id === m.modelId)?.name ?? m.modelId);
+              return (
+                <div
+                  key={team.id}
+                  className="rounded-lg border border-border bg-bg-hover px-4 py-3 transition-colors hover:border-border-strong"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium text-text">{team.name}</div>
+                      {/* Model chips — see the team's makeup at a glance */}
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {memberNames.map((name, i) => (
+                          <span key={i} className="rounded-md bg-bg-active px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+                            {name}
+                          </span>
+                        ))}
+                        <span className="rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
+                          ⤇ {(models.find((m) => m.provider === team.aggregatorModel.provider && m.id === team.aggregatorModel.modelId)?.name ?? team.aggregatorModel.modelId) || "no aggregator"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        onClick={() => setEditingTeam(team)}
+                        className="rounded-md border border-border bg-bg-subtle px-2 py-1 text-[11px] text-text-muted hover:bg-bg-active hover:text-text"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => deleteTeam(team.id)}
+                        className="rounded-md border border-border bg-bg-subtle px-2 py-1 text-[11px] text-text-faint hover:text-danger"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      onClick={() => setEditingTeam(team)}
-                      className="rounded-md border border-border bg-bg-subtle px-2 py-1 text-[11px] text-text-muted hover:bg-bg-active hover:text-text"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => deleteTeam(team.id)}
-                      className="rounded-md border border-border bg-bg-subtle px-2 py-1 text-[11px] text-text-faint hover:text-danger"
-                    >
-                      Delete
-                    </button>
-                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
@@ -226,7 +237,7 @@ export function MoaPanel() {
               <select
                 value={config.defaultMode}
                 onChange={(e) => save({ ...config, defaultMode: e.target.value as "basic" | "advanced" })}
-                className="form-input"
+                className="form-select"
               >
                 <option value="basic">Basic (single pass)</option>
                 <option value="advanced">Advanced (score + re-query)</option>
@@ -271,7 +282,7 @@ function TeamEditor({
   onCancel: () => void;
   testMessage: string;
   setTestMessage: (v: string) => void;
-  onTest: () => void;
+  onTest: (team: MoaTeam) => void;
   testing: boolean;
   testResult: MoaResult | null;
 }) {
@@ -332,59 +343,85 @@ function TeamEditor({
               <p className="text-[11px] text-text-faint">Add at least one model to the team.</p>
             )}
             <div className="space-y-2">
-              {draft.members.map((member, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <select
-                    value={`${member.provider}/${member.modelId}`}
-                    onChange={(e) => {
-                      const [provider, modelId] = e.target.value.split("/");
-                      updateMember(i, { ...member, provider, modelId });
-                    }}
-                    className="form-input flex-1"
+              {draft.members.map((member, i) => {
+                const selectedModel = models.find((m) => m.provider === member.provider && m.id === member.modelId);
+                const isSet = !!member.modelId && !!selectedModel;
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center gap-2 rounded-lg border p-2 transition-colors ${
+                      isSet ? "border-accent/40 bg-accent/5" : "border-border bg-bg-subtle"
+                    }`}
                   >
-                    <option value="/">Select a model…</option>
-                    {models.map((m) => (
-                      <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>
-                        {m.name} ({m.provider})
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="text"
-                    value={member.role ?? ""}
-                    onChange={(e) => updateMember(i, { ...member, role: e.target.value || undefined })}
-                    className="form-input w-32"
-                    placeholder="role (optional)"
-                  />
-                  <button
-                    onClick={() => removeMember(i)}
-                    className="shrink-0 rounded-md border border-border px-2 py-1.5 text-text-faint hover:text-danger"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
+                    {/* Provider badge — instant at-a-glance identification */}
+                    {isSet && (
+                      <span className="shrink-0 rounded-md bg-accent/15 px-1.5 py-1 text-[10px] font-semibold uppercase text-accent">
+                        {selectedModel!.provider}
+                      </span>
+                    )}
+                    <select
+                      value={`${member.provider}/${member.modelId}`}
+                      onChange={(e) => {
+                        const [provider, modelId] = e.target.value.split("/");
+                        updateMember(i, { ...member, provider, modelId });
+                      }}
+                      className={`form-select flex-1 ${isSet ? "text-text" : "text-text-faint"}`}
+                    >
+                      <option value="/">Select a model…</option>
+                      {models.map((m) => (
+                        <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>
+                          {m.name} ({m.provider})
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={member.role ?? ""}
+                      onChange={(e) => updateMember(i, { ...member, role: e.target.value || undefined })}
+                      className="form-input w-28"
+                      placeholder="role"
+                    />
+                    <button
+                      onClick={() => removeMember(i)}
+                      className="shrink-0 rounded-md border border-border px-2 py-1.5 text-text-faint hover:border-danger hover:text-danger"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           {/* Aggregator model */}
           <div>
             <label className="mb-1 block text-xs text-text-muted">Aggregator model</label>
-            <select
-              value={`${draft.aggregatorModel.provider}/${draft.aggregatorModel.modelId}`}
-              onChange={(e) => {
-                const [provider, modelId] = e.target.value.split("/");
-                setDraft({ ...draft, aggregatorModel: { provider, modelId } });
-              }}
-              className="form-input"
+            <div
+              className={`rounded-lg border p-2 transition-colors ${
+                draft.aggregatorModel.modelId ? "border-accent/40 bg-accent/5" : "border-border bg-bg-subtle"
+              }`}
             >
-              <option value="/">Select an aggregator…</option>
-              {models.map((m) => (
-                <option key={`agg-${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>
-                  {m.name} ({m.provider})
-                </option>
-              ))}
-            </select>
+              {draft.aggregatorModel.modelId && (
+                <span className="mb-1.5 inline-block rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-accent">
+                  {draft.aggregatorModel.provider}
+                </span>
+              )}
+              <select
+                value={`${draft.aggregatorModel.provider}/${draft.aggregatorModel.modelId}`}
+                onChange={(e) => {
+                  const [provider, modelId] = e.target.value.split("/");
+                  setDraft({ ...draft, aggregatorModel: { provider, modelId } });
+                }}
+                className={`form-select ${draft.aggregatorModel.modelId ? "text-text" : "text-text-faint"}`}
+              >
+                <option value="/">Select an aggregator…</option>
+                {models.map((m) => (
+                  <option key={`agg-${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>
+                    {m.name} ({m.provider})
+                  </option>
+                ))}
+              </select>
+            </div>
             <p className="mt-1 text-[10px] text-text-faint">The aggregator synthesizes team responses into a briefing for the main model.</p>
           </div>
 
@@ -398,11 +435,11 @@ function TeamEditor({
                 onChange={(e) => setTestMessage(e.target.value)}
                 className="form-input flex-1"
                 placeholder="Enter a test prompt…"
-                onKeyDown={(e) => e.key === "Enter" && onTest()}
+                onKeyDown={(e) => e.key === "Enter" && onTest(draft)}
               />
               <button
-                onClick={onTest}
-                disabled={!testMessage.trim() || testing || draft.members.length === 0}
+                onClick={() => onTest(draft)}
+                disabled={!testMessage.trim() || testing || draft.members.length === 0 || !draft.aggregatorModel.modelId}
                 className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {testing ? "Running…" : "Test"}

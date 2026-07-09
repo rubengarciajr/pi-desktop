@@ -26,6 +26,9 @@ const ExtensionsView = lazy(() =>
 const PackagesView = lazy(() =>
   import("./components/packages/PackagesView").then((m) => ({ default: m.PackagesView })),
 );
+const TagTeamView = lazy(() =>
+  import("./components/settings/TagTeamView").then((m) => ({ default: m.TagTeamView })),
+);
 
 export default function App() {
   const activeView = useAppStore((s) => s.activeView);
@@ -144,6 +147,22 @@ export default function App() {
 
     const offExtUi = pi.events.onExtUi((message: any) => {
       const tabId = message?.tabId;
+      // Tag Team handoff: Model A finished, a new tab was created for Model B.
+      // Add the tab to the store and switch to it.
+      if (message?.type === "tagteam:handoff" && message.toTabId) {
+        const toTabId = message.toTabId as string;
+        // Only add if not already present (idempotent — ext-ui can fire twice).
+        if (!useAppStore.getState().tabs.find((t) => t.id === toTabId)) {
+          addTab({
+            id: toTabId,
+            title: message.toModel ?? "Tag Team",
+            mode: "chat",
+          });
+        }
+        setActiveTab(toTabId);
+        window.pi.api.setActiveTab(toTabId).catch(() => {});
+        return;
+      }
       if (tabId) handleExtUi(tabId, message);
     });
 
@@ -270,6 +289,11 @@ export default function App() {
             {activeView === "packages" && (
               <Suspense fallback={null}>
                 <PackagesView />
+              </Suspense>
+            )}
+            {activeView === "tagteam" && (
+              <Suspense fallback={null}>
+                <TagTeamView />
               </Suspense>
             )}
             {activeView === "panel" && <PanelView panel={panels.find((p) => p.id === activePanelId)} />}

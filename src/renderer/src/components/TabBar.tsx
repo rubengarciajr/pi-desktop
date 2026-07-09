@@ -60,6 +60,12 @@ export function TabBar() {
               )}
               <FolderIcon size={11} className="text-text-faint" />
               {active && tab.cwd && <GitDirtyDot cwd={tab.cwd} tabId={tab.id} />}
+              {/* Tag Team tabs show a small badge instead of the folder icon */}
+              {tab.id.startsWith("tagteam-") && (
+                <span className="rounded bg-accent/20 px-1 text-[9px] font-bold uppercase text-accent" title="Tag Team relay tab">
+                  TAG
+                </span>
+              )}
               <span className="max-w-[100px] truncate" style={{ padding: "1px 2px", background: active ? "var(--color-bg)" : "var(--color-bg-subtle)" }}>{tab.title}</span>
               <button
                 onClick={(e) => {

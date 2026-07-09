@@ -1,11 +1,12 @@
 import { useAppStore } from "../store/useAppStore";
-import { ChatIcon, SessionsIcon, ModelIcon, SettingsIcon, ExtensionsIcon, PackagesIcon, PlusIcon, PiLogoIcon, FolderIcon } from "./Icons";
+import { ChatIcon, SessionsIcon, ModelIcon, SettingsIcon, ExtensionsIcon, PackagesIcon, PlusIcon, PiLogoIcon, FolderIcon, TagTeamIcon } from "./Icons";
 import type { View } from "../store/useAppStore";
 
 const NAV_ITEMS: { id: View | "sessions"; label: string; Icon: React.FC<{ size?: number; className?: string }> }[] = [
   { id: "chat", label: "Chat", Icon: ChatIcon },
   { id: "sessions", label: "Sessions", Icon: SessionsIcon },
   { id: "model", label: "Model", Icon: ModelIcon },
+  { id: "tagteam", label: "Tag Team", Icon: TagTeamIcon },
   { id: "extensions", label: "Extensions", Icon: ExtensionsIcon },
   { id: "packages", label: "Packages", Icon: PackagesIcon },
   { id: "settings", label: "Settings", Icon: SettingsIcon },

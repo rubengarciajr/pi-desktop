@@ -126,6 +126,39 @@ export function PiRoutingIcon(props: IconProps) {
   );
 }
 
+/**
+ * Tag Team icon — two figures in a relay handoff. Represents the sequential
+ * model relay feature: Model A builds, tags Model B who finishes.
+ * Uses stroke="currentColor" so it adapts to dark/light themes.
+ */
+export function TagTeamIcon(props: IconProps) {
+  const { size = 18 } = props;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={props.className}
+      style={{ flexShrink: 0 }}
+    >
+      {/* Left figure (Model A — the starter) */}
+      <circle cx="6" cy="7" r="2.2" />
+      <path d="M2.5 20v-1.5a3.5 3.5 0 0 1 7 0V20" />
+      {/* Right figure (Model B — the finisher) */}
+      <circle cx="18" cy="7" r="2.2" />
+      <path d="M14.5 20v-1.5a3.5 3.5 0 0 1 7 0V20" />
+      {/* The handoff arrow — A tags B */}
+      <path d="M9.5 8.5h5" />
+      <path d="M13 6.5l2 2-2 2" />
+    </svg>
+  );
+}
+
 export function SendIcon(props: IconProps) {
   return (
     <Svg {...props}>

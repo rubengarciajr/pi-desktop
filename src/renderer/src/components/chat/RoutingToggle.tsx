@@ -91,7 +91,11 @@ export function RoutingToggle() {
         }`}
       >
         <PiRoutingIcon size={12} />
-        {routingEnabled && activeTeam ? activeTeam.name : "Routing"}
+        {routingEnabled && activeTeam
+          ? activeTeam.name
+          : hasTeams
+            ? teams[0]?.name ?? "Routing"
+            : "Routing"}
       </button>
 
       {dropdownOpen && hasTeams && (

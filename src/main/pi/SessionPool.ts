@@ -94,11 +94,77 @@ export class SessionPool {
     return mgr;
   }
 
+  /**
+   * Create a new tab for a Tag Team handoff. Sets the next stage's model,
+   * seeds the session with the previous model's output, injects the handoff
+   * prompt, and auto-prompts. Returns the new tab's id.
+   */
+  async createHandoffTab(opts: {
+    cwd?: string;
+    provider: string;
+    modelId: string;
+    previousOutput: string;
+    handoffPrompt: string;
+  }): Promise<string> {
+    const tabId = `tagteam-${Date.now()}`;
+    const mgr = await this.createForTab(tabId, opts.cwd, { chatMode: true });
+
+    // Set the next stage's model.
+    try {
+      await mgr.setModel(opts.provider, opts.modelId);
+    } catch (err) {
+      this.events.emit(this.DIAG_EVENT, `Tag Team: could not set model ${opts.provider}/${opts.modelId}: ${err}`);
+    }
+
+    // Seed the session with the previous model's output as a visible message
+    // so the next model sees the work it's improving.
+    const session = (mgr as any).session;
+    const sm = session?.sessionManager;
+    if (sm?.appendMessage) {
+      try {
+        await sm.appendMessage({
+          role: "user",
+          content: `[Tag Team handoff — previous model's output]\n\n${opts.previousOutput}`,
+        });
+      } catch (err) {
+        console.error("[pi-desktop] Tag Team: failed to seed context:", err);
+      }
+    }
+
+    // Auto-prompt with the handoff instructions. This runs asynchronously —
+    // the renderer sees the new tab's streaming state via events.
+    mgr.prompt(`[Tag Team — a previous model built the work above]\n\n${opts.handoffPrompt}`).catch((err) => {
+      console.error("[pi-desktop] Tag Team handoff prompt failed:", err);
+      this.events.emit(this.DIAG_EVENT, `Tag Team: next model failed to start: ${err}`);
+    });
+
+    return tabId;
+  }
+
   /** Wire a manager's events to the pool's emitter, tagging with tabId. */
   private attachEvents(tabId: string, mgr: PiSessionManager) {
     // Idempotent: clear any prior wiring so re-attaching (e.g. createForTab on
     // an existing tabId) never stacks duplicate listeners on this manager.
     mgr.events.removeAllListeners();
+
+    // Wire the Tag Team handoff callback so the manager can ask the pool to
+    // create a new tab for the next stage.
+    mgr.tagTeamHandoffCallback = async (opts) => {
+      const newTabId = await this.createHandoffTab(opts);
+      // Emit a handoff event with both tab ids so the renderer can switch tabs.
+      this.events.emit(this.EXT_UI_EVENT, {
+        type: "tagteam:handoff",
+        fromTabId: tabId,
+        toTabId: newTabId,
+        fromModel: opts.fromModelName,
+        toModel: opts.toModelName,
+        teamName: opts.teamName,
+        fromStage: opts.fromStage,
+        toStage: opts.toStage,
+      });
+      return newTabId;
+    };
+
     mgr.events.on(mgr.AGENT_EVENT, (event: any) => {
       this.events.emit(this.AGENT_EVENT, { ...event, tabId });
     });
