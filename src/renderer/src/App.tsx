@@ -236,7 +236,7 @@ export default function App() {
       offReset();
       offMenu();
     };
-  }, [handleTabAgentEvent, setTabPiState, setTabQueue, loadTabMessages, resetTabMessages, addDiagnostic, handleExtUi, handleAuthEvent, loadAddons, addTab, setActiveView, setSidebarOpen]);
+  }, [handleTabAgentEvent, setTabPiState, setTabQueue, loadTabMessages, resetTabMessages, addDiagnostic, handleExtUi, handleAuthEvent, loadAddons, addTab, setActiveView, setSidebarOpen, setActiveTab, setSessionsPanelOpen]);
 
   // Sync active tab to backend when renderer switches tabs.
   useEffect(() => {

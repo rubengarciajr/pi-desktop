@@ -1,4 +1,4 @@
-import { globalShortcut, BrowserWindow, app } from "electron";
+import { globalShortcut, BrowserWindow } from "electron";
 
 /** Toggle window visibility via a global hotkey. */
 export function registerShortcuts(getMainWindow: () => BrowserWindow | null): void {

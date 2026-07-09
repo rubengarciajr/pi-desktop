@@ -3,7 +3,7 @@ import { SessionPool } from "./pi/SessionPool";
 import { getGitInfoCached } from "./git";
 import { checkPiInstalled } from "./installer";
 import { invalidateSharedDeps } from "./pi/SharedDepsCache";
-import { getCachedMessages, setCachedMessages, invalidateCache } from "./pi/MessageCache";
+import { getCachedMessages, setCachedMessages } from "./pi/MessageCache";
 import {
   storeGitHubToken,
   getGitHubToken,
@@ -26,7 +26,7 @@ import { getExtensionDetail, setExtensionConfig } from "./extensionDetail";
 import { getAddonContributions } from "./addonContributions";
 import { getSdkVersion } from "./pi/sdkVersion";
 import { loadFavorites, saveFavorites, type Favorite } from "./favorites";
-import { loadMoaConfig, saveMoaConfig, findTeam } from "./moa/config";
+import { loadMoaConfig, saveMoaConfig } from "./moa/config";
 import { loadTagTeamConfig, saveTagTeamConfig } from "./tagteam/config";
 import { shell } from "electron";
 import { homedir } from "node:os";

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAppStore } from "../../store/useAppStore";
 import type { PackageInfo, InstalledPackage } from "../../../../shared/ipc";
 
 type SortMode = "downloads" | "recent" | "az";

@@ -23,7 +23,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { getSharedDeps, invalidateSharedDeps } from "./SharedDepsCache";
 import { listCustomProviderCredentials } from "../models";
-import { getCachedMessages, setCachedMessages, invalidateCache } from "./MessageCache";
+import { invalidateCache } from "./MessageCache";
 import {
   createExtensionUiBridge,
   type ExtUiDialogRequest,
@@ -809,13 +809,13 @@ export class PiSessionManager {
     });
   }
 
-  async steer(message: string, images?: any[]) {
+  async steer(message: string, _images?: any[]) {
     if (!this.session) throw new Error("Session not initialized");
     await this.session.steer(message);
     return { success: true };
   }
 
-  async followUp(message: string, images?: any[]) {
+  async followUp(message: string, _images?: any[]) {
     if (!this.session) throw new Error("Session not initialized");
     await this.session.followUp(message);
     return { success: true };
@@ -1097,7 +1097,7 @@ export class PiSessionManager {
 
   async cycleModel() {
     if (!this.session) throw new Error("Session not initialized");
-    const res = await this.session.cycleModel();
+    await this.session.cycleModel();
     this.emitState();
     return this.getState();
   }
@@ -1659,7 +1659,6 @@ export class PiSessionManager {
   // --- Session rename & export -------------------------------------------
 
   async renameSession(name: string) {
-    const pi = await import("@earendil-works/pi-coding-agent");
     // renameSession isn't on AgentSession directly; we use set_session_name via RPC-style
     // For SDK, we write to the session manager
     if (this.session?.sessionFile && this.sessionManager) {

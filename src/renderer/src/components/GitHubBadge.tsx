@@ -303,7 +303,7 @@ export function GitHubBadge() {
           {/* CREATE REPO */}
           {menuView === "create" && (
             <div className="p-3">
-              <BackButton onClick={() => setMenuView("main")} label="Create New Repo" />
+              <BackButton onClick={() => setMenuView("main")} />
               <input
                 type="text"
                 value={repoName}
@@ -331,7 +331,7 @@ export function GitHubBadge() {
           {menuView === "attach" && (
             <div>
               <div className="px-3 pb-2">
-                <BackButton onClick={() => setMenuView("main")} label="Attach Existing Repo" />
+                <BackButton onClick={() => setMenuView("main")} />
                 <input
                   type="text"
                   value={repoSearch}
@@ -370,7 +370,7 @@ export function GitHubBadge() {
   );
 }
 
-function BackButton({ onClick, label }: { onClick: () => void; label: string }) {
+function BackButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}

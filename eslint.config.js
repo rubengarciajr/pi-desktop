@@ -31,7 +31,7 @@ export default tseslint.config(
       // Unused vars are a warning (caught here rather than blocking the build).
       "@typescript-eslint/no-unused-vars": [
         "warn",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none" },
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none", ignoreRestSiblings: true },
       ],
       // Empty catch blocks are an intentional pattern (best-effort cleanup).
       "no-empty": ["warn", { allowEmptyCatch: true }],
