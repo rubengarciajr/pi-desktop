@@ -117,42 +117,17 @@ async function resolveAuth(modelRegistry: ModelRegistry, model: any): Promise<{ 
 }
 
 /**
- * Import the pi-ai compat module + extract the functions we need. Same
- * resolution approach as moa/engine.ts (the nested-dep workaround).
+ * Import the pi-ai compat module + extract the functions we need. Delegates the
+ * nested-dep resolution to moa/engine's cached getCompat (see the long comment
+ * there for why direct file-path import is required) so the workaround lives in
+ * exactly one place.
  */
 async function importCompat(): Promise<{
   completeSimple: (model: any, context: any, options: any) => Promise<any>;
   extractText: (message: any) => string;
 }> {
-  const { pathToFileURL, fileURLToPath } = await import("node:url");
-  const { dirname, join } = await import("node:path");
-  const { existsSync } = await import("node:fs");
-
-  const here = (import.meta as any).url ?? pathToFileURL(process.cwd() + "/").href;
-  let dir = dirname(fileURLToPath(here));
-  const root = dirname(process.cwd());
-  let compatFile: string | null = null;
-  while (dir && dir !== root && dir !== dirname(dir)) {
-    const candidate = join(
-      dir,
-      "node_modules",
-      "@earendil-works",
-      "pi-coding-agent",
-      "node_modules",
-      "@earendil-works",
-      "pi-ai",
-      "dist",
-      "compat.js",
-    );
-    if (existsSync(candidate)) {
-      compatFile = candidate;
-      break;
-    }
-    dir = dirname(dir);
-  }
-  if (!compatFile) throw new Error("Could not locate @earendil-works/pi-ai/compat for Tag Team test");
-
-  const mod = await import(pathToFileURL(compatFile).href);
+  const { getCompat } = await import("../moa/engine");
+  const mod = await getCompat();
   const complete = mod.completeSimple ?? mod.complete;
   if (!complete) throw new Error("completeSimple not found in pi-ai/compat");
 

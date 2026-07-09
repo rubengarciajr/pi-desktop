@@ -105,6 +105,11 @@ export class SessionPool {
     modelId: string;
     previousOutput: string;
     handoffPrompt: string;
+    /** Team id + stage of the tab being created, so it can continue the relay. */
+    teamId?: string;
+    toStage?: number;
+    /** True when a stage exists after this one — arm the new tab to keep relaying. */
+    continueRelay?: boolean;
   }): Promise<string> {
     const tabId = `tagteam-${Date.now()}`;
     const mgr = await this.createForTab(tabId, opts.cwd, { chatMode: true });
@@ -116,24 +121,23 @@ export class SessionPool {
       this.events.emit(this.DIAG_EVENT, `Tag Team: could not set model ${opts.provider}/${opts.modelId}: ${err}`);
     }
 
-    // Seed the session with the previous model's output as a visible message
-    // so the next model sees the work it's improving.
-    const session = (mgr as any).session;
-    const sm = session?.sessionManager;
-    if (sm?.appendMessage) {
-      try {
-        await sm.appendMessage({
-          role: "user",
-          content: `[Tag Team handoff — previous model's output]\n\n${opts.previousOutput}`,
-        });
-      } catch (err) {
-        console.error("[pi-desktop] Tag Team: failed to seed context:", err);
-      }
+    // If more stages remain after this one, arm this tab to hand off again when
+    // its model finishes. The final stage is left disabled so the relay ends.
+    if (opts.continueRelay && opts.teamId && typeof opts.toStage === "number") {
+      mgr.tagTeamEnabled = true;
+      mgr.tagTeamTeamId = opts.teamId;
+      mgr.tagTeamStageIndex = opts.toStage;
     }
 
-    // Auto-prompt with the handoff instructions. This runs asynchronously —
-    // the renderer sees the new tab's streaming state via events.
-    mgr.prompt(`[Tag Team — a previous model built the work above]\n\n${opts.handoffPrompt}`).catch((err) => {
+    // Auto-prompt the next model. We embed the previous model's output DIRECTLY
+    // in the prompt so the model always sees the work it's improving — this does
+    // not rely on any session-internal seeding API and mirrors the test relay.
+    // Runs asynchronously; the renderer sees the new tab's streaming via events.
+    const handoffMessage =
+      "A previous model produced the following work:\n\n" +
+      `----- BEGIN PREVIOUS OUTPUT -----\n${opts.previousOutput}\n----- END PREVIOUS OUTPUT -----\n\n` +
+      opts.handoffPrompt;
+    mgr.prompt(handoffMessage).catch((err) => {
       console.error("[pi-desktop] Tag Team handoff prompt failed:", err);
       this.events.emit(this.DIAG_EVENT, `Tag Team: next model failed to start: ${err}`);
     });

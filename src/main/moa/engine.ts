@@ -360,7 +360,7 @@ let compatModulePromise: Promise<any> | null = null;
  * bypasses the exports map entirely (Node allows direct file imports) and
  * works identically in dev and inside the packaged asar bundle.
  */
-async function getCompat(): Promise<any> {
+export async function getCompat(): Promise<any> {
   if (!compatModulePromise) {
     compatModulePromise = (async () => {
       // import.meta.url is the ESM-safe base. Bundled output is a file:// URL
