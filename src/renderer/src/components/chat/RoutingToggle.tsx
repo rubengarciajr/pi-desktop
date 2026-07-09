@@ -82,7 +82,10 @@ export function RoutingToggle() {
         }}
         disabled={!hasTeams}
         title={title}
-        className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+        aria-label="Pi Routing"
+        className={`flex items-center gap-1.5 rounded-lg border py-1.5 text-xs font-medium transition-colors ${
+          routingEnabled && activeTeam ? "px-2.5" : "px-2"
+        } ${
           routingEnabled
             ? "border-accent/40 bg-accent/15 text-accent"
             : hasTeams
@@ -91,11 +94,8 @@ export function RoutingToggle() {
         }`}
       >
         <PiRoutingIcon size={12} />
-        {routingEnabled && activeTeam
-          ? activeTeam.name
-          : hasTeams
-            ? teams[0]?.name ?? "Routing"
-            : "Routing"}
+        {/* Show only the icon until a team is active; then show its name. */}
+        {routingEnabled && activeTeam && <span>{activeTeam.name}</span>}
       </button>
 
       {dropdownOpen && hasTeams && (
