@@ -14,6 +14,7 @@
 - **Saves context window.** Each model gets its own fresh tab with only what it needs — Model B carries Model A's output and the handoff prompt, not the entire conversation history.
 - **Full team management.** The new **Tag Team** sidebar panel lets you build teams with 2+ stages, set each stage's model and role, reorder stages, write handoff prompts, and test the relay before using it. Create as many teams as you want and cycle through them from the chat toolbar.
 - **TAG badges in the tab bar** show at a glance which tabs are relay handoffs.
+- **Relays all the way through.** A team isn't capped at two models — each stage hands off to the next until the finalizer, so a **build → review → finalize** team runs end-to-end on its own.
 
 ### Pi Routing (Mixture of Agents)
 - The toolbar toggle now shows the **team name** instead of the word "Routing," so you always see what's active at a glance.

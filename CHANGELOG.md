@@ -5,6 +5,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.5.0] — 2026-07-09
+
+### Added — Tag Team (sequential model relay)
+- **Tag Team — a Pi Desktop exclusive.** The opposite of Pi Routing/MOA: instead of running models in parallel, models work **sequentially**. The starter model builds out the work, then **tags** the next model, which takes over in a new tab and improves it — automatically, no clicks. Each handoff tab carries the previous model's output plus a per-stage handoff prompt (not the whole history), so the relay is context-efficient.
+- **Multi-stage relay.** Teams have 2+ ordered stages (e.g. build → review → finalize). Each handoff tab is itself armed for the following stage, so the relay chains all the way through to the finalizer — not just a single A→B hop.
+- **Full team management** — a new **Tag Team** sidebar panel to create/edit/delete teams, set each stage's model + role, write handoff prompts, and **Test** the relay (runs sequentially and previews every stage's output) before using it live. Config persists to `tag-teams.json` in `userData`.
+- **Chat integration** — a toolbar button cycles through teams and shows the active one; **TAG badges** mark handoff-created tabs; a handoff indicator shows "Model A → Model B · new tab."
+
+### Fixed — Pi Routing (Mixture of Agents)
+- **MOA now loads** — fixed `ERR_PACKAGE_PATH_NOT_EXPORTED` that stopped the engine from importing pi-ai's `compat` layer. It now resolves the nested `@earendil-works/pi-ai/dist/compat.js` by absolute file path (cached), bypassing the package `exports` map; works in dev and inside the packaged asar. (`getCompat`/`resolveNestedCompat` in `moa/engine.ts`, reused by the Tag Team orchestrator.)
+- **Test unsaved drafts** — the MOA and Tag Team Test buttons run against the in-editor draft (team object passed directly) instead of throwing "Team not found."
+- **Editor polish** — provider badges + accent borders on selected models; a custom, consistently-spaced dropdown chevron; the routing toggle shows the team name instead of the word "Routing."
+
+### Fixed — Tag Team hardening (pre-release review)
+- Live relay now chains through **all** stages (was stopping after the first handoff). The next model always receives the previous output embedded directly in its prompt — no reliance on a session-internal seed that could silently no-op. Removed a duplicate handoff event that fired with null tab ids, and fixed a `setActiveTab` type error that was breaking `npm run typecheck`.
+
+---
+
 ## [0.4.7] — 2026-07-08
 
 ### Fixed

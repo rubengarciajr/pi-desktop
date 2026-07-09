@@ -1,6 +1,6 @@
 # Pi Desktop — Features
 
-_Website-ready feature copy. Version 0.4.0 · macOS (Apple Silicon + Intel)._
+_Website-ready feature copy. Version 0.5.0 · macOS (Apple Silicon + Intel)._
 
 **Pi Desktop is a native macOS app for the [Pi coding agent](https://pi.dev) — a polished, multi-tab GUI that replaces the terminal. No CLI, no Node.js setup. Just open it and start.**
 
@@ -9,6 +9,7 @@ _Website-ready feature copy. Version 0.4.0 · macOS (Apple Silicon + Intel)._
 ## Highlights
 
 - **🔀 Pi Routing (Mixture of Agents).** A Pi Desktop exclusive. Create a team of models that collaborate on every prompt — they respond in parallel, synthesize a briefing, and the main model builds its answer enriched by the team's analysis. Basic and Advanced modes.
+- **🏷 Tag Team (Sequential Model Relay).** A Pi Desktop exclusive. Chain models to work in sequence — the starter builds, then tags the next model to review, improve, and finalize in a fresh tab, automatically.
 - **Launches into chat.** Open the app and start typing — no folder, no setup.
 - **Chat or Code, your choice.** Quick conversations or full project sessions, one toggle away.
 - **⚡ Turn a chat into code.** Promote any conversation into a real project session — with the whole chat carried forward as context.
@@ -64,6 +65,27 @@ The Pi Routing button in the chat toolbar (next to Tools and Web) turns routing 
 
 **Live progress**
 A subtle indicator in the chat area shows "Pi Routing: consulting 3 models…" during fan-out, so you always know the team is working.
+
+---
+
+## Tag Team — Sequential Model Relay
+
+**A Pi Desktop exclusive.** The counterpart to Pi Routing: where MOA runs models in **parallel**, Tag Team runs them in **sequence**.
+
+**How the relay works**
+The starter model builds out your request, then **tags** the next model in the team. That model takes over in a brand-new tab, receives the previous model's output plus a handoff prompt, and improves the work — no clicks needed. It keeps going stage by stage until the final model, so a team like **build → review → finalize** runs end-to-end on its own.
+
+**Context-efficient by design**
+Each stage gets a fresh tab carrying only what it needs — the previous output and the handoff prompt — not the entire conversation history. Long relays stay lean.
+
+**Custom handoff prompts**
+Every stage carries an instruction for the next model: "Review the code above and fix bugs," "Optimize for performance," "Add tests." Write them once; every relay reuses them.
+
+**Team management**
+The **Tag Team** sidebar panel lets you create teams with two or more ordered stages, set each stage's model and role, reorder stages, write handoff prompts, and **Test** the full relay — previewing every stage's output — before using it live. Create as many teams as you like and cycle through them from the chat toolbar.
+
+**At-a-glance in chat**
+A toolbar button cycles through your teams and shows the active one. **TAG badges** in the tab bar mark handoff-created tabs, and a handoff indicator shows the relay passing from one model to the next.
 
 ---
 
