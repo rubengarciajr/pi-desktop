@@ -120,6 +120,8 @@ export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
   // --- Phase 3: Advanced mode — score + re-query loop ---
   if (mode === "advanced" && scores) {
     while (layers < maxLayers) {
+      // Bail before spending another round of API calls if the user cancelled.
+      if (signal?.aborted) break;
       const lowScorers = memberResults.filter(
         (r) => r.score != null && r.score < confidenceThreshold && r.response,
       );

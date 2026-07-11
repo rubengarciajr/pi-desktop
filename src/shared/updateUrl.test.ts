@@ -31,4 +31,30 @@ describe("update DMG URL validation", () => {
       ),
     ).toThrow();
   });
+
+  it("rejects a plaintext http:// URL (no MITM-able download)", () => {
+    expect(() =>
+      validateGitHubReleaseDmgUrl(
+        "http://github.com/rubengarciajr/pi-desktop/releases/download/v1/app.dmg",
+        "rubengarciajr",
+        "pi-desktop",
+      ),
+    ).toThrow();
+  });
+
+  it("does not let a crafted path escape the release-download prefix", () => {
+    expect(() =>
+      validateGitHubReleaseDmgUrl(
+        "https://github.com/rubengarciajr/pi-desktop/releases/download/v1/../../../attacker/app.dmg",
+        "rubengarciajr",
+        "pi-desktop",
+      ),
+    ).toThrow();
+  });
+
+  it("accepts owner/repo casing that differs from the GitHub API's lowercase", () => {
+    const url =
+      "https://github.com/RubenGarciaJr/Pi-Desktop/releases/download/v0.5.4/Pi.Desktop.dmg";
+    expect(validateGitHubReleaseDmgUrl(url, "rubengarciajr", "pi-desktop")).toBe(url);
+  });
 });

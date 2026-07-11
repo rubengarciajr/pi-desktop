@@ -696,7 +696,13 @@ export class PiSessionManager {
       if (this.promptAbortController === controller) {
         this.promptAbortController = null;
         this.isPromptActive = false;
-        await this.emitState();
+        // Guard the cleanup emit: a throwing STATE_EVENT listener here would
+        // otherwise replace (mask) the original prompt error propagating out.
+        try {
+          await this.emitState();
+        } catch (err) {
+          console.error("[pi-desktop] emitState failed during prompt cleanup:", err);
+        }
       }
     }
   }
