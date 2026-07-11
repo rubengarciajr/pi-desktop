@@ -1,5 +1,24 @@
 # Pi Desktop — Code Review & Improvement Report
 
+## 2026-07-10 Review Addendum (v0.5.4)
+
+The current app was re-reviewed after the Pi Routing, Tag Team, custom-model, and SDK 0.80.x work. The quality gate, production build, isolated Electron launch, minimum-window layout, key navigation views, model selection, and macOS DMG were exercised again.
+
+Fixed in this review:
+
+- Model IDs containing `/` are now preserved in Routing and Tag Team selectors.
+- Tag Team uses the completed stage's handoff prompt, creates collision-safe tab IDs, rejects model-switch failures, and announces a new tab before streaming into it.
+- Routing advanced mode receives the configured confidence threshold, validates model scores, avoids aggregation when every member fails, reports basic mode as unscored, and can be stopped during preprocessing.
+- Routing and Tag Team progress UI is isolated by tab instead of leaking background activity into the active conversation.
+- The prompt toolbar now fits the declared 760 px minimum window width.
+- Syntax highlighting is loaded only when a code block is rendered, reducing startup JavaScript.
+- Update downloads are restricted to this repository's HTTPS DMG release path, size-limited, streamed with backpressure, and no longer support extractable build-time tokens.
+- Electron and the build toolchain were moved to patched versions; `npm audit` reports zero known vulnerabilities.
+
+The original June review is retained below as historical context.
+
+---
+
 **Date:** 2026-06-22 · **Revised:** 2026-06-22 (post-remediation, version 0.2.8)
 **Reviewed version:** 0.2.7 → **0.2.8** (after fixes)
 **Scope:** Full codebase — `src/main` (Electron main process + Pi SDK bridge), `src/preload`, `src/shared`, `src/renderer` (React UI), build/release tooling, CI, and configuration.
@@ -23,28 +42,28 @@ However, the review surfaced **several serious issues** that should be addressed
 
 ### Scorecard
 
-| Area | Original | Now | Notes |
-|---|---|---|---|
-| Architecture & structure | 🟢 Good | 🟢 Good | Clean separation; sensible IPC contract |
-| Renderer security (CSP / isolation) | 🟢 Good | 🟢 Good | + `will-navigate` guard, `sandbox` still open |
-| Main-process command safety | 🔴 Needs work | 🟢 **Fixed** | `execFile`/`spawn` arg arrays; no `shell: true` |
-| Multi-tab correctness | 🔴 Needs work | 🟢 **Fixed** | Events require `tabId`; init race + dangling active tab fixed |
-| Resource lifecycle | 🟠 At risk | 🟢 **Fixed** | Runtime/session disposed on cwd/fork/switch; LRU cache + TTL |
-| Error handling | 🟠 At risk | 🟡 Improved | `clone` + push/pull + install fixed; some Low silent-catches remain |
-| Tooling / tests / CI gate | 🔴 Absent | 🟢 **Fixed** | ESLint + Prettier + Vitest; CI gates typecheck/lint/test |
-| Build / signing / release | 🟠 At risk | 🟠 At risk | Ad-hoc signing/entitlements still open (needs Apple Dev ID) |
-| Docs accuracy | 🟠 At risk | 🟠 At risk | README auto-update/install text still to fix |
+| Area                                | Original      | Now          | Notes                                                               |
+| ----------------------------------- | ------------- | ------------ | ------------------------------------------------------------------- |
+| Architecture & structure            | 🟢 Good       | 🟢 Good      | Clean separation; sensible IPC contract                             |
+| Renderer security (CSP / isolation) | 🟢 Good       | 🟢 Good      | + `will-navigate` guard, `sandbox` still open                       |
+| Main-process command safety         | 🔴 Needs work | 🟢 **Fixed** | `execFile`/`spawn` arg arrays; no `shell: true`                     |
+| Multi-tab correctness               | 🔴 Needs work | 🟢 **Fixed** | Events require `tabId`; init race + dangling active tab fixed       |
+| Resource lifecycle                  | 🟠 At risk    | 🟢 **Fixed** | Runtime/session disposed on cwd/fork/switch; LRU cache + TTL        |
+| Error handling                      | 🟠 At risk    | 🟡 Improved  | `clone` + push/pull + install fixed; some Low silent-catches remain |
+| Tooling / tests / CI gate           | 🔴 Absent     | 🟢 **Fixed** | ESLint + Prettier + Vitest; CI gates typecheck/lint/test            |
+| Build / signing / release           | 🟠 At risk    | 🟠 At risk   | Ad-hoc signing/entitlements still open (needs Apple Dev ID)         |
+| Docs accuracy                       | 🟠 At risk    | 🟠 At risk   | README auto-update/install text still to fix                        |
 
 ### Top 8 priorities (details in §8 roadmap)
 
-1. **[P0]** Eliminate shell injection in `github.ts` and `packages.ts` — use `execFile`/`spawn` with argument arrays, drop `shell: true`. *(§3 SEC-1, SEC-2)*
-2. **[P0]** Fix multi-tab event routing — drop events without a `tabId` instead of defaulting to the active tab. *(§5 R-C1)*
-3. **[P0]** Make the "Install Pi" button actually call `startPiInstall()`. *(§5 R-H3)*
-4. **[P1]** Dispose the previous runtime/session in `buildRuntime`/`attachSession` to stop per-action resource leaks. *(§4 M-H3/H4)*
-5. **[P1]** Guard `SessionPool.getOrCreate` against the init race; reset `activeTabId` in `removeTab`. *(§4 M-C2, M-H2)*
-6. **[P1]** Stand up tooling: ESLint + Prettier + a test runner, and gate CI on `typecheck`/lint/test before publish. *(§6 B-H1, B-H2)*
-7. **[P1]** Stop refetching/clobbering streaming state on tab-count changes. *(§5 R-M2)*
-8. **[P2]** Track and surface real `isCompacting` state; fix swallowed-error success paths (`clone`, `restoreToStock`, `renameSession`). *(§4 M-H1, M-M1/M2)*
+1. **[P0]** Eliminate shell injection in `github.ts` and `packages.ts` — use `execFile`/`spawn` with argument arrays, drop `shell: true`. _(§3 SEC-1, SEC-2)_
+2. **[P0]** Fix multi-tab event routing — drop events without a `tabId` instead of defaulting to the active tab. _(§5 R-C1)_
+3. **[P0]** Make the "Install Pi" button actually call `startPiInstall()`. _(§5 R-H3)_
+4. **[P1]** Dispose the previous runtime/session in `buildRuntime`/`attachSession` to stop per-action resource leaks. _(§4 M-H3/H4)_
+5. **[P1]** Guard `SessionPool.getOrCreate` against the init race; reset `activeTabId` in `removeTab`. _(§4 M-C2, M-H2)_
+6. **[P1]** Stand up tooling: ESLint + Prettier + a test runner, and gate CI on `typecheck`/lint/test before publish. _(§6 B-H1, B-H2)_
+7. **[P1]** Stop refetching/clobbering streaming state on tab-count changes. _(§5 R-M2)_
+8. **[P2]** Track and surface real `isCompacting` state; fix swallowed-error success paths (`clone`, `restoreToStock`, `renameSession`). _(§4 M-H1, M-M1/M2)_
 
 ---
 
@@ -54,66 +73,66 @@ Two remediation rounds have been applied. The quality gate (`npm run typecheck &
 
 ### Round 1 — P0 (commit `c29d406`, factory-droid)
 
-| ID | Finding | Status |
-|---|---|---|
-| SEC-1 | Shell injection in `github.ts` | ✅ `execFileSync` + arg arrays everywhere; `clearGitHubToken` now `unlinkSync` |
-| SEC-2 | `shell: true` injection in `packages.ts` | ✅ Removed from both spawns |
-| SEC-3 | `shell: true` in `installer.ts` | ✅ Removed |
-| R-C1 | Per-tab event misrouting | ✅ Events without `tabId` dropped (verified main always tags them) |
-| R-H3 | "Install Pi" button did nothing | ✅ Functional — now calls `startPiInstall()` (listener-leak edge finished in Round 2) |
+| ID    | Finding                                  | Status                                                                                |
+| ----- | ---------------------------------------- | ------------------------------------------------------------------------------------- |
+| SEC-1 | Shell injection in `github.ts`           | ✅ `execFileSync` + arg arrays everywhere; `clearGitHubToken` now `unlinkSync`        |
+| SEC-2 | `shell: true` injection in `packages.ts` | ✅ Removed from both spawns                                                           |
+| SEC-3 | `shell: true` in `installer.ts`          | ✅ Removed                                                                            |
+| R-C1  | Per-tab event misrouting                 | ✅ Events without `tabId` dropped (verified main always tags them)                    |
+| R-H3  | "Install Pi" button did nothing          | ✅ Functional — now calls `startPiInstall()` (listener-leak edge finished in Round 2) |
 
 ### Round 2 — High + Medium lifecycle/perf/tooling (this session)
 
-| ID | Finding | Status | Where |
-|---|---|---|---|
-| M-C2 | Init race in `getOrCreate` | ✅ Shared in-flight init promise | `SessionPool.ts` |
-| M-C1 | Pool listeners re-wired without teardown | ✅ `attachEvents` clears listeners first | `SessionPool.ts` |
-| M-H2 | `removeTab` left `activeTabId` dangling | ✅ Resets to another tab / null | `SessionPool.ts` |
-| M-H3 | Runtime leaked on cwd change | ✅ Old runtime/services disposed in `buildRuntime` | `PiSessionManager.ts` |
-| M-H4 | Session leaked on new/fork/switch | ✅ Outgoing session disposed in `attachSession` (guarded) | `PiSessionManager.ts` |
-| M-H1 | `isCompacting` hardcoded `false` | ✅ Tracked + emitted in state | `PiSessionManager.ts` |
-| M-H5 | EventEmitters unbounded | ✅ `setMaxListeners(50)` on pool + managers | both |
-| M-M1 | `clone()` swallowed errors → success | ✅ Returns `{success:false,error}` on failure | `PiSessionManager.ts` |
-| M-M4 | `MessageCache` O(n log n) eviction, no TTL | ✅ O(1) LRU + 30-min TTL | `MessageCache.ts` |
-| M-M5 | Cache stored live array reference | ✅ Stores a shallow copy | `MessageCache.ts` |
-| M-L7 | Dead `messageCacheEvents` emitter | ✅ Removed | `MessageCache.ts` |
-| R-H3 | Install listener leak on unmount | ✅ `useEffect` cleanup via ref | `SystemPanel.tsx` |
-| R-H2 | Uncancelled `setTimeout` chains | ✅ Timers tracked + cleared; `cancelled` guard | `PromptInput.tsx` |
-| R-H4 | `activeTabId` read non-reactively in render | ✅ Subscribed via selector | `StatusBar.tsx` |
-| R-H5 | History re-renders per token | ✅ `memo` on `MessageItem`/`ToolCallBlock`/`DiffViewer`; `useMemo` for JSON/diff | chat/* |
-| R-H6 | Sync layout flush per token | ✅ Auto-scroll deferred to `requestAnimationFrame` | `ChatView.tsx` |
-| R-M5 | Stuck `syncing` flag on push/pull | ✅ try/catch/`finally` | `GitHubBadge.tsx` |
-| R-L6 | Version-string drift | ✅ Sidebar/pkg aligned to 0.2.8; SDK fallback → 0.79.10 | Sidebar/StatusBar |
-| SEC-5 | No `will-navigate` guard | ✅ In-frame nav cancelled → `shell.openExternal` | `window.ts` |
-| SEC-6 | `safeStorage` token not deleted | ✅ `unlinkSync` (Round 1) | `github.ts` |
-| B-H1 | No tests / lint / format | ✅ ESLint + Prettier + Vitest added; `compareVersions` extracted + tested | configs, `src/shared/version*` |
-| B-H2 | CI published with no gate | ✅ typecheck + lint + test before build; `concurrency` + npm cache added | `build.yml` |
+| ID    | Finding                                     | Status                                                                           | Where                          |
+| ----- | ------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------ |
+| M-C2  | Init race in `getOrCreate`                  | ✅ Shared in-flight init promise                                                 | `SessionPool.ts`               |
+| M-C1  | Pool listeners re-wired without teardown    | ✅ `attachEvents` clears listeners first                                         | `SessionPool.ts`               |
+| M-H2  | `removeTab` left `activeTabId` dangling     | ✅ Resets to another tab / null                                                  | `SessionPool.ts`               |
+| M-H3  | Runtime leaked on cwd change                | ✅ Old runtime/services disposed in `buildRuntime`                               | `PiSessionManager.ts`          |
+| M-H4  | Session leaked on new/fork/switch           | ✅ Outgoing session disposed in `attachSession` (guarded)                        | `PiSessionManager.ts`          |
+| M-H1  | `isCompacting` hardcoded `false`            | ✅ Tracked + emitted in state                                                    | `PiSessionManager.ts`          |
+| M-H5  | EventEmitters unbounded                     | ✅ `setMaxListeners(50)` on pool + managers                                      | both                           |
+| M-M1  | `clone()` swallowed errors → success        | ✅ Returns `{success:false,error}` on failure                                    | `PiSessionManager.ts`          |
+| M-M4  | `MessageCache` O(n log n) eviction, no TTL  | ✅ O(1) LRU + 30-min TTL                                                         | `MessageCache.ts`              |
+| M-M5  | Cache stored live array reference           | ✅ Stores a shallow copy                                                         | `MessageCache.ts`              |
+| M-L7  | Dead `messageCacheEvents` emitter           | ✅ Removed                                                                       | `MessageCache.ts`              |
+| R-H3  | Install listener leak on unmount            | ✅ `useEffect` cleanup via ref                                                   | `SystemPanel.tsx`              |
+| R-H2  | Uncancelled `setTimeout` chains             | ✅ Timers tracked + cleared; `cancelled` guard                                   | `PromptInput.tsx`              |
+| R-H4  | `activeTabId` read non-reactively in render | ✅ Subscribed via selector                                                       | `StatusBar.tsx`                |
+| R-H5  | History re-renders per token                | ✅ `memo` on `MessageItem`/`ToolCallBlock`/`DiffViewer`; `useMemo` for JSON/diff | chat/\*                        |
+| R-H6  | Sync layout flush per token                 | ✅ Auto-scroll deferred to `requestAnimationFrame`                               | `ChatView.tsx`                 |
+| R-M5  | Stuck `syncing` flag on push/pull           | ✅ try/catch/`finally`                                                           | `GitHubBadge.tsx`              |
+| R-L6  | Version-string drift                        | ✅ Sidebar/pkg aligned to 0.2.8; SDK fallback → 0.79.10                          | Sidebar/StatusBar              |
+| SEC-5 | No `will-navigate` guard                    | ✅ In-frame nav cancelled → `shell.openExternal`                                 | `window.ts`                    |
+| SEC-6 | `safeStorage` token not deleted             | ✅ `unlinkSync` (Round 1)                                                        | `github.ts`                    |
+| B-H1  | No tests / lint / format                    | ✅ ESLint + Prettier + Vitest added; `compareVersions` extracted + tested        | configs, `src/shared/version*` |
+| B-H2  | CI published with no gate                   | ✅ typecheck + lint + test before build; `concurrency` + npm cache added         | `build.yml`                    |
 
 ### Still open (intentionally deferred — environment or judgement-dependent)
 
-| ID | Finding | Why deferred |
-|---|---|---|
-| SEC-4 | `sandbox: false` on renderer | Low-risk but needs a manual run to confirm preload still loads under sandbox |
-| SEC-7 | No IPC input validation | Defense-in-depth; larger change (schema layer) |
-| SEC-8 | Broad `connect-src`; hex-named SVG tracked | Tighten CSP allowlist; `git rm` the junk asset — cosmetic |
-| B-M1 | Ad-hoc signing / over-broad entitlements | **Requires an Apple Developer ID** + notarization — owner decision |
-| B-M2 | `electron-builder` 25.x build-toolchain vulns; `@types` skew | Bump is a behavioural change to the release toolchain — verify separately |
-| B-M3 | README auto-update + install command inaccurate | Docs edit — pending owner confirmation of intended wording |
-| M-M2/M3 | `restoreToStock` partial-failure reporting; cache invalidation | Correctness polish |
-| M-L1/L3/L4 | steer/followUp drop `images`; `exportHtml` stub; `renameSession` silent | Need SDK-API confirmation before changing call signatures |
-| R-L2/L3 | Accessibility (keyboard/focus on pickers & modals) | Worthwhile pass, larger UI change |
-| R-M3 | Unbounded per-tab message/tool growth | Needs windowing/virtualization design |
+| ID         | Finding                                                                 | Why deferred                                                                 |
+| ---------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| SEC-4      | `sandbox: false` on renderer                                            | Low-risk but needs a manual run to confirm preload still loads under sandbox |
+| SEC-7      | No IPC input validation                                                 | Defense-in-depth; larger change (schema layer)                               |
+| SEC-8      | Broad `connect-src`; hex-named SVG tracked                              | Tighten CSP allowlist; `git rm` the junk asset — cosmetic                    |
+| B-M1       | Ad-hoc signing / over-broad entitlements                                | **Requires an Apple Developer ID** + notarization — owner decision           |
+| B-M2       | `electron-builder` 25.x build-toolchain vulns; `@types` skew            | Bump is a behavioural change to the release toolchain — verify separately    |
+| B-M3       | README auto-update + install command inaccurate                         | Docs edit — pending owner confirmation of intended wording                   |
+| M-M2/M3    | `restoreToStock` partial-failure reporting; cache invalidation          | Correctness polish                                                           |
+| M-L1/L3/L4 | steer/followUp drop `images`; `exportHtml` stub; `renameSession` silent | Need SDK-API confirmation before changing call signatures                    |
+| R-L2/L3    | Accessibility (keyboard/focus on pickers & modals)                      | Worthwhile pass, larger UI change                                            |
+| R-M3       | Unbounded per-tab message/tool growth                                   | Needs windowing/virtualization design                                        |
 
 ---
 
 ## 2. Severity Legend
 
-| Severity | Meaning |
-|---|---|
-| 🔴 **Critical** | Security hole or data-corruption bug; fix before next release. |
-| 🟠 **High** | Functional bug, resource leak, or missing safety net with real user impact. |
-| 🟡 **Medium** | Correctness/UX/maintainability issue worth scheduling. |
-| ⚪ **Low** | Polish, hygiene, minor risk. |
+| Severity        | Meaning                                                                     |
+| --------------- | --------------------------------------------------------------------------- |
+| 🔴 **Critical** | Security hole or data-corruption bug; fix before next release.              |
+| 🟠 **High**     | Functional bug, resource leak, or missing safety net with real user impact. |
+| 🟡 **Medium**   | Correctness/UX/maintainability issue worth scheduling.                      |
+| ⚪ **Low**      | Polish, hygiene, minor risk.                                                |
 
 Finding IDs are prefixed by area: **SEC** (security), **M** (main process / Pi subsystem), **R** (renderer), **B** (build/tooling).
 
@@ -193,9 +212,13 @@ const child = spawn("pi", ["install", spec], { stdio: [...], shell: true });
 `setWindowOpenHandler` correctly denies `window.open`/`target=_blank` and routes to `shell.openExternal` — good. But there is no `webContents.on("will-navigate", ...)` handler, so an in-frame navigation (a same-tab link, a form submit, or programmatic `location =`) to a remote URL would replace the app frame. The CSP mitigates script execution, but the app frame should never navigate away from the bundled file.
 
 **Fix:**
+
 ```ts
 win.webContents.on("will-navigate", (e, url) => {
-  if (url !== win.webContents.getURL()) { e.preventDefault(); shell.openExternal(url); }
+  if (url !== win.webContents.getURL()) {
+    e.preventDefault();
+    shell.openExternal(url);
+  }
 });
 ```
 
@@ -328,11 +351,13 @@ Findings from a deep review of `src/renderer/src/**` (App, zustand store, all co
 
 **File:** `src/renderer/src/App.tsx:75-96`
 
-Every global event handler falls back to the *current* active tab when an event lacks a `tabId`:
+Every global event handler falls back to the _current_ active tab when an event lacks a `tabId`:
+
 ```ts
 const tabId = (event as any).tabId ?? useAppStore.getState().activeTabId;
 ```
-If the main process ever emits a per-tab event without a `tabId` — or emits it just after the user switches tabs — it is applied to whatever tab is active *now*, not the tab that produced it. A background tab mid-stream can dump its deltas, tool calls, and `sessionReset` into the foreground tab. This is data corruption, not cosmetic, and it directly undermines the multi-tab headline feature.
+
+If the main process ever emits a per-tab event without a `tabId` — or emits it just after the user switches tabs — it is applied to whatever tab is active _now_, not the tab that produced it. A background tab mid-stream can dump its deltas, tool calls, and `sessionReset` into the foreground tab. This is data corruption, not cosmetic, and it directly undermines the multi-tab headline feature.
 
 **Fix:** Require `tabId` on all per-tab events and **drop** events without one (`if (!event.tabId) return;`). Reserve the active-tab fallback for genuinely global signals (menu, diagnostics, theme). Pair with main-process M-C1/M-C3 (events are broadcast to the renderer for all tabs regardless of active tab).
 
@@ -348,7 +373,7 @@ If the main process ever emits a per-tab event without a `tabId` — or emits it
 
 **File:** `chat/ChatView.tsx:17-23` (scroll effect), `:58-60` (map), `chat/MessageItem.tsx:6-11`
 
-`ChatView` subscribes to `s.activeTab`, and the store returns a new `activeTab` object on every `message_update`, so the full `messages.map(<MessageItem>)` re-runs on every token. `MessageItem`, `ToolCallBlock` (`JSON.stringify` on every render, `ToolCallBlock.tsx:85`), and `DiffViewer` (`patch.split` + per-line map) are **not** memoized. The auto-scroll effect reads `scrollHeight` synchronously per token, forcing a layout flush each token. `Markdown` *is* memoized (good), but the rest causes visible jank in long conversations.
+`ChatView` subscribes to `s.activeTab`, and the store returns a new `activeTab` object on every `message_update`, so the full `messages.map(<MessageItem>)` re-runs on every token. `MessageItem`, `ToolCallBlock` (`JSON.stringify` on every render, `ToolCallBlock.tsx:85`), and `DiffViewer` (`patch.split` + per-line map) are **not** memoized. The auto-scroll effect reads `scrollHeight` synchronously per token, forcing a layout flush each token. `Markdown` _is_ memoized (good), but the rest causes visible jank in long conversations.
 
 **Fix:** Wrap `MessageItem` (and `ToolCallBlock`) in `React.memo`; `useMemo` the `JSON.stringify` and diff line-split; throttle scrolling with `requestAnimationFrame` and only scroll on message-count change / streaming end.
 
@@ -376,7 +401,7 @@ Adding/removing any tab changes `tabs.length`, re-firing `getState`/`getMessages
 
 **File:** `store/useAppStore.ts:223-364`
 
-`messages` and `tools[id].result` (large file reads / command output) accumulate with no bound or virtualization — memory growth in long sessions. `diagnostics` *is* correctly bounded (`:370` `slice(-50)`); apply the same discipline. **Fix:** window/virtualize the message list; trim large `tool.result` payloads after render.
+`messages` and `tools[id].result` (large file reads / command output) accumulate with no bound or virtualization — memory growth in long sessions. `diagnostics` _is_ correctly bounded (`:370` `slice(-50)`); apply the same discipline. **Fix:** window/virtualize the message list; trim large `tool.result` payloads after render.
 
 ### 🟡 R-M5 — Stuck loading flags / unhandled rejections across IPC calls
 
@@ -456,25 +481,28 @@ These patterns recur across modules and are worth a single coordinated fix:
 ## 8. Prioritized remediation roadmap
 
 ### P0 — Before next release (security & data integrity) — ✅ DONE (Round 1)
+
 - ✅ **SEC-1** Remove shell interpolation in `github.ts` → `execFile`/`spawn` with arg arrays.
 - ✅ **SEC-2** Drop `shell: true` in `packages.ts` (and SEC-3 installer).
 - ✅ **R-C1** Drop per-tab events without a `tabId` instead of defaulting to active tab.
 - ✅ **R-H3** Wire `startPiInstall()` into the Install button.
 
 ### P1 — Leaks, races, safety net — ✅ DONE (Round 2)
+
 - ✅ **M-H3 / M-H4** Dispose previous runtime/session in `buildRuntime`/`attachSession`.
 - ✅ **M-C2 / M-C1** Init-promise guard in `getOrCreate`; idempotent `attachEvents`.
 - ✅ **M-H2** Reset/validate `activeTabId` in `removeTab`.
 - ✅ **R-M5** Try/catch + `finally` on mutating IPC calls (fix stuck `syncing`).
 - ✅ **B-H1 / B-H2** ESLint + Prettier + Vitest; gate CI on typecheck/lint/test.
 - ✅ **SEC-5** add `will-navigate` guard. ⬜ **SEC-4** `sandbox: true` (still open — needs a manual run).
-- ⬜ **R-M2** Stop refetch-clobbering streaming state on tab-count change *(still open)*.
+- ⬜ **R-M2** Stop refetch-clobbering streaming state on tab-count change _(still open)_.
 
 ### P2 — Hardening & polish
+
 - ✅ **M-H1** Real `isCompacting` state. ⬜ **M-M2/M3** swallowed-success paths + cache invalidation.
 - ✅ **R-H5/H6** Memoize `MessageItem`/`ToolCallBlock`/`DiffViewer`, throttle scroll.
 - ✅ **M-M4/M5** `MessageCache` eviction + TTL + copy-on-store.
-- ⬜ **B-M1** Developer ID + notarization; tighten entitlements; fatal verify *(needs Apple Dev ID)*.
+- ⬜ **B-M1** Developer ID + notarization; tighten entitlements; fatal verify _(needs Apple Dev ID)_.
 - ⬜ **B-M2** Bump `electron-builder`; align `@types`. ✅ added `engines`.
 - ⬜ **B-M3** Fix README (auto-update + install command).
 - ⬜ **Cross-cutting** Typed events in `src/shared`; ✅ single-source versions (partial); accessibility pass (R-L2/L3).
@@ -494,4 +522,4 @@ These patterns recur across modules and are worth a single coordinated fix:
 
 ---
 
-*Report generated from a full read of the main-process security surface plus three parallel deep-review passes (Pi subsystem, renderer, build/tooling). All file:line references are against version 0.2.7. No source files were modified during this review.*
+_Report generated from a full read of the main-process security surface plus three parallel deep-review passes (Pi subsystem, renderer, build/tooling). All file:line references are against version 0.2.7. No source files were modified during this review._

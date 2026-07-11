@@ -1,22 +1,9 @@
 import { resolve } from "node:path";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
-import { loadEnv } from "vite";
 
-export default defineConfig(({ mode }) => {
-  // Load .env so PI_UPDATE_TOKEN (a read-only GitHub PAT for the private repo's
-  // releases API) is available at build time via import.meta.env. The file is
-  // gitignored; CI injects it via the secret of the same name.
-  const env = loadEnv(mode, process.cwd(), "PI_");
-
-  return {
+export default defineConfig({
   main: {
-    define: {
-      // Bake the update-check PAT into the main bundle at build time so
-      // updateToken.ts can read it via import.meta.env. JSON-encoded so empty
-      // values become the literal `undefined`, never the string "undefined".
-      "import.meta.env.PI_UPDATE_TOKEN": JSON.stringify(env.PI_UPDATE_TOKEN ?? ""),
-    },
     plugins: [externalizeDepsPlugin({ exclude: [] })],
     resolve: {
       // Pi ships ESM; mark its packages as bundled (not externalized) so the
@@ -60,9 +47,9 @@ export default defineConfig(({ mode }) => {
   renderer: {
     root: "src/renderer",
     build: {
-      // Electron 38 ships Chromium ~128; targeting it directly skips needlessly
+      // Electron 41 ships Chromium 146; targeting it directly skips needlessly
       // transpiling modern syntax that the runtime already understands.
-      target: "chrome128",
+      target: "chrome146",
       sourcemap: false,
       chunkSizeWarningLimit: 1000,
       rollupOptions: {
@@ -72,7 +59,8 @@ export default defineConfig(({ mode }) => {
           // independently and parse in parallel, instead of one giant blob.
           manualChunks: {
             "vendor-react": ["react", "react-dom"],
-            "vendor-markdown": ["react-markdown", "remark-gfm", "react-syntax-highlighter"],
+            "vendor-markdown": ["react-markdown", "remark-gfm"],
+            "vendor-syntax": ["react-syntax-highlighter"],
           },
         },
       },
@@ -86,5 +74,4 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [react()],
   },
-  };
 });

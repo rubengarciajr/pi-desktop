@@ -26,7 +26,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "^0.80.5",
+    "@earendil-works/pi-coding-agent": "^0.80.6",
     "@types/react-syntax-highlighter": "^15.5.13",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.1",
@@ -42,9 +42,9 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "electron": "^38.8.6",
-    "electron-builder": "^25.1.8",
-    "electron-vite": "^2.3.0",
+    "electron": "^41.10.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^3.1.0",
     "eslint": "^10.5.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "postcss": "^8.4.49",
@@ -54,7 +54,7 @@
     "tailwindcss": "^3.4.16",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.61.1",
-    "vite": "^5.4.11",
+    "vite": "^6.4.3",
     "vitest": "^4.1.9"
   }
 }

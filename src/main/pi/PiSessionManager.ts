@@ -30,6 +30,9 @@ import {
   type ExtUiDialogResponse,
 } from "./ExtensionUiBridge";
 import { createNativeWebSearchTool } from "../webSearchTool";
+import { findTeam as findMoaTeam, loadMoaConfig } from "../moa/config";
+import { findTagTeam, loadTagTeamConfig } from "../tagteam/config";
+import { getHandoffPrompt } from "../tagteam/relay";
 
 /** Model type lives in @earendil-works/pi-ai; use a structural alias here. */
 type Model = {
@@ -169,6 +172,8 @@ export class PiSessionManager {
   private _deps: PiManagerDeps | null = null;
   private initialized = false;
   private isCompacting = false;
+  private isPromptActive = false;
+  private promptAbortController: AbortController | null = null;
 
   /** Blocking extension dialogs awaiting a renderer response, keyed by id. */
   private pendingDialogs = new Map<string, (response: ExtUiDialogResponse) => void>();
@@ -257,21 +262,23 @@ export class PiSessionManager {
    * model's output, and the handoff prompt. Returns the new tab's id.
    * If null, Tag Team handoff is unavailable (pool not wired).
    */
-  tagTeamHandoffCallback: ((opts: {
-    cwd?: string;
-    teamId: string;
-    provider: string;
-    modelId: string;
-    previousOutput: string;
-    handoffPrompt: string;
-    fromModelName: string;
-    toModelName: string;
-    teamName: string;
-    fromStage: number;
-    toStage: number;
-    /** True when a stage exists after `toStage`, so the new tab keeps relaying. */
-    continueRelay: boolean;
-  }) => Promise<string>) | null = null;
+  tagTeamHandoffCallback:
+    | ((opts: {
+        cwd?: string;
+        teamId: string;
+        provider: string;
+        modelId: string;
+        previousOutput: string;
+        handoffPrompt: string;
+        fromModelName: string;
+        toModelName: string;
+        teamName: string;
+        fromStage: number;
+        toStage: number;
+        /** True when a stage exists after `toStage`, so the new tab keeps relaying. */
+        continueRelay: boolean;
+      }) => Promise<string>)
+    | null = null;
 
   get isReady() {
     return this.initialized;
@@ -388,7 +395,9 @@ export class PiSessionManager {
   /** Throwaway working dir for chat-mode sessions (~/.pi/chat). */
   private resolveChatCwd(pi: typeof import("@earendil-works/pi-coding-agent")): string {
     const dir = join(homedir(), pi.CONFIG_DIR_NAME, "chat");
-    try { mkdirSync(dir, { recursive: true }); } catch {}
+    try {
+      mkdirSync(dir, { recursive: true });
+    } catch {}
     return dir;
   }
 
@@ -463,14 +472,22 @@ export class PiSessionManager {
     // every cwd change / setCwd leaks a full runtime: child processes, file
     // watchers, undici sockets, and the SDK session it holds.
     if (this.runtime) {
-      try { this.unsubscribe?.(); } catch {}
+      try {
+        this.unsubscribe?.();
+      } catch {}
       this.unsubscribe = null;
-      try { this.session?.dispose?.(); } catch {}
+      try {
+        this.session?.dispose?.();
+      } catch {}
       this.session = null;
       const oldRuntime = this.runtime;
       this.runtime = null;
-      try { await (oldRuntime as any)?.dispose?.(); } catch {}
-      try { await (oldRuntime as any)?.services?.dispose?.(); } catch {}
+      try {
+        await (oldRuntime as any)?.dispose?.();
+      } catch {}
+      try {
+        await (oldRuntime as any)?.services?.dispose?.();
+      } catch {}
     }
 
     const factory = this.createRuntimeFactory(pi);
@@ -519,7 +536,9 @@ export class PiSessionManager {
     // Dispose the outgoing session the runtime just swapped out (new/fork/
     // switch/clone). Guarded so we never touch the session we just attached.
     if (previous && previous !== session) {
-      try { (previous as any).dispose?.(); } catch {}
+      try {
+        (previous as any).dispose?.();
+      } catch {}
     }
     // Broadcast that the session was replaced so the renderer clears messages.
     this.events.emit(this.SESSION_RESET_EVENT, {
@@ -588,7 +607,7 @@ export class PiSessionManager {
       }
     } catch {}
     this.events.emit(this.STATE_EVENT, {
-      isStreaming: s.isStreaming,
+      isStreaming: s.isStreaming || this.isPromptActive,
       isCompacting: this.isCompacting,
       autoCompactionEnabled: (s as any).autoCompactionEnabled ?? true,
       chatMode: this.chatMode,
@@ -616,40 +635,70 @@ export class PiSessionManager {
 
   // --- Prompting ---------------------------------------------------------
 
-  async prompt(message: string, opts?: { images?: any[]; streamingBehavior?: "steer" | "followUp" }) {
+  async prompt(
+    message: string,
+    opts?: { images?: any[]; streamingBehavior?: "steer" | "followUp" },
+  ) {
     if (!this.session) throw new Error("Session not initialized");
+    if (this.isPromptActive) throw new Error("A prompt is already in progress");
 
-    // Pi Routing: pre-process the prompt through an MOA team before the main
-    // model builds its response. The synthesized briefing is injected as a
-    // hidden context message (same pattern as injectWebNudge). If MOA fails
-    // entirely, we fall through to a normal prompt — the user isn't blocked.
-    if (this.routingEnabled && this.routingTeamId && !opts?.streamingBehavior) {
-      try {
-        await this.runMoaEnrichment(message);
-      } catch (err) {
-        console.error("[pi-desktop] MOA enrichment failed, proceeding without:", err);
-        this.events.emit(this.DIAG_EVENT, `Pi Routing failed: ${err instanceof Error ? err.message : String(err)}. Proceeding without enrichment.`);
+    const controller = new AbortController();
+    this.promptAbortController = controller;
+    this.isPromptActive = true;
+    await this.emitState();
+
+    try {
+      // Pi Routing: pre-process the prompt through an MOA team before the main
+      // model builds its response. The synthesized briefing is injected as a
+      // hidden context message (same pattern as injectWebNudge). If MOA fails
+      // entirely, we fall through to a normal prompt — the user isn't blocked.
+      if (this.routingEnabled && this.routingTeamId && !opts?.streamingBehavior) {
+        try {
+          await this.runMoaEnrichment(message, controller.signal);
+        } catch (err) {
+          if (controller.signal.aborted) return { success: false, aborted: true };
+          console.error("[pi-desktop] MOA enrichment failed, proceeding without:", err);
+          this.events.emit(
+            this.DIAG_EVENT,
+            `Pi Routing failed: ${err instanceof Error ? err.message : String(err)}. Proceeding without enrichment.`,
+          );
+        }
+      }
+
+      if (controller.signal.aborted) return { success: false, aborted: true };
+
+      await this.session.prompt(message, {
+        images: opts?.images,
+        streamingBehavior: opts?.streamingBehavior,
+      } as any);
+
+      // An aborted/partial response must never be relayed to the next Tag Team
+      // model as if the stage completed successfully.
+      if (
+        !controller.signal.aborted &&
+        this.tagTeamEnabled &&
+        this.tagTeamTeamId &&
+        !opts?.streamingBehavior
+      ) {
+        try {
+          await this.runTagTeamHandoff();
+        } catch (err) {
+          console.error("[pi-desktop] Tag Team handoff failed:", err);
+          this.events.emit(
+            this.DIAG_EVENT,
+            `Tag Team handoff failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+
+      return controller.signal.aborted ? { success: false, aborted: true } : { success: true };
+    } finally {
+      if (this.promptAbortController === controller) {
+        this.promptAbortController = null;
+        this.isPromptActive = false;
+        await this.emitState();
       }
     }
-
-    await this.session.prompt(message, {
-      images: opts?.images,
-      streamingBehavior: opts?.streamingBehavior,
-    } as any);
-
-    // Tag Team: after the starter model (stage 0) finishes its turn, hand off
-    // to the next stage's model in a new tab. Only triggers on the initial
-    // prompt (not steer/followUp), when Tag Team is enabled with a valid team.
-    if (this.tagTeamEnabled && this.tagTeamTeamId && !opts?.streamingBehavior) {
-      try {
-        await this.runTagTeamHandoff();
-      } catch (err) {
-        console.error("[pi-desktop] Tag Team handoff failed:", err);
-        this.events.emit(this.DIAG_EVENT, `Tag Team handoff failed: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
-
-    return { success: true };
   }
 
   /**
@@ -659,40 +708,53 @@ export class PiSessionManager {
    * builds its response. Uses the same appendCustomMessageEntry pattern as
    * injectWebNudge.
    */
-  private async runMoaEnrichment(message: string): Promise<void> {
+  private async runMoaEnrichment(message: string, signal?: AbortSignal): Promise<void> {
     if (!this.session || !this.routingTeamId || !this.deps?.modelRegistry) return;
 
-    const { loadMoaConfig, findTeam } = await import("../moa/config");
     const { runMoa } = await import("../moa/engine");
     const config = loadMoaConfig();
-    const team = findTeam(config, this.routingTeamId);
+    const team = findMoaTeam(config, this.routingTeamId);
     if (!team) {
       throw new Error(`Team not found: ${this.routingTeamId}`);
     }
 
     const sessionMessages = this.session.messages ?? [];
-    const result = await runMoa({
-      message,
-      team,
-      modelRegistry: this.deps.modelRegistry,
-      sessionMessages,
-      mode: config.defaultMode,
-      maxLayers: config.advanced.maxLayers,
-      confidenceThreshold: config.advanced.confidenceThreshold,
-      onProgress: (event) => {
-        this.events.emit(this.EXT_UI_EVENT, {
-          type: "moa:progress",
-          ...event,
-        });
-      },
-    });
+    let result: Awaited<ReturnType<typeof runMoa>>;
+    try {
+      result = await runMoa({
+        message,
+        team,
+        modelRegistry: this.deps.modelRegistry,
+        sessionMessages,
+        mode: config.defaultMode,
+        maxLayers: config.advanced.maxLayers,
+        confidenceThreshold: config.advanced.confidenceThreshold,
+        signal,
+        onProgress: (event) => {
+          this.events.emit(this.EXT_UI_EVENT, {
+            type: "moa:progress",
+            ...event,
+          });
+        },
+      });
+    } catch (error) {
+      this.events.emit(this.EXT_UI_EVENT, {
+        type: "moa:progress",
+        phase: "error",
+        layer: 1,
+        progress: 100,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
 
     // Inject the briefing as a hidden context message — the main model sees it
     // in its context window but it's not displayed as a chat message.
     const sm = (this.session as any).sessionManager ?? this.sessionManager;
+    const confidenceLabel = result.confidence == null ? "not scored" : `${result.confidence}/10`;
     sm?.appendCustomMessageEntry?.(
       "moa-briefing",
-      `[Pi Routing Briefing — Team: ${result.teamName}, Confidence: ${result.confidence}/10, Layers: ${result.layers}]\n\n${result.briefing}`,
+      `[Pi Routing Briefing — Team: ${result.teamName}, Confidence: ${confidenceLabel}, Layers: ${result.layers}]\n\n${result.briefing}`,
       false,
       {
         team: result.teamName,
@@ -702,7 +764,10 @@ export class PiSessionManager {
       },
     );
 
-    this.events.emit(this.DIAG_EVENT, `Pi Routing complete: ${result.teamName} · ${result.layers} layer(s) · ${result.confidence}/10 confidence`);
+    this.events.emit(
+      this.DIAG_EVENT,
+      `Pi Routing complete: ${result.teamName} · ${result.layers} layer(s) · ${confidenceLabel}`,
+    );
   }
 
   /**
@@ -715,7 +780,6 @@ export class PiSessionManager {
    */
   async runMoaTest(message: string, team: any, modeOverride?: "basic" | "advanced"): Promise<any> {
     if (!this.deps?.modelRegistry) throw new Error("Model registry not available");
-    const { loadMoaConfig } = await import("../moa/config");
     const { runMoa } = await import("../moa/engine");
     const config = loadMoaConfig();
     return runMoa({
@@ -743,7 +807,6 @@ export class PiSessionManager {
       return;
     }
 
-    const { loadTagTeamConfig, findTagTeam } = await import("../tagteam/config");
     const config = loadTagTeamConfig();
     const team = findTagTeam(config, this.tagTeamTeamId);
     if (!team || team.stages.length < 2) return;
@@ -759,15 +822,19 @@ export class PiSessionManager {
 
     // Extract this model's output — the last assistant message.
     const messages = this.session.messages ?? [];
-    const lastAssistant = [...messages].reverse().find(
-      (m: any) => m?.role === "assistant" || m?.type === "assistant",
-    );
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m: any) => m?.role === "assistant" || m?.type === "assistant");
     const previousOutput = extractMessageText(lastAssistant);
     if (!previousOutput) return;
 
-    const fromModelName = this.deps.modelRegistry.find(currentStage.provider, currentStage.modelId)?.name ?? currentStage.modelId;
-    const toModelName = this.deps.modelRegistry.find(nextStage.provider, nextStage.modelId)?.name ?? nextStage.modelId;
-    const handoffPrompt = nextStage.handoffPrompt || "Review and improve the work above.";
+    const fromModelName =
+      this.deps.modelRegistry.find(currentStage.provider, currentStage.modelId)?.name ??
+      currentStage.modelId;
+    const toModelName =
+      this.deps.modelRegistry.find(nextStage.provider, nextStage.modelId)?.name ??
+      nextStage.modelId;
+    const handoffPrompt = getHandoffPrompt(team, fromStage);
     // Is there a stage AFTER the one we're handing to? If so, the new tab must
     // keep relaying; if not, it's the finalizer and the chain ends there.
     const continueRelay = toStage + 1 < team.stages.length;
@@ -790,7 +857,10 @@ export class PiSessionManager {
       continueRelay,
     });
 
-    this.events.emit(this.DIAG_EVENT, `🏷 Tag Team: ${fromModelName} tagged ${toModelName} → new tab`);
+    this.events.emit(
+      this.DIAG_EVENT,
+      `🏷 Tag Team: ${fromModelName} tagged ${toModelName} → new tab`,
+    );
   }
 
   /**
@@ -801,12 +871,21 @@ export class PiSessionManager {
   async runTagTeamTest(message: string, team: any): Promise<any> {
     if (!this.deps?.modelRegistry) throw new Error("Model registry not available");
     const { runTagTeamRelay } = await import("../tagteam/orchestrator");
-    return runTagTeamRelay({
-      message,
-      team,
-      modelRegistry: this.deps.modelRegistry,
-      sessionMessages: this.session?.messages ?? [],
-    });
+    // Abort the test relay after 5 minutes so a stuck provider doesn't hang
+    // the settings panel indefinitely. The user can re-run if it times out.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5 * 60_000);
+    try {
+      return await runTagTeamRelay({
+        message,
+        team,
+        modelRegistry: this.deps.modelRegistry,
+        sessionMessages: this.session?.messages ?? [],
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async steer(message: string, _images?: any[]) {
@@ -823,7 +902,8 @@ export class PiSessionManager {
 
   async abort() {
     if (!this.session) throw new Error("Session not initialized");
-    await this.session.abort();
+    this.promptAbortController?.abort();
+    if (this.session.isStreaming) await this.session.abort();
     return { success: true };
   }
 
@@ -910,7 +990,9 @@ export class PiSessionManager {
    * that folder WITH tools, and seed the new session with the prior chat so the
    * agent keeps context.
    */
-  async convertToCode(cwd: string): Promise<{ success: boolean; mdPath?: string; cwd?: string; error?: string }> {
+  async convertToCode(
+    cwd: string,
+  ): Promise<{ success: boolean; mdPath?: string; cwd?: string; error?: string }> {
     if (!this.runtime) throw new Error("Runtime not initialized");
 
     // Capture the conversation BEFORE any rebuild replaces the session.
@@ -925,7 +1007,10 @@ export class PiSessionManager {
       mdPath = join(docsDir, `chat-${ts}.md`);
       await writeFile(mdPath, serializeTranscript(prior, cwd, ts), "utf-8");
     } catch (err: any) {
-      return { success: false, error: `Could not write transcript: ${err?.message ?? String(err)}` };
+      return {
+        success: false,
+        error: `Could not write transcript: ${err?.message ?? String(err)}`,
+      };
     }
 
     // 2. Rebuild bound to the folder with tools (chatMode off → factory omits noTools).
@@ -983,7 +1068,7 @@ export class PiSessionManager {
 
   async getSessionTree() {
     if (!this.sessionManager) return null;
-    const sm = (this.sessionManager as any);
+    const sm = this.sessionManager as any;
     const tree = sm.getTree?.();
     const entries = sm.getEntries?.();
     return { tree, entries };
@@ -995,9 +1080,15 @@ export class PiSessionManager {
     const messages = this.session.messages
       .filter((m: any) => m.role === "user")
       .map((m: any, i: number) => {
-        const text = typeof m.content === "string" ? m.content : Array.isArray(m.content)
-          ? m.content.filter((c: any) => c.type === "text").map((c: any) => c.text).join("")
-          : "";
+        const text =
+          typeof m.content === "string"
+            ? m.content
+            : Array.isArray(m.content)
+              ? m.content
+                  .filter((c: any) => c.type === "text")
+                  .map((c: any) => c.text)
+                  .join("")
+              : "";
         return { entryId: m.id ?? `entry-${i}`, text };
       });
     return { messages };
@@ -1037,12 +1128,19 @@ export class PiSessionManager {
   async getSessionStats() {
     // Reconstruct from session messages + agent usage; full stats require agent internals.
     if (!this.session) return null;
-    let input = 0, output = 0, cacheRead = 0, cacheWrite = 0, cost = 0;
+    let input = 0,
+      output = 0,
+      cacheRead = 0,
+      cacheWrite = 0,
+      cost = 0;
     // Reasoning/thinking tokens reported by some providers (Pi 0.80.3+). These
     // are a SUBSET of `output` (the SDK doc is explicit), so they're surfaced
     // as a breakdown detail and deliberately NOT added to `total`.
     let reasoning = 0;
-    let userMessages = 0, assistantMessages = 0, toolCalls = 0, toolResults = 0;
+    let userMessages = 0,
+      assistantMessages = 0,
+      toolCalls = 0,
+      toolResults = 0;
     for (const m of this.session.messages as any[]) {
       if (m.role === "user") userMessages++;
       else if (m.role === "assistant") {
@@ -1157,15 +1255,17 @@ export class PiSessionManager {
   async getAvailableModels() {
     if (!this.deps) throw new Error("Deps not initialized");
     const models = await this.deps.modelRegistry.getAvailable();
-    return { models: (models as Model[]).map((m) => ({
-      id: m.id,
-      name: m.name,
-      provider: m.provider,
-      api: (m as any).api,
-      reasoning: (m as any).reasoning,
-      contextWindow: (m as any).contextWindow,
-      maxTokens: (m as any).maxTokens,
-    })) };
+    return {
+      models: (models as Model[]).map((m) => ({
+        id: m.id,
+        name: m.name,
+        provider: m.provider,
+        api: (m as any).api,
+        reasoning: (m as any).reasoning,
+        contextWindow: (m as any).contextWindow,
+        maxTokens: (m as any).maxTokens,
+      })),
+    };
   }
 
   // --- Compaction --------------------------------------------------------
@@ -1246,7 +1346,11 @@ export class PiSessionManager {
       return configured.map((p: any) => ({
         spec: p.source,
         name: p.source.replace(/^npm:/, "").split("@")[0] || p.source,
-        source: p.source.startsWith("npm:") ? "npm" : p.source.startsWith("git") || p.source.startsWith("http") ? "git" : "local",
+        source: p.source.startsWith("npm:")
+          ? "npm"
+          : p.source.startsWith("git") || p.source.startsWith("http")
+            ? "git"
+            : "local",
       }));
     } catch (err: any) {
       console.error("[pi-desktop] Package list failed:", err);
@@ -1258,9 +1362,7 @@ export class PiSessionManager {
    * Update a single configured package to its latest version. Mirrors `pi update`.
    * Lets users upgrade extensions from the UI instead of dropping to a terminal.
    */
-  async updatePackage(
-    spec: string,
-  ): Promise<{ success: boolean; error?: string }> {
+  async updatePackage(spec: string): Promise<{ success: boolean; error?: string }> {
     try {
       const pm = await this.getPackageManager();
       await pm.update(spec);
@@ -1404,10 +1506,16 @@ export class PiSessionManager {
     const seen = new Set<string>();
     const providers: { id: string; name: string; oauth: boolean }[] = [];
     for (const p of oauthProviders) {
-      if (!seen.has(p.id)) { seen.add(p.id); providers.push({ ...p, oauth: true }); }
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        providers.push({ ...p, oauth: true });
+      }
     }
     for (const id of apiKeyProviders) {
-      if (!seen.has(id)) { seen.add(id); providers.push({ id, name: id, oauth: false }); }
+      if (!seen.has(id)) {
+        seen.add(id);
+        providers.push({ id, name: id, oauth: false });
+      }
     }
 
     const status: any[] = [];
@@ -1524,7 +1632,12 @@ export class PiSessionManager {
   private requestAuthInput(
     provider: string,
     kind: "prompt" | "select" | "manualCode",
-    payload: { message: string; placeholder?: string; allowEmpty?: boolean; options?: { id: string; label: string }[] },
+    payload: {
+      message: string;
+      placeholder?: string;
+      allowEmpty?: boolean;
+      options?: { id: string; label: string }[];
+    },
   ): Promise<string> {
     return new Promise((resolve) => {
       const requestId = `auth-${++this.authPromptSeq}`;
@@ -1654,11 +1767,13 @@ export class PiSessionManager {
     if (!this.session) return { tools: [] };
     try {
       const tools = this.session.getAllTools();
-      return { tools: tools.map((t: any) => ({
-        name: t.name,
-        description: t.description,
-        source: t.sourceInfo?.location ?? "built-in",
-      })) };
+      return {
+        tools: tools.map((t: any) => ({
+          name: t.name,
+          description: t.description,
+          source: t.sourceInfo?.location ?? "built-in",
+        })),
+      };
     } catch {
       return { tools: [] };
     }
@@ -1691,12 +1806,20 @@ export class PiSessionManager {
 
   dispose() {
     this.cancelPendingDialogs();
-    try { this.unsubscribe?.(); } catch {}
+    try {
+      this.unsubscribe?.();
+    } catch {}
     this.unsubscribe = null;
-    try { this.session?.dispose?.(); } catch {}
+    try {
+      this.session?.dispose?.();
+    } catch {}
     // Release the runtime too (child processes, file watchers, sockets).
-    try { (this.runtime as any)?.dispose?.(); } catch {}
-    try { (this.runtime as any)?.services?.dispose?.(); } catch {}
+    try {
+      (this.runtime as any)?.dispose?.();
+    } catch {}
+    try {
+      (this.runtime as any)?.services?.dispose?.();
+    } catch {}
     this.session = null;
     this.runtime = null;
     this.isCompacting = false;
@@ -1717,7 +1840,7 @@ function extractMessageText(message: any): string {
   if (Array.isArray(content)) {
     return content
       .filter((c: any) => c?.type === "text" || typeof c === "string")
-      .map((c: any) => (typeof c === "string" ? c : c.text ?? ""))
+      .map((c: any) => (typeof c === "string" ? c : (c.text ?? "")))
       .join("");
   }
   return "";

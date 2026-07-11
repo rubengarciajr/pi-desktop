@@ -1,69 +1,10 @@
-import { memo, useState } from "react";
+import { lazy, memo, Suspense, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-// PrismLight (the "light" build) lets us register only the languages a coding
-// agent actually shows, instead of pulling in all ~300 Prism languages via
-// refractor/all (~1.2 MB). Unregistered languages fall back to plain text.
-import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import tsx from "react-syntax-highlighter/dist/esm/languages/prism/tsx";
-import typescript from "react-syntax-highlighter/dist/esm/languages/prism/typescript";
-import jsx from "react-syntax-highlighter/dist/esm/languages/prism/jsx";
-import javascript from "react-syntax-highlighter/dist/esm/languages/prism/javascript";
-import python from "react-syntax-highlighter/dist/esm/languages/prism/python";
-import bash from "react-syntax-highlighter/dist/esm/languages/prism/bash";
-import json from "react-syntax-highlighter/dist/esm/languages/prism/json";
-import yaml from "react-syntax-highlighter/dist/esm/languages/prism/yaml";
-import markdown from "react-syntax-highlighter/dist/esm/languages/prism/markdown";
-import css from "react-syntax-highlighter/dist/esm/languages/prism/css";
-import markup from "react-syntax-highlighter/dist/esm/languages/prism/markup";
-import go from "react-syntax-highlighter/dist/esm/languages/prism/go";
-import rust from "react-syntax-highlighter/dist/esm/languages/prism/rust";
-import sql from "react-syntax-highlighter/dist/esm/languages/prism/sql";
-import c from "react-syntax-highlighter/dist/esm/languages/prism/c";
-import cpp from "react-syntax-highlighter/dist/esm/languages/prism/cpp";
-import java from "react-syntax-highlighter/dist/esm/languages/prism/java";
-import ruby from "react-syntax-highlighter/dist/esm/languages/prism/ruby";
-import php from "react-syntax-highlighter/dist/esm/languages/prism/php";
-import shellSession from "react-syntax-highlighter/dist/esm/languages/prism/shell-session";
 import { looksLikePath } from "../../../../shared/filePath";
 import { FilePath } from "./FilePath";
 
-// Register once at module load. Aliases map common fenced-code labels to the
-// registered language so ```sh, ```shell, ```html, ```xml etc. highlight too.
-SyntaxHighlighter.registerLanguage("tsx", tsx);
-SyntaxHighlighter.registerLanguage("typescript", typescript);
-SyntaxHighlighter.registerLanguage("ts", typescript);
-SyntaxHighlighter.registerLanguage("jsx", jsx);
-SyntaxHighlighter.registerLanguage("javascript", javascript);
-SyntaxHighlighter.registerLanguage("js", javascript);
-SyntaxHighlighter.registerLanguage("python", python);
-SyntaxHighlighter.registerLanguage("py", python);
-SyntaxHighlighter.registerLanguage("bash", bash);
-SyntaxHighlighter.registerLanguage("sh", bash);
-SyntaxHighlighter.registerLanguage("shell", bash);
-SyntaxHighlighter.registerLanguage("json", json);
-SyntaxHighlighter.registerLanguage("yaml", yaml);
-SyntaxHighlighter.registerLanguage("yml", yaml);
-SyntaxHighlighter.registerLanguage("markdown", markdown);
-SyntaxHighlighter.registerLanguage("md", markdown);
-SyntaxHighlighter.registerLanguage("css", css);
-SyntaxHighlighter.registerLanguage("markup", markup);
-SyntaxHighlighter.registerLanguage("html", markup);
-SyntaxHighlighter.registerLanguage("xml", markup);
-SyntaxHighlighter.registerLanguage("go", go);
-SyntaxHighlighter.registerLanguage("rust", rust);
-SyntaxHighlighter.registerLanguage("rs", rust);
-SyntaxHighlighter.registerLanguage("sql", sql);
-SyntaxHighlighter.registerLanguage("c", c);
-SyntaxHighlighter.registerLanguage("cpp", cpp);
-SyntaxHighlighter.registerLanguage("c++", cpp);
-SyntaxHighlighter.registerLanguage("java", java);
-SyntaxHighlighter.registerLanguage("ruby", ruby);
-SyntaxHighlighter.registerLanguage("rb", ruby);
-SyntaxHighlighter.registerLanguage("php", php);
-SyntaxHighlighter.registerLanguage("shell-session", shellSession);
-SyntaxHighlighter.registerLanguage("console", shellSession);
+const SyntaxCodeBlock = lazy(() => import("./SyntaxCodeBlock"));
 
 interface MarkdownProps {
   children: string;
@@ -76,14 +17,22 @@ interface MarkdownProps {
  * CodeBlock and re-ran Prism highlighting over code whose content never
  * changed. Now unchanged code blocks skip Prism entirely.
  */
-const CodeBlock = memo(function CodeBlock({ language, value }: { language: string; value: string }) {
+const CodeBlock = memo(function CodeBlock({
+  language,
+  value,
+}: {
+  language: string;
+  value: string;
+}) {
   const lineCount = value.split("\n").length;
   return (
     <div className="group relative my-2.5 max-w-full overflow-hidden rounded-lg border border-border bg-bg">
       <div className="flex items-center justify-between border-b border-border bg-bg-subtle px-3 py-1.5">
         <span className="text-[10px] font-medium uppercase tracking-wider text-text-faint">
           {language || "text"}
-          {lineCount > 1 && <span className="ml-2 normal-case text-text-faint/70">{lineCount} lines</span>}
+          {lineCount > 1 && (
+            <span className="ml-2 normal-case text-text-faint/70">{lineCount} lines</span>
+          )}
         </span>
         <button
           onClick={() => navigator.clipboard.writeText(value)}
@@ -94,21 +43,15 @@ const CodeBlock = memo(function CodeBlock({ language, value }: { language: strin
       </div>
       {/* Scroll long lines inside the block so they never widen the chat canvas. */}
       <div className="overflow-x-auto">
-        <SyntaxHighlighter
-          language={language || "text"}
-          style={oneDark}
-          customStyle={{
-            margin: 0,
-            background: "transparent",
-            padding: "10px 14px",
-            fontSize: "12px",
-            lineHeight: "1.5",
-            fontFamily: '"SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas, monospace',
-          }}
-          codeTagProps={{ style: { fontFamily: "inherit" } }}
+        <Suspense
+          fallback={
+            <pre className="m-0 whitespace-pre px-3.5 py-2.5 font-mono text-xs leading-6 text-text-muted">
+              {value}
+            </pre>
+          }
         >
-          {value}
-        </SyntaxHighlighter>
+          <SyntaxCodeBlock language={language} value={value} />
+        </Suspense>
       </div>
     </div>
   );
@@ -147,7 +90,15 @@ function ImageChip({ src, alt }: { src?: string; alt?: string }) {
       title={src}
       className="my-1 inline-flex max-w-full items-center gap-2 rounded-lg border border-border bg-bg-subtle px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-bg-hover hover:text-text"
     >
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-text-faint">
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        className="shrink-0 text-text-faint"
+      >
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <circle cx="9" cy="9" r="1.5" />
         <path d="m21 15-5-5L5 21" strokeLinecap="round" strokeLinejoin="round" />
@@ -180,12 +131,24 @@ const MARKDOWN_COMPONENTS: Components = {
   // Tight, chat-appropriate heading scale: distinguish by weight + small size
   // steps, not dramatic jumps. Body is 13px (text-[13px] on the wrapper), so
   // headings stay within 1-3px of it for visual cohesion.
-  h1: ({ node, ...props }) => <h1 className="mb-2 mt-3 text-[15px] font-semibold text-text" {...props} />,
-  h2: ({ node, ...props }) => <h2 className="mb-2 mt-3 text-[14px] font-semibold text-text" {...props} />,
-  h3: ({ node, ...props }) => <h3 className="mb-1.5 mt-2.5 text-[13px] font-semibold text-text" {...props} />,
-  h4: ({ node, ...props }) => <h4 className="mb-1.5 mt-2.5 text-[13px] font-semibold text-text-muted" {...props} />,
-  h5: ({ node, ...props }) => <h5 className="mb-1 mt-2 text-[13px] font-medium text-text-muted" {...props} />,
-  h6: ({ node, ...props }) => <h6 className="mb-1 mt-2 text-[13px] font-medium text-text-faint" {...props} />,
+  h1: ({ node, ...props }) => (
+    <h1 className="mb-2 mt-3 text-[15px] font-semibold text-text" {...props} />
+  ),
+  h2: ({ node, ...props }) => (
+    <h2 className="mb-2 mt-3 text-[14px] font-semibold text-text" {...props} />
+  ),
+  h3: ({ node, ...props }) => (
+    <h3 className="mb-1.5 mt-2.5 text-[13px] font-semibold text-text" {...props} />
+  ),
+  h4: ({ node, ...props }) => (
+    <h4 className="mb-1.5 mt-2.5 text-[13px] font-semibold text-text-muted" {...props} />
+  ),
+  h5: ({ node, ...props }) => (
+    <h5 className="mb-1 mt-2 text-[13px] font-medium text-text-muted" {...props} />
+  ),
+  h6: ({ node, ...props }) => (
+    <h6 className="mb-1 mt-2 text-[13px] font-medium text-text-faint" {...props} />
+  ),
   p: ({ node, ...props }) => <p className="mb-2.5 leading-relaxed last:mb-0" {...props} />,
   a: ({ node, ...props }) => (
     <a
@@ -223,7 +186,7 @@ const MARKDOWN_COMPONENTS: Components = {
     <td className="border-t border-border px-2.5 py-1 text-text-muted" {...props} />
   ),
   code({ node, inline, className, children, ...props }: any) {
-    const match = /language-(\w+)/.exec(className || "");
+    const match = /language-([^\s]+)/.exec(className || "");
     const value = String(children).replace(/\n$/, "");
     if (!inline && (match || value.includes("\n"))) {
       return <CodeBlock language={match?.[1] ?? ""} value={value} />;

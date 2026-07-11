@@ -3,7 +3,7 @@ import { useAppStore } from "../store/useAppStore";
 import { GitRepoBadge } from "./GitRepoBadge";
 import { ExtensionStatusBadges } from "./extensions/ExtensionUi";
 
-const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
+const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 interface ModelInfo {
   id: string;

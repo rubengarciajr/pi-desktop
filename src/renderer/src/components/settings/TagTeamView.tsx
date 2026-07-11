@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import type { TagTeamConfig, TagTeamTeam, TagTeamStage, TagTeamResult } from "../../../../shared/ipc";
+import type {
+  TagTeamConfig,
+  TagTeamTeam,
+  TagTeamStage,
+  TagTeamResult,
+} from "../../../../shared/ipc";
+import { decodeModelRef, encodeModelRef } from "../../../../shared/modelRef";
 import { TagTeamIcon } from "../Icons";
 
 interface ModelOption {
@@ -26,8 +32,14 @@ export function TagTeamView() {
   const [editingTeam, setEditingTeam] = useState<TagTeamTeam | null>(null);
 
   useEffect(() => {
-    window.pi.api.getTagTeamConfig().then(setConfig).catch(() => {});
-    window.pi.api.getAvailableModels({}).then((res) => setModels(res.models)).catch(() => {});
+    window.pi.api
+      .getTagTeamConfig()
+      .then(setConfig)
+      .catch(() => {});
+    window.pi.api
+      .getAvailableModels({})
+      .then((res) => setModels(res.models))
+      .catch(() => {});
   }, []);
 
   const save = (next: TagTeamConfig) => {
@@ -81,9 +93,10 @@ export function TagTeamView() {
         {/* Description */}
         <div className="mb-5 max-w-2xl">
           <p className="text-xs leading-relaxed text-text-muted">
-            Create teams where models work sequentially. The <span className="text-text">starter</span> builds
-            out your idea, then <span className="text-text">tags</span> the next model, which takes over in a
-            new tab and improves the work. Each handoff can carry a custom prompt so the next model knows
+            Create teams where models work sequentially. The{" "}
+            <span className="text-text">starter</span> builds out your idea, then{" "}
+            <span className="text-text">tags</span> the next model, which takes over in a new tab
+            and improves the work. Each handoff can carry a custom prompt so the next model knows
             exactly what to do.
           </p>
         </div>
@@ -94,8 +107,8 @@ export function TagTeamView() {
             <TagTeamIcon size={32} className="mb-3 text-text-faint" />
             <p className="text-sm font-medium text-text">No teams configured</p>
             <p className="mt-1 text-xs text-text-muted">
-              Create a team to set up a sequential model relay. The starter model builds, the finalizer
-              takes over and polishes.
+              Create a team to set up a sequential model relay. The starter model builds, the
+              finalizer takes over and polishes.
             </p>
             <button
               onClick={createTeam}
@@ -148,7 +161,9 @@ function TeamCard({
   onDelete: () => void;
 }) {
   const stageNames = team.stages.map(
-    (s) => (models.find((m) => m.provider === s.provider && m.id === s.modelId)?.name ?? s.modelId) || "unset",
+    (s) =>
+      (models.find((m) => m.provider === s.provider && m.id === s.modelId)?.name ?? s.modelId) ||
+      "unset",
   );
 
   return (
@@ -168,10 +183,14 @@ function TeamCard({
                       isSet ? "border-accent/40 bg-accent/10" : "border-border bg-bg-subtle"
                     }`}
                   >
-                    <span className={`text-[10px] font-bold ${isSet ? "text-accent" : "text-text-faint"}`}>
+                    <span
+                      className={`text-[10px] font-bold ${isSet ? "text-accent" : "text-text-faint"}`}
+                    >
                       {i + 1}
                     </span>
-                    <span className={`text-xs font-medium ${isSet ? "text-text" : "text-text-faint"}`}>
+                    <span
+                      className={`text-xs font-medium ${isSet ? "text-text" : "text-text-faint"}`}
+                    >
                       {name}
                     </span>
                     {stage.role && (
@@ -267,7 +286,8 @@ function TeamEditor({
     }
   };
 
-  const canSave = draft.name.trim() && draft.stages.length >= 2 && draft.stages.every((s) => s.modelId);
+  const canSave =
+    draft.name.trim() && draft.stages.length >= 2 && draft.stages.every((s) => s.modelId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -276,10 +296,19 @@ function TeamEditor({
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TagTeamIcon size={18} className="text-accent" />
-            <h2 className="text-sm font-semibold text-text">{team.name === "New Team" ? "Create Team" : "Edit Team"}</h2>
+            <h2 className="text-sm font-semibold text-text">
+              {team.name === "New Team" ? "Create Team" : "Edit Team"}
+            </h2>
           </div>
           <button onClick={onCancel} className="text-text-faint hover:text-text">
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <svg
+              width={16}
+              height={16}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
@@ -313,13 +342,15 @@ function TeamEditor({
               </button>
             </div>
             <p className="mb-3 text-[11px] text-text-faint">
-              Models run in order. Stage 1 builds the work, the last stage finalizes. Each stage's handoff
-              prompt tells the next model what to do.
+              Models run in order. Stage 1 builds the work, the last stage finalizes. Each stage's
+              handoff prompt tells the next model what to do.
             </p>
 
             <div className="space-y-3">
               {draft.stages.map((stage, i) => {
-                const selectedModel = models.find((m) => m.provider === stage.provider && m.id === stage.modelId);
+                const selectedModel = models.find(
+                  (m) => m.provider === stage.provider && m.id === stage.modelId,
+                );
                 const isSet = !!stage.modelId;
                 const isLast = i === draft.stages.length - 1;
                 return (
@@ -332,9 +363,11 @@ function TeamEditor({
                       {/* Stage header */}
                       <div className="mb-2 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
-                            isSet ? "bg-accent text-white" : "bg-bg-active text-text-faint"
-                          }`}>
+                          <span
+                            className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                              isSet ? "bg-accent text-white" : "bg-bg-active text-text-faint"
+                            }`}
+                          >
                             {i + 1}
                           </span>
                           <span className="text-xs font-medium text-text-muted">
@@ -349,7 +382,14 @@ function TeamEditor({
                             className="rounded p-0.5 text-text-faint hover:text-text disabled:opacity-20"
                             title="Move up"
                           >
-                            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <svg
+                              width={14}
+                              height={14}
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
                               <polyline points="18 15 12 9 6 15" />
                             </svg>
                           </button>
@@ -359,7 +399,14 @@ function TeamEditor({
                             className="rounded p-0.5 text-text-faint hover:text-text disabled:opacity-20"
                             title="Move down"
                           >
-                            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <svg
+                              width={14}
+                              height={14}
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
                               <polyline points="6 9 12 15 18 9" />
                             </svg>
                           </button>
@@ -369,7 +416,14 @@ function TeamEditor({
                               className="rounded p-0.5 text-text-faint hover:text-danger"
                               title="Remove stage"
                             >
-                              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                              <svg
+                                width={14}
+                                height={14}
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                              >
                                 <line x1="18" y1="6" x2="6" y2="18" />
                                 <line x1="6" y1="6" x2="18" y2="18" />
                               </svg>
@@ -386,16 +440,19 @@ function TeamEditor({
                           </span>
                         )}
                         <select
-                          value={`${stage.provider}/${stage.modelId}`}
+                          value={encodeModelRef(stage.provider, stage.modelId)}
                           onChange={(e) => {
-                            const [provider, modelId] = e.target.value.split("/");
+                            const { provider, modelId } = decodeModelRef(e.target.value);
                             updateStage(i, { provider, modelId });
                           }}
                           className={`form-select flex-1 ${isSet ? "text-text" : "text-text-faint"}`}
                         >
-                          <option value="/">Select a model…</option>
+                          <option value={encodeModelRef("", "")}>Select a model…</option>
                           {models.map((m) => (
-                            <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>
+                            <option
+                              key={`${m.provider}/${m.id}`}
+                              value={encodeModelRef(m.provider, m.id)}
+                            >
                               {m.name} ({m.provider})
                             </option>
                           ))}
@@ -417,7 +474,9 @@ function TeamEditor({
                           </label>
                           <textarea
                             value={stage.handoffPrompt ?? ""}
-                            onChange={(e) => updateStage(i, { handoffPrompt: e.target.value || undefined })}
+                            onChange={(e) =>
+                              updateStage(i, { handoffPrompt: e.target.value || undefined })
+                            }
                             className="form-input min-h-[60px] resize-y text-xs leading-relaxed"
                             placeholder="e.g. Review the code above and improve it. Fix any bugs, optimize performance, and clean up the structure."
                           />
@@ -440,8 +499,8 @@ function TeamEditor({
           <div className="rounded-lg border border-border bg-bg-subtle p-3">
             <label className="mb-1.5 block text-xs font-medium text-text-muted">Test team</label>
             <p className="mb-2 text-[10px] text-text-faint">
-              Runs your test prompt through stage 1, then hands off to stage 2 with your prompt. Shows each
-              model's output.
+              Runs your test prompt through stage 1, then hands off to stage 2 with your prompt.
+              Shows each model's output.
             </p>
             <div className="flex gap-2">
               <input

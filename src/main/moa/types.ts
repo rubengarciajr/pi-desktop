@@ -66,8 +66,8 @@ export interface MoaResult {
   teamResponses: MoaMemberResult[];
   /** How many layers ran (1 = basic single-pass, >1 = advanced re-queries). */
   layers: number;
-  /** Overall confidence (0–10). Average of member scores in advanced mode. */
-  confidence: number;
+  /** Average member score in advanced mode; null when the run was not scored. */
+  confidence: number | null;
   /** The team that produced this result. */
   teamName: string;
 }

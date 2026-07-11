@@ -80,7 +80,8 @@ Pi Desktop brings the power of the Pi AI coding agent into a native macOS experi
 | `Cmd+Shift+Enter` | Send follow-up during streaming        |
 | `Enter`           | Send message (or select slash command) |
 | `Shift+Enter`     | Newline                                |
-| `Up/Down + Enter` | Slash command autocomplete navigation  |
+| `Escape`          | Dismiss command dropdown               |
+| Arrow keys        | Navigate slash command autocomplete    |
 
 ---
 
@@ -151,18 +152,18 @@ git push origin main --tags
 
 The app shows a "Pi Desktop vX.Y.Z is available" banner when a newer GitHub Release exists. The check runs automatically on launch — it queries the public GitHub releases API anonymously, compares versions, and surfaces a banner with a Download button. No setup, tokens, or configuration required.
 
-> **Forked to a private repo?** The anonymous check will 404. Drop a read-only PAT at `~/.pi-desktop-update-token` (or set `PI_UPDATE_TOKEN` at build time) and the updater will authenticate with it.
+> **Forked to a private repo?** The anonymous check will 404. Drop a read-only PAT at `~/.pi-desktop-update-token` and the updater will authenticate with it. Tokens are never embedded in app bundles.
 
 ---
 
 ## Tech Stack
 
-- **Electron 38** - cross-platform desktop runtime
+- **Electron 41** - cross-platform desktop runtime
 - **React 18 + TypeScript** - renderer UI
 - **electron-vite** - build tooling and HMR
 - **Tailwind CSS** - styling
 - **Zustand** - state management
-- **electron-updater** - auto-updates via GitHub Releases
+- **GitHub Releases updater** - in-app version checks and DMG downloads
 - **Pi SDK** (`@earendil-works/pi-coding-agent`) - in-process agent runtime
 
 ---

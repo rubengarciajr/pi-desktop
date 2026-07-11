@@ -14,11 +14,42 @@ interface CommandItem {
 }
 
 const TUI_ONLY_COMMANDS = new Set([
-  "tree", "model", "scoped-models", "thinking", "session", "sessions", "new", "resume",
-  "fork", "clone", "compact", "share", "export", "import", "config", "reload",
-  "skills", "trust", "login", "logout", "update", "install", "remove",
-  "list", "quit", "exit", "help", "clear", "theme", "editor", "tools",
-  "settings", "hotkeys", "changelog", "copy", "name",
+  "tree",
+  "model",
+  "scoped-models",
+  "thinking",
+  "session",
+  "sessions",
+  "new",
+  "resume",
+  "fork",
+  "clone",
+  "compact",
+  "share",
+  "export",
+  "import",
+  "config",
+  "reload",
+  "skills",
+  "trust",
+  "login",
+  "logout",
+  "update",
+  "install",
+  "remove",
+  "list",
+  "quit",
+  "exit",
+  "help",
+  "clear",
+  "theme",
+  "editor",
+  "tools",
+  "settings",
+  "hotkeys",
+  "changelog",
+  "copy",
+  "name",
 ]);
 
 export function PromptInput() {
@@ -71,9 +102,11 @@ export function PromptInput() {
         useAppStore.getState().addDiagnostic(res.error);
       }
     } catch (err) {
-      useAppStore.getState().addDiagnostic(
-        `External editor failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      useAppStore
+        .getState()
+        .addDiagnostic(
+          `External editor failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
     } finally {
       setEditingInEditor(false);
       textareaRef.current?.focus();
@@ -89,8 +122,13 @@ export function PromptInput() {
     try {
       const res: any = await window.pi.api.convertToCode({ tabId, cwd });
       if (res?.success && tabId) {
-        useAppStore.getState().updateTab(tabId, { mode: "code", cwd, title: cwd.split("/").pop() || cwd });
-        if (res.mdPath) useAppStore.getState().addDiagnostic(`Converted to code session — chat saved to ${res.mdPath}`);
+        useAppStore
+          .getState()
+          .updateTab(tabId, { mode: "code", cwd, title: cwd.split("/").pop() || cwd });
+        if (res.mdPath)
+          useAppStore
+            .getState()
+            .addDiagnostic(`Converted to code session — chat saved to ${res.mdPath}`);
       } else if (res?.error) {
         useAppStore.getState().addDiagnostic(`Convert failed: ${res.error}`);
       }
@@ -120,8 +158,15 @@ export function PromptInput() {
           const items: CommandItem[] = [];
           for (const c of cmds) {
             if (TUI_ONLY_COMMANDS.has(c.name)) continue;
-            const kind = c.source === "skill" ? "skill" : c.source === "prompt" ? "prompt" : "command";
-            items.push({ name: c.name, description: c.description, argumentHint: c.argumentHint, source: c.source ?? "extension", kind });
+            const kind =
+              c.source === "skill" ? "skill" : c.source === "prompt" ? "prompt" : "command";
+            items.push({
+              name: c.name,
+              description: c.description,
+              argumentHint: c.argumentHint,
+              source: c.source ?? "extension",
+              kind,
+            });
           }
           items.sort((a, b) => a.name.localeCompare(b.name));
           if (!cancelled) setCommands(items);
@@ -144,7 +189,10 @@ export function PromptInput() {
 
     // Cancel both the in-flight flag and any pending retry timer so rapid tab
     // switches don't stack backoff chains or setState after unmount.
-    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [activeTabId]);
 
   // Refresh commands when packages/extensions change.
@@ -153,20 +201,38 @@ export function PromptInput() {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const off = window.pi.events.onPackagesChanged(() => {
       // Small delay to let the backend reload resources.
-      timer = setTimeout(() => window.pi.api.getCommands().then((res: any) => {
-        if (cancelled) return;
-        const cmds = res.commands ?? [];
-        const items: CommandItem[] = [];
-        for (const c of cmds) {
-          if (TUI_ONLY_COMMANDS.has(c.name)) continue;
-          const kind = c.source === "skill" ? "skill" : c.source === "prompt" ? "prompt" : "command";
-          items.push({ name: c.name, description: c.description, argumentHint: c.argumentHint, source: c.source ?? "extension", kind });
-        }
-        items.sort((a, b) => a.name.localeCompare(b.name));
-        setCommands(items);
-      }).catch(() => {}), 500);
+      timer = setTimeout(
+        () =>
+          window.pi.api
+            .getCommands()
+            .then((res: any) => {
+              if (cancelled) return;
+              const cmds = res.commands ?? [];
+              const items: CommandItem[] = [];
+              for (const c of cmds) {
+                if (TUI_ONLY_COMMANDS.has(c.name)) continue;
+                const kind =
+                  c.source === "skill" ? "skill" : c.source === "prompt" ? "prompt" : "command";
+                items.push({
+                  name: c.name,
+                  description: c.description,
+                  argumentHint: c.argumentHint,
+                  source: c.source ?? "extension",
+                  kind,
+                });
+              }
+              items.sort((a, b) => a.name.localeCompare(b.name));
+              setCommands(items);
+            })
+            .catch(() => {}),
+        500,
+      );
     });
-    return () => { cancelled = true; if (timer) clearTimeout(timer); off?.(); };
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      off?.();
+    };
   }, []);
 
   // Auto-resize the textarea.
@@ -201,9 +267,8 @@ export function PromptInput() {
     return query;
   })();
 
-  const filteredCommands = slashQuery !== null
-    ? commands.filter((c) => c.name.toLowerCase().includes(slashQuery))
-    : [];
+  const filteredCommands =
+    slashQuery !== null ? commands.filter((c) => c.name.toLowerCase().includes(slashQuery)) : [];
 
   // Show dropdown: only when there's a slash query, filtered results exist,
   // and the user hasn't dismissed it (by selecting, pressing Escape, or clicking away).
@@ -308,7 +373,10 @@ export function PromptInput() {
       <div className="relative">
         {/* Slash command dropdown */}
         {slashOpen && (
-          <div ref={dropdownRef} className="absolute bottom-full left-0 right-0 mb-2 max-h-64 overflow-y-auto rounded-xl border border-border bg-bg-active shadow-2xl">
+          <div
+            ref={dropdownRef}
+            className="absolute bottom-full left-0 right-0 mb-2 max-h-64 overflow-y-auto rounded-xl border border-border bg-bg-active shadow-2xl"
+          >
             <div className="border-b border-border px-3 py-1.5 text-[10px] uppercase tracking-wider text-text-faint">
               Commands & Skills ({filteredCommands.length})
             </div>
@@ -322,18 +390,22 @@ export function PromptInput() {
                   i === slashIndex ? "bg-bg-hover" : ""
                 }`}
               >
-                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium ${
-                  cmd.kind === "skill" ? "bg-thinking/20 text-thinking"
-                  : cmd.kind === "prompt" ? "bg-success/20 text-success"
-                  : "bg-accent/20 text-accent"
-                }`}>
+                <span
+                  className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium ${
+                    cmd.kind === "skill"
+                      ? "bg-thinking/20 text-thinking"
+                      : cmd.kind === "prompt"
+                        ? "bg-success/20 text-success"
+                        : "bg-accent/20 text-accent"
+                  }`}
+                >
                   {cmd.kind === "skill" ? "SKILL" : cmd.kind === "prompt" ? "PROMPT" : "CMD"}
                 </span>
-                <span className="shrink-0 text-sm font-mono text-text">
-                  /{cmd.name}
-                </span>
+                <span className="shrink-0 text-sm font-mono text-text">/{cmd.name}</span>
                 {cmd.argumentHint && (
-                  <span className="shrink-0 rounded bg-bg-hover px-1 py-0.5 text-[10px] text-text-faint">{cmd.argumentHint}</span>
+                  <span className="shrink-0 rounded bg-bg-hover px-1 py-0.5 text-[10px] text-text-faint">
+                    {cmd.argumentHint}
+                  </span>
                 )}
                 {cmd.description && (
                   <span className="truncate text-xs text-text-faint">{cmd.description}</span>
@@ -343,28 +415,34 @@ export function PromptInput() {
           </div>
         )}
 
-        <div className={`rounded-xl border bg-bg-hover ${
-          !hasMessages
-            ? "border-transparent animate-glow-accent"
-            : "border-border transition-colors focus-within:border-accent/50"
-        }`}>
+        <div
+          className={`rounded-xl border bg-bg-hover ${
+            !hasMessages
+              ? "border-transparent animate-glow-accent"
+              : "border-border transition-colors focus-within:border-accent/50"
+          }`}
+        >
           <textarea
             ref={textareaRef}
             value={text}
-            onChange={(e) => { setText(e.target.value); setDropdownDismissed(false); }}
+            onChange={(e) => {
+              setText(e.target.value);
+              setDropdownDismissed(false);
+            }}
             onKeyDown={handleKeyDown}
             placeholder={
               isStreaming
                 ? "Queue a steering message... (Enter to steer, Cmd+Shift+Enter for follow-up)"
-                : mode === "chat" && (webEnabled || toolsEnabled || routingEnabled || tagTeamEnabled)
+                : mode === "chat" &&
+                    (webEnabled || toolsEnabled || routingEnabled || tagTeamEnabled)
                   ? `${[toolsEnabled && "🛠 Tools", webEnabled && "🔍 Web", routingEnabled && "🔀 Routing", tagTeamEnabled && "🏷 Tag Team"].filter(Boolean).join(" + ")} on — ask away`
                   : "Message Pi Desktop (Enter to send) or type / for commands"
             }
             rows={1}
             className="block w-full resize-none bg-transparent px-4 py-3 text-sm text-text placeholder:text-text-faint focus:outline-none selectable"
           />
-          <div className="flex items-center justify-between px-3 pb-2">
-            <div className="flex items-center gap-1 text-[11px] text-text-faint">
+          <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
+            <div className="hidden items-center gap-1 text-[11px] text-text-faint lg:flex">
               <kbd className="rounded border border-border px-1 py-0.5 text-[10px]">⏎</kbd>
               send
               <span className="mx-1">·</span>
@@ -374,13 +452,16 @@ export function PromptInput() {
               <kbd className="rounded border border-border px-1 py-0.5 text-[10px]">/</kbd>
               commands
             </div>
-            <div className="flex-1" />
-            <div className="flex items-center gap-2">
+            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
               {mode !== "chat" && <GitHubBadge />}
               {mode === "chat" && (
                 <button
                   onClick={toggleTools}
-                  title={toolsEnabled ? "Tools ON — agent can read/write files & run commands" : "Tools OFF — pure conversation"}
+                  title={
+                    toolsEnabled
+                      ? "Tools ON — agent can read/write files & run commands"
+                      : "Tools OFF — pure conversation"
+                  }
                   className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
                     toolsEnabled
                       ? "border-accent/40 bg-accent/15 text-accent"
@@ -442,7 +523,9 @@ export function PromptInput() {
               </button>
               {isStreaming && (
                 <button
-                  onClick={() => window.pi.api.abort({ tabId: useAppStore.getState().activeTabId ?? undefined })}
+                  onClick={() =>
+                    window.pi.api.abort({ tabId: useAppStore.getState().activeTabId ?? undefined })
+                  }
                   className="flex items-center gap-1.5 rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/20"
                 >
                   <StopIcon size={12} />
@@ -459,7 +542,13 @@ export function PromptInput() {
 
 function BoltIcon({ size = 12 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      style={{ flexShrink: 0 }}
+    >
       <path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5z" />
     </svg>
   );
@@ -467,7 +556,17 @@ function BoltIcon({ size = 12 }: { size?: number }) {
 
 function SearchIcon({ size = 12 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ flexShrink: 0 }}
+    >
       <circle cx="11" cy="11" r="7" />
       <path d="m21 21-4.3-4.3" />
     </svg>
@@ -476,7 +575,17 @@ function SearchIcon({ size = 12 }: { size?: number }) {
 
 function WrenchIcon({ size = 12 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ flexShrink: 0 }}
+    >
       <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6z" />
     </svg>
   );
@@ -484,7 +593,17 @@ function WrenchIcon({ size = 12 }: { size?: number }) {
 
 function ExternalEditorIcon({ size = 14 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ flexShrink: 0 }}
+    >
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
     </svg>

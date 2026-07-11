@@ -5,7 +5,9 @@
  * All events are tagged with tabId before being forwarded to the renderer.
  */
 import { EventEmitter } from "node:events";
+import { randomUUID } from "node:crypto";
 import { PiSessionManager } from "./PiSessionManager";
+import { buildHandoffMessage } from "../tagteam/relay";
 
 export class SessionPool {
   private pools = new Map<string, PiSessionManager>();
@@ -100,25 +102,36 @@ export class SessionPool {
    * prompt, and auto-prompts. Returns the new tab's id.
    */
   async createHandoffTab(opts: {
+    fromTabId: string;
     cwd?: string;
     provider: string;
     modelId: string;
     previousOutput: string;
     handoffPrompt: string;
     /** Team id + stage of the tab being created, so it can continue the relay. */
-    teamId?: string;
-    toStage?: number;
+    teamId: string;
+    toStage: number;
     /** True when a stage exists after this one — arm the new tab to keep relaying. */
-    continueRelay?: boolean;
+    continueRelay: boolean;
+    fromModelName: string;
+    toModelName: string;
+    teamName: string;
+    fromStage: number;
   }): Promise<string> {
-    const tabId = `tagteam-${Date.now()}`;
+    const tabId = `tagteam-${randomUUID()}`;
     const mgr = await this.createForTab(tabId, opts.cwd, { chatMode: true });
 
     // Set the next stage's model.
     try {
       await mgr.setModel(opts.provider, opts.modelId);
     } catch (err) {
-      this.events.emit(this.DIAG_EVENT, `Tag Team: could not set model ${opts.provider}/${opts.modelId}: ${err}`);
+      this.removeTab(tabId);
+      throw new Error(
+        `Tag Team could not set model ${opts.provider}/${opts.modelId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        { cause: err },
+      );
     }
 
     // If more stages remain after this one, arm this tab to hand off again when
@@ -133,13 +146,30 @@ export class SessionPool {
     // in the prompt so the model always sees the work it's improving — this does
     // not rely on any session-internal seeding API and mirrors the test relay.
     // Runs asynchronously; the renderer sees the new tab's streaming via events.
-    const handoffMessage =
-      "A previous model produced the following work:\n\n" +
-      `----- BEGIN PREVIOUS OUTPUT -----\n${opts.previousOutput}\n----- END PREVIOUS OUTPUT -----\n\n` +
-      opts.handoffPrompt;
-    mgr.prompt(handoffMessage).catch((err) => {
-      console.error("[pi-desktop] Tag Team handoff prompt failed:", err);
-      this.events.emit(this.DIAG_EVENT, `Tag Team: next model failed to start: ${err}`);
+    const handoffMessage = buildHandoffMessage(
+      opts.previousOutput,
+      opts.handoffPrompt,
+      opts.fromModelName,
+    );
+
+    // Tell the renderer about the tab before its first state/token events. The
+    // prompt starts on the next main-loop turn so the renderer can register the
+    // tab instead of dropping early events for an unknown id.
+    this.events.emit(this.EXT_UI_EVENT, {
+      type: "tagteam:handoff",
+      fromTabId: opts.fromTabId,
+      toTabId: tabId,
+      fromModel: opts.fromModelName,
+      toModel: opts.toModelName,
+      teamName: opts.teamName,
+      fromStage: opts.fromStage,
+      toStage: opts.toStage,
+    });
+    setImmediate(() => {
+      void mgr.prompt(handoffMessage).catch((err) => {
+        console.error("[pi-desktop] Tag Team handoff prompt failed:", err);
+        this.events.emit(this.DIAG_EVENT, `Tag Team: next model failed to start: ${err}`);
+      });
     });
 
     return tabId;
@@ -154,19 +184,7 @@ export class SessionPool {
     // Wire the Tag Team handoff callback so the manager can ask the pool to
     // create a new tab for the next stage.
     mgr.tagTeamHandoffCallback = async (opts) => {
-      const newTabId = await this.createHandoffTab(opts);
-      // Emit a handoff event with both tab ids so the renderer can switch tabs.
-      this.events.emit(this.EXT_UI_EVENT, {
-        type: "tagteam:handoff",
-        fromTabId: tabId,
-        toTabId: newTabId,
-        fromModel: opts.fromModelName,
-        toModel: opts.toModelName,
-        teamName: opts.teamName,
-        fromStage: opts.fromStage,
-        toStage: opts.toStage,
-      });
-      return newTabId;
+      return this.createHandoffTab({ ...opts, fromTabId: tabId });
     };
 
     mgr.events.on(mgr.AGENT_EVENT, (event: any) => {

@@ -11,6 +11,7 @@
  */
 
 import type { TagTeamTeam, TagTeamStageResult } from "./types";
+import { buildHandoffMessage, getHandoffPrompt } from "./relay";
 
 type ModelRegistry = any;
 type AgentMessage = any;
@@ -20,6 +21,8 @@ export interface RunTagTeamRelayOptions {
   team: TagTeamTeam;
   modelRegistry: ModelRegistry;
   sessionMessages: AgentMessage[];
+  /** Optional abort signal so a stuck multi-stage relay can be cancelled. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -32,7 +35,7 @@ export async function runTagTeamRelay(opts: RunTagTeamRelayOptions): Promise<{
   teamName: string;
   stages: TagTeamStageResult[];
 }> {
-  const { message, team, modelRegistry, sessionMessages } = opts;
+  const { message, team, modelRegistry, sessionMessages, signal } = opts;
 
   // Lazily import the SDK + compat (same pattern as moa/engine.ts).
   const sdk = await import("@earendil-works/pi-coding-agent");
@@ -46,27 +49,43 @@ export async function runTagTeamRelay(opts: RunTagTeamRelayOptions): Promise<{
   let currentInput = message;
 
   for (let i = 0; i < team.stages.length; i++) {
+    // Bail out early if the caller cancelled (e.g. user hit Stop).
+    if (signal?.aborted) break;
+
     const stage = team.stages[i];
     const model = resolveModel(modelRegistry, stage.provider, stage.modelId);
     const modelName = model?.name ?? stage.modelId;
 
     if (!model) {
-      results.push({ modelName, role: stage.role, error: `Model not found: ${stage.provider}/${stage.modelId}` });
+      results.push({
+        modelName,
+        role: stage.role,
+        error: `Model not found: ${stage.provider}/${stage.modelId}`,
+      });
       break;
     }
 
     const auth = await resolveAuth(modelRegistry, model);
     if (!auth.ok) {
-      results.push({ modelName, role: stage.role, error: `No API key for ${stage.provider}/${stage.modelId}` });
+      results.push({
+        modelName,
+        role: stage.role,
+        error: `No API key for ${stage.provider}/${stage.modelId}`,
+      });
       break;
     }
 
     try {
       // For stage 0, use the user's message directly. For subsequent stages,
       // the handoff prompt + previous output is the input.
-      const userContent = i === 0
-        ? currentInput
-        : `Previous model's output (${results[i - 1]?.modelName ?? "stage " + i}):\n\n${currentInput}\n\n---\n\n${stage.handoffPrompt ?? "Review and improve the work above."}`;
+      const userContent =
+        i === 0
+          ? currentInput
+          : buildHandoffMessage(
+              currentInput,
+              getHandoffPrompt(team, i - 1),
+              results[i - 1]?.modelName ?? `stage ${i}`,
+            );
 
       const context = {
         systemPrompt: stage.role
@@ -78,6 +97,7 @@ export async function runTagTeamRelay(opts: RunTagTeamRelayOptions): Promise<{
       const response = await completeSimple(model, context, {
         apiKey: auth.apiKey,
         headers: auth.headers,
+        signal,
       });
 
       const output = extractText(response);
@@ -106,7 +126,10 @@ function resolveModel(modelRegistry: ModelRegistry, provider: string, modelId: s
   }
 }
 
-async function resolveAuth(modelRegistry: ModelRegistry, model: any): Promise<{ ok: boolean; apiKey?: string; headers?: Record<string, string> }> {
+async function resolveAuth(
+  modelRegistry: ModelRegistry,
+  model: any,
+): Promise<{ ok: boolean; apiKey?: string; headers?: Record<string, string> }> {
   try {
     const auth = await modelRegistry?.getApiKeyAndHeaders?.(model);
     if (!auth?.ok) return { ok: false };

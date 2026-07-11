@@ -4,6 +4,19 @@ import { existsSync } from "node:fs";
 
 const isDev = !!process.env["ELECTRON_RENDERER_URL"];
 
+function openExternalUrl(rawUrl: string): void {
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:" && url.protocol !== "mailto:") {
+      console.warn(`[pi-desktop] Blocked external URL with unsupported protocol: ${url.protocol}`);
+      return;
+    }
+    void shell.openExternal(url.toString());
+  } catch {
+    console.warn("[pi-desktop] Blocked malformed external URL");
+  }
+}
+
 export function createMainWindow(): BrowserWindow {
   // Load the app icon for the dock/taskbar.
   const iconPath = join(__dirname, "../../resources/icon.png");
@@ -41,7 +54,7 @@ export function createMainWindow(): BrowserWindow {
   });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    openExternalUrl(url);
     return { action: "deny" };
   });
 
@@ -51,7 +64,7 @@ export function createMainWindow(): BrowserWindow {
   win.webContents.on("will-navigate", (e, url) => {
     if (url !== win.webContents.getURL()) {
       e.preventDefault();
-      shell.openExternal(url);
+      openExternalUrl(url);
     }
   });
 

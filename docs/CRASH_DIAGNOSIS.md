@@ -101,7 +101,7 @@ The real fix is to enroll in the Apple Developer Program ($99/year) and sign wit
 ## Action items
 
 - [x] Root cause identified
-- [ ] Apply Fix 1 to `updater.ts` (strip `com.apple.quarantine` before `openPath`)
-- [ ] Ship v0.3.3 with the fix
-- [ ] Communicate to existing v0.3.2 users: either run `xattr -cr` or download v0.3.3 from GitHub
+- [x] Apply Fix 1 to `updater.ts` (strip `com.apple.quarantine` before `openPath`)
+- [x] Ship v0.3.3 with the fix
+- [x] Communicate to existing v0.3.2 users: either run `xattr -cr` or download v0.3.3 from GitHub
 - [ ] Long-term: Apple Developer Certificate + notarization (Fix 3)
