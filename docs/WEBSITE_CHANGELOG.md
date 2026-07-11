@@ -1,8 +1,23 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.5.4** · Last updated: **July 9, 2026**
+> Current version: **v0.5.5** · Last updated: **July 11, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.5.5 — July 11, 2026
+
+### Fixes
+- **Tag Team final handoff** — the handoff prompt configured on your last stage is now actually used. Previously the final model received a generic instruction and your prompt was ignored.
+- **Pi Routing** — the aggregator now uses your configured confidence threshold instead of a placeholder value.
+- **Slash-containing model IDs** — models whose ID contains a `/` (e.g. OpenRouter's `anthropic/claude-sonnet-4`) now select correctly.
+- **Update checks** — version comparison now handles tagged and pre-release versions correctly instead of silently failing.
+
+### Improvements
+- **New "max" thinking level** in the model and status-bar pickers.
+- **Faster code blocks** — syntax highlighting now loads on demand, trimming the initial load.
+- **Platform & security** — upgraded to Electron 41 and Vite 6 (modern Chromium, faster builds), removed the build-time update token from the distributed binary, and hardened the in-app updater's download-URL validation.
 
 ---
 

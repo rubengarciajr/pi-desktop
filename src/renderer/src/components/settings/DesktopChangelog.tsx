@@ -6,6 +6,29 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.5.5",
+    date: "2026-07-11",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "Tag Team — the handoff prompt on your final stage is now actually used (it was being ignored before, so the last model got a generic instruction)",
+          "Pi Routing — the aggregator now uses your configured confidence threshold instead of a placeholder",
+          "Models with a slash in their ID (e.g. OpenRouter's anthropic/claude-sonnet-4) now select correctly",
+          "Update checks now compare tagged and pre-release versions correctly instead of silently failing",
+        ],
+      },
+      {
+        title: "Improvements",
+        items: [
+          "New \"max\" thinking level in the model and status-bar pickers",
+          "Code blocks highlight faster — syntax highlighting now loads on demand, trimming the initial load",
+          "Under the hood: upgraded to Electron 41 and Vite 6 (modern Chromium, faster builds) and hardened the in-app updater's download validation",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.5.4",
     date: "2026-07-09",
     sections: [

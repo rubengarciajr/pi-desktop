@@ -5,6 +5,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.5.5] — 2026-07-11
+
+### Changed
+- **Toolchain upgrade** — Electron 38 → 41, Vite 5 → 6, electron-vite 2 → 3, electron-builder 25 → 26 (build target `chrome146`). Preload still emits CommonJS (`index.cjs`), renderer keeps relative asset paths for the `file://` origin, and `sandbox`/`contextIsolation`/`nodeIntegration` are set explicitly. `react-syntax-highlighter` is now a lazily-loaded chunk (`SyntaxCodeBlock`). Added a "max" thinking level.
+
+### Fixed
+- **Tag Team handoff prompt** — read from the sending stage, matching the UI contract ("Handoff prompt (sent to stage N+1)"). The old code read the receiving stage, so the final handoff always ignored the configured prompt (`src/main/tagteam/relay.ts`).
+- **MOA `${threshold}` literal** — the aggregator prompt emitted the raw string instead of the configured confidence threshold value.
+- **Slash-containing model IDs** — model references are now JSON-encoded (`src/shared/modelRef.ts`) so IDs like `anthropic/claude-sonnet-4` are no longer split incorrectly.
+- **Version parsing** — `version.ts` strips per-segment non-numeric suffixes so pre-release/build tags no longer produce `NaN` and silently break the updater.
+- **MOA re-query loop** now checks `signal?.aborted` before each iteration, avoiding a wasted round of API calls after cancellation.
+- **`prompt()` cleanup** wraps the `finally` `emitState()` in try/catch so a throwing state listener can't mask the original error.
+
+### Security
+- **Removed the build-time `PI_UPDATE_TOKEN`** define; the update token is read from the filesystem only (no token baked into the distributed binary). Deleted `src/main/env.d.ts`.
+- **Updater download hardening** — new `src/shared/updateUrl.ts` validates the DMG URL (GitHub host, https-only, owner/repo path prefix, `.dmg` extension); `basename()` closes a path-traversal vector.
+
+### Tests
+- Added units for `moa/engine`, `moa/prompts`, `tagteam/relay`, `shared/modelRef`, `shared/updateUrl`, plus pre-release version and `http://`/path-traversal update-URL coverage (37 tests, up from 21).
+
+---
+
 ## [0.5.4] — 2026-07-09
 
 ### Changed
