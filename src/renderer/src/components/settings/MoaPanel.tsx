@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { MoaConfig, MoaTeam, MoaMember, MoaResult } from "../../../../shared/ipc";
+import { decodeModelRef, encodeModelRef } from "../../../../shared/modelRef";
 
 interface ModelOption {
   id: string;
@@ -28,8 +29,14 @@ export function MoaPanel() {
   const [testMessage, setTestMessage] = useState("");
 
   useEffect(() => {
-    window.pi.api.getMoaConfig().then(setConfig).catch(() => {});
-    window.pi.api.getAvailableModels({}).then((res) => setModels(res.models)).catch(() => {});
+    window.pi.api
+      .getMoaConfig()
+      .then(setConfig)
+      .catch(() => {});
+    window.pi.api
+      .getAvailableModels({})
+      .then((res) => setModels(res.models))
+      .catch(() => {});
   }, []);
 
   const save = (next: MoaConfig) => {
@@ -75,7 +82,7 @@ export function MoaPanel() {
         briefing: `Error: ${err?.message ?? String(err)}`,
         teamResponses: [],
         layers: 0,
-        confidence: 0,
+        confidence: null,
         teamName: team.name,
       });
     } finally {
@@ -88,7 +95,10 @@ export function MoaPanel() {
       <div>
         <h2 className="mb-1 text-sm font-semibold text-text">Pi Routing</h2>
         <p className="text-xs text-text-muted">
-          Create teams of models that collaborate on your prompts. When Pi Routing is enabled in the chat toolbar, each prompt is sent to all team members in parallel, their responses are synthesized into a briefing, and the main model builds its answer with the team's analysis available.
+          Create teams of models that collaborate on your prompts. When Pi Routing is enabled in the
+          chat toolbar, each prompt is sent to all team members in parallel, their responses are
+          synthesized into a briefing, and the main model builds its answer with the team's analysis
+          available.
         </p>
       </div>
 
@@ -105,7 +115,9 @@ export function MoaPanel() {
         <button
           onClick={() => setSubTab("advanced")}
           className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-            subTab === "advanced" ? "bg-bg-active text-text" : "text-text-faint hover:text-text-muted"
+            subTab === "advanced"
+              ? "bg-bg-active text-text"
+              : "text-text-faint hover:text-text-muted"
           }`}
         >
           Advanced
@@ -127,12 +139,18 @@ export function MoaPanel() {
         {config.teams.length === 0 ? (
           <div className="rounded-lg border border-border bg-bg-subtle px-4 py-6 text-center">
             <p className="text-xs text-text-muted">No teams configured.</p>
-            <p className="mt-1 text-[11px] text-text-faint">Click "New Team" to create your first model team.</p>
+            <p className="mt-1 text-[11px] text-text-faint">
+              Click "New Team" to create your first model team.
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
             {config.teams.map((team) => {
-              const memberNames = team.members.map((m) => models.find((mo) => mo.provider === m.provider && mo.id === m.modelId)?.name ?? m.modelId);
+              const memberNames = team.members.map(
+                (m) =>
+                  models.find((mo) => mo.provider === m.provider && mo.id === m.modelId)?.name ??
+                  m.modelId,
+              );
               return (
                 <div
                   key={team.id}
@@ -144,12 +162,22 @@ export function MoaPanel() {
                       {/* Model chips — see the team's makeup at a glance */}
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {memberNames.map((name, i) => (
-                          <span key={i} className="rounded-md bg-bg-active px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+                          <span
+                            key={i}
+                            className="rounded-md bg-bg-active px-1.5 py-0.5 text-[10px] font-medium text-text-muted"
+                          >
                             {name}
                           </span>
                         ))}
                         <span className="rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
-                          ⤇ {(models.find((m) => m.provider === team.aggregatorModel.provider && m.id === team.aggregatorModel.modelId)?.name ?? team.aggregatorModel.modelId) || "no aggregator"}
+                          ⤇{" "}
+                          {(models.find(
+                            (m) =>
+                              m.provider === team.aggregatorModel.provider &&
+                              m.id === team.aggregatorModel.modelId,
+                          )?.name ??
+                            team.aggregatorModel.modelId) ||
+                            "no aggregator"}
                         </span>
                       </div>
                     </div>
@@ -178,7 +206,9 @@ export function MoaPanel() {
       {/* Advanced settings */}
       {subTab === "advanced" && (
         <section>
-          <h3 className="mb-2 text-xs uppercase tracking-wider text-text-faint">Advanced Settings</h3>
+          <h3 className="mb-2 text-xs uppercase tracking-wider text-text-faint">
+            Advanced Settings
+          </h3>
           <div className="space-y-4 rounded-lg border border-border bg-bg-subtle px-4 py-3">
             <div>
               <div className="mb-1 flex items-center justify-between">
@@ -190,53 +220,85 @@ export function MoaPanel() {
                 min={1}
                 max={5}
                 value={config.advanced.maxLayers}
-                onChange={(e) => save({ ...config, advanced: { ...config.advanced, maxLayers: Number(e.target.value) } })}
+                onChange={(e) =>
+                  save({
+                    ...config,
+                    advanced: { ...config.advanced, maxLayers: Number(e.target.value) },
+                  })
+                }
                 className="w-full accent-accent"
               />
-              <p className="mt-1 text-[10px] text-text-faint">How many times the aggregator can re-query low-scoring team members.</p>
+              <p className="mt-1 text-[10px] text-text-faint">
+                How many times the aggregator can re-query low-scoring team members.
+              </p>
             </div>
 
             <div>
               <div className="mb-1 flex items-center justify-between">
                 <label className="text-xs text-text-muted">Confidence threshold</label>
-                <span className="text-xs font-medium text-accent">{config.advanced.confidenceThreshold}/10</span>
+                <span className="text-xs font-medium text-accent">
+                  {config.advanced.confidenceThreshold}/10
+                </span>
               </div>
               <input
                 type="range"
                 min={0}
                 max={10}
                 value={config.advanced.confidenceThreshold}
-                onChange={(e) => save({ ...config, advanced: { ...config.advanced, confidenceThreshold: Number(e.target.value) } })}
+                onChange={(e) =>
+                  save({
+                    ...config,
+                    advanced: { ...config.advanced, confidenceThreshold: Number(e.target.value) },
+                  })
+                }
                 className="w-full accent-accent"
               />
-              <p className="mt-1 text-[10px] text-text-faint">Minimum score before a team member's response is re-queried.</p>
+              <p className="mt-1 text-[10px] text-text-faint">
+                Minimum score before a team member's response is re-queried.
+              </p>
             </div>
 
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={config.advanced.showTeamResponses}
-                onChange={(e) => save({ ...config, advanced: { ...config.advanced, showTeamResponses: e.target.checked } })}
+                onChange={(e) =>
+                  save({
+                    ...config,
+                    advanced: { ...config.advanced, showTeamResponses: e.target.checked },
+                  })
+                }
                 className="accent-accent"
               />
-              <span className="text-xs text-text-muted">Show team responses in chat (collapsible)</span>
+              <span className="text-xs text-text-muted">
+                Show team responses in chat (collapsible)
+              </span>
             </label>
 
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={config.advanced.allowManualRequery}
-                onChange={(e) => save({ ...config, advanced: { ...config.advanced, allowManualRequery: e.target.checked } })}
+                onChange={(e) =>
+                  save({
+                    ...config,
+                    advanced: { ...config.advanced, allowManualRequery: e.target.checked },
+                  })
+                }
                 className="accent-accent"
               />
-              <span className="text-xs text-text-muted">Allow manual re-query button during streaming</span>
+              <span className="text-xs text-text-muted">
+                Allow manual re-query button during streaming
+              </span>
             </label>
 
             <div>
               <label className="mb-1 block text-xs text-text-muted">Default mode</label>
               <select
                 value={config.defaultMode}
-                onChange={(e) => save({ ...config, defaultMode: e.target.value as "basic" | "advanced" })}
+                onChange={(e) =>
+                  save({ ...config, defaultMode: e.target.value as "basic" | "advanced" })
+                }
                 className="form-select"
               >
                 <option value="basic">Basic (single pass)</option>
@@ -259,6 +321,7 @@ export function MoaPanel() {
           onTest={runTest}
           testing={testing}
           testResult={testResult}
+          confidenceThreshold={config.advanced.confidenceThreshold}
         />
       )}
     </div>
@@ -275,6 +338,7 @@ function TeamEditor({
   onTest,
   testing,
   testResult,
+  confidenceThreshold,
 }: {
   team: MoaTeam;
   models: ModelOption[];
@@ -285,6 +349,8 @@ function TeamEditor({
   onTest: (team: MoaTeam) => void;
   testing: boolean;
   testResult: MoaResult | null;
+  /** Score >= threshold is "good" (green); below is "needs work" (amber). */
+  confidenceThreshold: number;
 }) {
   const [draft, setDraft] = useState<MoaTeam>(team);
 
@@ -308,7 +374,14 @@ function TeamEditor({
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-text">Edit Team</h2>
           <button onClick={onCancel} className="text-text-faint hover:text-text">
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <svg
+              width={16}
+              height={16}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
@@ -331,7 +404,9 @@ function TeamEditor({
           {/* Members */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <label className="text-xs text-text-muted">Team members ({draft.members.length})</label>
+              <label className="text-xs text-text-muted">
+                Team members ({draft.members.length})
+              </label>
               <button
                 onClick={addMember}
                 className="rounded-md border border-border bg-bg-subtle px-2 py-1 text-[11px] text-text-muted hover:bg-bg-hover"
@@ -344,7 +419,9 @@ function TeamEditor({
             )}
             <div className="space-y-2">
               {draft.members.map((member, i) => {
-                const selectedModel = models.find((m) => m.provider === member.provider && m.id === member.modelId);
+                const selectedModel = models.find(
+                  (m) => m.provider === member.provider && m.id === member.modelId,
+                );
                 const isSet = !!member.modelId && !!selectedModel;
                 return (
                   <div
@@ -360,16 +437,19 @@ function TeamEditor({
                       </span>
                     )}
                     <select
-                      value={`${member.provider}/${member.modelId}`}
+                      value={encodeModelRef(member.provider, member.modelId)}
                       onChange={(e) => {
-                        const [provider, modelId] = e.target.value.split("/");
+                        const { provider, modelId } = decodeModelRef(e.target.value);
                         updateMember(i, { ...member, provider, modelId });
                       }}
                       className={`form-select flex-1 ${isSet ? "text-text" : "text-text-faint"}`}
                     >
-                      <option value="/">Select a model…</option>
+                      <option value={encodeModelRef("", "")}>Select a model…</option>
                       {models.map((m) => (
-                        <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>
+                        <option
+                          key={`${m.provider}/${m.id}`}
+                          value={encodeModelRef(m.provider, m.id)}
+                        >
                           {m.name} ({m.provider})
                         </option>
                       ))}
@@ -377,7 +457,9 @@ function TeamEditor({
                     <input
                       type="text"
                       value={member.role ?? ""}
-                      onChange={(e) => updateMember(i, { ...member, role: e.target.value || undefined })}
+                      onChange={(e) =>
+                        updateMember(i, { ...member, role: e.target.value || undefined })
+                      }
                       className="form-input w-28"
                       placeholder="role"
                     />
@@ -398,7 +480,9 @@ function TeamEditor({
             <label className="mb-1 block text-xs text-text-muted">Aggregator model</label>
             <div
               className={`rounded-lg border p-2 transition-colors ${
-                draft.aggregatorModel.modelId ? "border-accent/40 bg-accent/5" : "border-border bg-bg-subtle"
+                draft.aggregatorModel.modelId
+                  ? "border-accent/40 bg-accent/5"
+                  : "border-border bg-bg-subtle"
               }`}
             >
               {draft.aggregatorModel.modelId && (
@@ -407,22 +491,30 @@ function TeamEditor({
                 </span>
               )}
               <select
-                value={`${draft.aggregatorModel.provider}/${draft.aggregatorModel.modelId}`}
+                value={encodeModelRef(
+                  draft.aggregatorModel.provider,
+                  draft.aggregatorModel.modelId,
+                )}
                 onChange={(e) => {
-                  const [provider, modelId] = e.target.value.split("/");
+                  const { provider, modelId } = decodeModelRef(e.target.value);
                   setDraft({ ...draft, aggregatorModel: { provider, modelId } });
                 }}
                 className={`form-select ${draft.aggregatorModel.modelId ? "text-text" : "text-text-faint"}`}
               >
-                <option value="/">Select an aggregator…</option>
+                <option value={encodeModelRef("", "")}>Select an aggregator…</option>
                 {models.map((m) => (
-                  <option key={`agg-${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>
+                  <option
+                    key={`agg-${m.provider}/${m.id}`}
+                    value={encodeModelRef(m.provider, m.id)}
+                  >
                     {m.name} ({m.provider})
                   </option>
                 ))}
               </select>
             </div>
-            <p className="mt-1 text-[10px] text-text-faint">The aggregator synthesizes team responses into a briefing for the main model.</p>
+            <p className="mt-1 text-[10px] text-text-faint">
+              The aggregator synthesizes team responses into a briefing for the main model.
+            </p>
           </div>
 
           {/* Test area */}
@@ -439,7 +531,12 @@ function TeamEditor({
               />
               <button
                 onClick={() => onTest(draft)}
-                disabled={!testMessage.trim() || testing || draft.members.length === 0 || !draft.aggregatorModel.modelId}
+                disabled={
+                  !testMessage.trim() ||
+                  testing ||
+                  draft.members.length === 0 ||
+                  !draft.aggregatorModel.modelId
+                }
                 className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {testing ? "Running…" : "Test"}
@@ -451,9 +548,11 @@ function TeamEditor({
                   <span className="rounded-full bg-accent/20 px-2 py-0.5 text-accent">
                     {testResult.layers} layer{testResult.layers !== 1 ? "s" : ""}
                   </span>
-                  <span className="rounded-full bg-bg-hover px-2 py-0.5 text-text-muted">
-                    {testResult.confidence}/10 confidence
-                  </span>
+                  {testResult.confidence != null && (
+                    <span className="rounded-full bg-bg-hover px-2 py-0.5 text-text-muted">
+                      {testResult.confidence}/10 confidence
+                    </span>
+                  )}
                 </div>
                 <div className="max-h-48 overflow-y-auto rounded-md border border-border bg-bg p-2 text-[11px] text-text-muted">
                   <div className="mb-1 font-medium text-text">Briefing</div>
@@ -461,13 +560,20 @@ function TeamEditor({
                 </div>
                 {testResult.teamResponses.length > 0 && (
                   <div className="space-y-1">
-                    <div className="text-[10px] uppercase tracking-wider text-text-faint">Team responses</div>
+                    <div className="text-[10px] uppercase tracking-wider text-text-faint">
+                      Team responses
+                    </div>
                     {testResult.teamResponses.map((r, i) => (
-                      <div key={i} className="rounded-md border border-border bg-bg px-2 py-1.5 text-[11px]">
+                      <div
+                        key={i}
+                        className="rounded-md border border-border bg-bg px-2 py-1.5 text-[11px]"
+                      >
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-text">{r.modelName}</span>
                           {r.score != null && (
-                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${r.score >= 6 ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>
+                            <span
+                              className={`rounded-full px-1.5 py-0.5 text-[10px] ${r.score >= confidenceThreshold ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}
+                            >
                               {r.score}/10
                             </span>
                           )}
@@ -475,7 +581,9 @@ function TeamEditor({
                         {r.error ? (
                           <span className="text-danger">{r.error}</span>
                         ) : (
-                          <p className="mt-0.5 truncate text-text-faint">{r.response?.slice(0, 120)}…</p>
+                          <p className="mt-0.5 truncate text-text-faint">
+                            {r.response?.slice(0, 120)}…
+                          </p>
                         )}
                       </div>
                     ))}
@@ -495,7 +603,9 @@ function TeamEditor({
             </button>
             <button
               onClick={() => onSave(draft)}
-              disabled={!draft.name.trim() || draft.members.length === 0 || !draft.aggregatorModel.modelId}
+              disabled={
+                !draft.name.trim() || draft.members.length === 0 || !draft.aggregatorModel.modelId
+              }
               className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
               Save Team

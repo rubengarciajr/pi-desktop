@@ -4,9 +4,9 @@
 
 Pi Desktop is a native macOS desktop application that wraps the [Pi coding agent](https://pi.dev) (`@earendil-works/pi-coding-agent` SDK) in a polished, multi-tab GUI. It replaces the terminal experience with a full-featured desktop app - no CLI required.
 
-Built with **Electron 38**, **React 18**, **TypeScript**, and **Tailwind CSS**.
+Built with **Electron 41**, **React 18**, **TypeScript**, and **Tailwind CSS**.
 
-**Current version:** 0.3.0
+**Current version:** 0.5.4
 **License:** MIT
 **Platform:** macOS (Apple Silicon + Intel)
 **Download:** [github.com/rubengarciajr/pi-desktop/releases](https://github.com/rubengarciajr/pi-desktop/releases)
@@ -186,12 +186,12 @@ Arrow-key navigation with autocomplete. Commands load with retry/backoff to hand
 
 | Layer    | Technology                                                           |
 | -------- | -------------------------------------------------------------------- |
-| Shell    | Electron 38 (Chromium + Node.js 22)                                  |
+| Shell    | Electron 41 (Chromium 146 + Node.js 24)                              |
 | Renderer | React 18 + TypeScript                                                |
 | Styling  | Tailwind CSS 3 with CSS variables (RGB triplets for opacity support) |
 | State    | Zustand                                                              |
 | Bundler  | electron-vite (Vite)                                                 |
-| AI SDK   | @earendil-works/pi-coding-agent 0.79.10                              |
+| AI SDK   | @earendil-works/pi-coding-agent 0.80.6                               |
 | Build    | electron-builder (DMG output)                                        |
 | CI       | GitHub Actions (auto-build on tag push)                              |
 

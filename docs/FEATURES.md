@@ -1,6 +1,6 @@
 # Pi Desktop — Features
 
-_Website-ready feature copy. Version 0.5.0 · macOS (Apple Silicon + Intel)._
+_Website-ready feature copy. Version 0.5.4 · macOS (Apple Silicon + Intel)._
 
 **Pi Desktop is a native macOS app for the [Pi coding agent](https://pi.dev) — a polished, multi-tab GUI that replaces the terminal. No CLI, no Node.js setup. Just open it and start.**
 

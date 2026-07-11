@@ -24,29 +24,55 @@ export function ChatView() {
   // so a token arriving while the user scrolled up never yanks the view back.
   const atBottomRef = useRef(true);
   const [showJump, setShowJump] = useState(false);
-  const [moaProgress, setMoaProgress] = useState<{ phase: string; message?: string } | null>(null);
-  const [tagTeamHandoff, setTagTeamHandoff] = useState<{ fromModel: string; toModel: string; teamName: string } | null>(null);
+  const [moaProgress, setMoaProgress] = useState<{
+    tabId: string;
+    phase: string;
+    message?: string;
+  } | null>(null);
+  const [tagTeamHandoff, setTagTeamHandoff] = useState<{
+    tabId: string;
+    fromModel: string;
+    toModel: string;
+    teamName: string;
+  } | null>(null);
+  const handoffTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Listen for MOA (Pi Routing) progress events + Tag Team handoff events.
   useEffect(() => {
     const off = window.pi.events.onExtUi((message: any) => {
       if (message?.type === "moa:progress") {
+        const eventTabId = message.tabId as string | undefined;
+        if (!eventTabId) return;
         if (message.phase === "done" || message.phase === "error") {
-          setMoaProgress(null);
+          setMoaProgress((current) => (current?.tabId === eventTabId ? null : current));
         } else {
-          setMoaProgress({ phase: message.phase, message: message.message });
+          setMoaProgress({
+            tabId: eventTabId,
+            phase: message.phase,
+            message: message.message,
+          });
         }
       } else if (message?.type === "tagteam:handoff") {
+        const eventTabId = (message.toTabId ?? message.tabId) as string | undefined;
+        if (!eventTabId) return;
         setTagTeamHandoff({
+          tabId: eventTabId,
           fromModel: message.fromModel ?? "Model A",
           toModel: message.toModel ?? "Model B",
           teamName: message.teamName ?? "Tag Team",
         });
         // Auto-clear after 8 seconds — the indicator is transient.
-        setTimeout(() => setTagTeamHandoff(null), 8000);
+        if (handoffTimerRef.current) clearTimeout(handoffTimerRef.current);
+        handoffTimerRef.current = setTimeout(() => {
+          handoffTimerRef.current = null;
+          setTagTeamHandoff(null);
+        }, 8000);
       }
     });
-    return off;
+    return () => {
+      off();
+      if (handoffTimerRef.current) clearTimeout(handoffTimerRef.current);
+    };
   }, []);
 
   // followOutput is invoked on every change that could add content. Return
@@ -91,7 +117,9 @@ export function ChatView() {
           className="group flex items-center gap-2 px-6 py-2 text-left transition-colors hover:text-text"
         >
           <FolderIcon size={13} className="text-text-faint group-hover:text-text" />
-          <span className="truncate text-xs font-mono text-text-faint group-hover:text-text group-hover:underline">{cwd}</span>
+          <span className="truncate text-xs font-mono text-text-faint group-hover:text-text group-hover:underline">
+            {cwd}
+          </span>
         </button>
       )}
 
@@ -127,13 +155,13 @@ export function ChatView() {
             components={{ Footer: () => <div className="h-6" /> }}
           />
         )}
-        {moaProgress && (
+        {moaProgress?.tabId === activeTabId && (
           <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-1.5 py-1 text-xs text-accent animate-pulse-subtle">
             <PiRoutingIcon size={12} />
             {moaProgress.message ?? "Pi Routing…"}
           </div>
         )}
-        {tagTeamHandoff && (
+        {tagTeamHandoff?.tabId === activeTabId && (
           <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-1.5 py-1 text-xs text-accent animate-pulse-subtle">
             <TagTeamIcon size={12} />
             🏷 {tagTeamHandoff.fromModel} → {tagTeamHandoff.toModel} · new tab
@@ -149,7 +177,16 @@ export function ChatView() {
             onClick={scrollToBottom}
             className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border-strong bg-bg-subtle px-3 py-1.5 text-xs text-text-muted shadow-lg backdrop-blur-xl transition-colors hover:bg-bg-hover hover:text-text animate-fade-in"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M12 5v14M19 12l-7 7-7-7" />
             </svg>
             {isStreaming ? "Jump to latest" : "Scroll to bottom"}

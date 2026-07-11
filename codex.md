@@ -6,7 +6,7 @@ changes. Your job is to **find and propose improvements**; a separate reviewer
 (Claude) will vet your changes, update the docs, and handle the release.
 
 > Codex's native instructions file is `AGENTS.md`; this project uses `codex.md`
-> by request. If you also read `AGENTS.md`, treat this file as authoritative.
+> by request. Treat this file as authoritative.
 
 ---
 
@@ -20,7 +20,7 @@ changes. Your job is to **find and propose improvements**; a separate reviewer
 
 ## Tech stack
 
-- **Electron 38** + **electron-vite** (build) + **electron-builder** (packaging)
+- **Electron 41** + **electron-vite** (build) + **electron-builder** (packaging)
 - **React 18** + **TypeScript** + **Tailwind CSS** (renderer)
 - **Zustand** (renderer state) — `src/renderer/src/store/useAppStore.ts`
 - **Vitest** (tests), **ESLint** + **Prettier** (lint/format)

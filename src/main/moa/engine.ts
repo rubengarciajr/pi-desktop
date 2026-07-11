@@ -58,6 +58,10 @@ export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
   const maxLayers = opts.maxLayers ?? 3;
   const confidenceThreshold = opts.confidenceThreshold ?? 6;
 
+  if (team.members.length === 0) {
+    throw new Error(`Pi Routing team "${team.name}" has no members.`);
+  }
+
   const sdk = await getSdk();
   const convertToLlm = (sdk as any).convertToLlm as (msgs: AgentMessage[]) => any[];
 
@@ -66,16 +70,29 @@ export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
   llmMessages.push({ role: "user", content: message });
 
   // --- Phase 1: Fan out to all team members in parallel ---
-  onProgress?.({ phase: "fanning-out", layer: 1, progress: 10, message: `Consulting ${team.members.length} models…` });
+  onProgress?.({
+    phase: "fanning-out",
+    layer: 1,
+    progress: 10,
+    message: `Consulting ${team.members.length} models…`,
+  });
 
-  let memberResults = await fanOut(
-    team.members,
-    llmMessages,
-    modelRegistry,
-    signal,
-  );
+  let memberResults = await fanOut(team.members, llmMessages, modelRegistry, signal);
 
-  onProgress?.({ phase: "aggregating", layer: 1, progress: 50, message: "Synthesizing team responses…" });
+  if (!memberResults.some((result) => result.response?.trim())) {
+    const reasons = memberResults
+      .map((result) => result.error)
+      .filter(Boolean)
+      .join("; ");
+    throw new Error(`All Pi Routing team members failed${reasons ? `: ${reasons}` : "."}`);
+  }
+
+  onProgress?.({
+    phase: "aggregating",
+    layer: 1,
+    progress: 50,
+    message: "Synthesizing team responses…",
+  });
 
   // --- Phase 2: Aggregate ---
   let aggregatorOutput = await aggregate(
@@ -85,6 +102,7 @@ export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
     modelRegistry,
     llmMessages,
     mode === "advanced",
+    confidenceThreshold,
     signal,
   );
 
@@ -102,7 +120,11 @@ export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
   // --- Phase 3: Advanced mode — score + re-query loop ---
   if (mode === "advanced" && scores) {
     while (layers < maxLayers) {
-      const lowScorers = memberResults.filter((r) => r.score != null && r.score < confidenceThreshold && r.response);
+      // Bail before spending another round of API calls if the user cancelled.
+      if (signal?.aborted) break;
+      const lowScorers = memberResults.filter(
+        (r) => r.score != null && r.score < confidenceThreshold && r.response,
+      );
       if (lowScorers.length === 0) break;
 
       layers++;
@@ -140,21 +162,27 @@ export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
         modelRegistry,
         llmMessages,
         true,
+        confidenceThreshold,
         signal,
       );
       scores = aggregatorOutput.scores;
-      if (scores) {
-        memberResults = memberResults.map((r) => {
-          const scoreEntry = scores!.find((s) => s.member === r.modelName || s.member === r.modelId);
-          return { ...r, score: scoreEntry?.score };
-        });
-      }
+      // If the aggregator didn't emit parseable scores on this re-query pass,
+      // stop re-querying — the members' existing responses are the best we
+      // have, and looping again would waste API calls without new signal.
+      if (!scores) break;
+      memberResults = memberResults.map((r) => {
+        const scoreEntry = scores!.find(
+          (s) => s.member === r.modelName || s.member === r.modelId,
+        );
+        return { ...r, score: scoreEntry?.score };
+      });
     }
   }
 
-  const confidence = scores && scores.length > 0
-    ? scores.reduce((sum, s) => sum + s.score, 0) / scores.length
-    : 0;
+  const confidence =
+    scores && scores.length > 0
+      ? scores.reduce((sum, s) => sum + s.score, 0) / scores.length
+      : null;
 
   onProgress?.({ phase: "done", layer: layers, progress: 100 });
 
@@ -162,7 +190,7 @@ export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
     briefing: aggregatorOutput.briefing,
     teamResponses: memberResults,
     layers,
-    confidence: Math.round(confidence * 10) / 10,
+    confidence: confidence == null ? null : Math.round(confidence * 10) / 10,
     teamName: team.name,
   };
 }
@@ -200,7 +228,8 @@ async function fanOut(
 
   return members.map((member, i) => {
     const result = results[i];
-    const modelName = modelRegistry?.find?.(member.provider, member.modelId)?.name ?? member.modelId;
+    const modelName =
+      modelRegistry?.find?.(member.provider, member.modelId)?.name ?? member.modelId;
     if (result?.status === "fulfilled") {
       return {
         provider: member.provider,
@@ -215,7 +244,10 @@ async function fanOut(
       modelId: member.modelId,
       modelName,
       role: member.role,
-      error: result?.status === "rejected" ? String(result.reason?.message ?? result.reason) : "Unknown error",
+      error:
+        result?.status === "rejected"
+          ? String(result.reason?.message ?? result.reason)
+          : "Unknown error",
     };
   });
 }
@@ -228,6 +260,31 @@ interface AggregatorOutput {
   feedback: string;
 }
 
+export function normalizeMoaScores(
+  value: unknown,
+): { member: string; score: number; reason: string }[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const normalized = value.flatMap((entry) => {
+    if (
+      !entry ||
+      typeof entry !== "object" ||
+      typeof (entry as any).member !== "string" ||
+      typeof (entry as any).score !== "number" ||
+      !Number.isFinite((entry as any).score)
+    ) {
+      return [];
+    }
+    return [
+      {
+        member: (entry as any).member,
+        score: Math.min(10, Math.max(0, (entry as any).score)),
+        reason: typeof (entry as any).reason === "string" ? (entry as any).reason : "",
+      },
+    ];
+  });
+  return normalized.length > 0 ? normalized : undefined;
+}
+
 async function aggregate(
   userMessage: string,
   memberResults: MoaMemberResult[],
@@ -235,18 +292,26 @@ async function aggregate(
   modelRegistry: ModelRegistry,
   llmMessages: any[],
   advanced: boolean,
+  confidenceThreshold: number,
   signal?: AbortSignal,
 ): Promise<AggregatorOutput> {
   const model = resolveModel(modelRegistry, aggregatorSpec.provider, aggregatorSpec.modelId);
-  if (!model) throw new Error(`Aggregator model not found: ${aggregatorSpec.provider}/${aggregatorSpec.modelId}`);
+  if (!model)
+    throw new Error(
+      `Aggregator model not found: ${aggregatorSpec.provider}/${aggregatorSpec.modelId}`,
+    );
 
   const auth = await resolveAuth(modelRegistry, model);
-  if (!auth.ok) throw new Error(`No auth for aggregator ${aggregatorSpec.provider}/${aggregatorSpec.modelId}`);
+  if (!auth.ok)
+    throw new Error(`No auth for aggregator ${aggregatorSpec.provider}/${aggregatorSpec.modelId}`);
 
   // Build the aggregator's context: the user's message + each member's response.
   const teamResponsesText = memberResults
     .filter((r) => r.response)
-    .map((r, i) => `--- Team Member ${i + 1}: ${r.modelName}${r.role ? ` (${r.role})` : ""} ---\n${r.response}`)
+    .map(
+      (r, i) =>
+        `--- Team Member ${i + 1}: ${r.modelName}${r.role ? ` (${r.role})` : ""} ---\n${r.response}`,
+    )
     .join("\n\n");
 
   const aggregatorUserMessage = `User's original request:
@@ -255,7 +320,7 @@ ${userMessage}
 Team member responses:
 ${teamResponsesText}
 
-${advanced ? aggregatorSystemPrompt(true) : aggregatorSystemPrompt(false)}`;
+${aggregatorSystemPrompt(advanced, confidenceThreshold)}`;
 
   const context: Context = {
     systemPrompt: "You are an expert aggregator. Synthesize the team's responses into a briefing.",
@@ -279,7 +344,7 @@ ${advanced ? aggregatorSystemPrompt(true) : aggregatorSystemPrompt(false)}`;
     const scoresMatch = text.match(/<SCORES>([\s\S]*?)<\/SCORES>/);
     if (scoresMatch) {
       try {
-        scores = JSON.parse(scoresMatch[1].trim());
+        scores = normalizeMoaScores(JSON.parse(scoresMatch[1].trim()));
         briefing = text.slice(0, scoresMatch.index).trim();
         feedback = scores?.map((s) => `${s.member}: ${s.reason}`).join("; ") ?? "";
       } catch {
@@ -308,7 +373,12 @@ async function reQueryMember(
 
   const context: Context = {
     systemPrompt: memberSystemPrompt(member.role),
-    messages: [{ role: "user", content: reQueryPrompt(member.modelName, member.response ?? "", feedback, userMessage) }],
+    messages: [
+      {
+        role: "user",
+        content: reQueryPrompt(member.modelName, member.response ?? "", feedback, userMessage),
+      },
+    ],
   };
 
   const response = await completeSimple(model, context, {
@@ -322,7 +392,11 @@ async function reQueryMember(
 
 // --- SDK helpers ---
 
-function resolveModel(modelRegistry: ModelRegistry, provider: string, modelId: string): Model | undefined {
+function resolveModel(
+  modelRegistry: ModelRegistry,
+  provider: string,
+  modelId: string,
+): Model | undefined {
   try {
     return modelRegistry?.find?.(provider, modelId) ?? undefined;
   } catch {
@@ -330,7 +404,10 @@ function resolveModel(modelRegistry: ModelRegistry, provider: string, modelId: s
   }
 }
 
-async function resolveAuth(modelRegistry: ModelRegistry, model: Model): Promise<{ ok: boolean; apiKey?: string; headers?: Record<string, string> }> {
+async function resolveAuth(
+  modelRegistry: ModelRegistry,
+  model: Model,
+): Promise<{ ok: boolean; apiKey?: string; headers?: Record<string, string> }> {
   try {
     const auth = await modelRegistry?.getApiKeyAndHeaders?.(model);
     if (!auth?.ok) return { ok: false };
@@ -399,7 +476,11 @@ function resolveNestedCompat(fromUrl: string): string {
   );
 }
 
-async function completeSimple(model: Model, context: Context, options: any): Promise<AssistantMessage> {
+async function completeSimple(
+  model: Model,
+  context: Context,
+  options: any,
+): Promise<AssistantMessage> {
   const piAi = await getCompat();
   const complete = (piAi as any).completeSimple ?? (piAi as any).complete;
   if (!complete) throw new Error("completeSimple not found in pi-ai/compat");

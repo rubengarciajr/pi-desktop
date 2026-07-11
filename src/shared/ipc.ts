@@ -124,9 +124,28 @@ export type AuthEvent =
   | { kind: "auth"; provider: string; url: string; instructions?: string }
   | { kind: "deviceCode"; provider: string; userCode: string; verificationUri: string }
   | { kind: "progress"; provider: string; message: string }
-  | { kind: "prompt"; provider: string; requestId: string; message: string; placeholder?: string; allowEmpty?: boolean }
-  | { kind: "select"; provider: string; requestId: string; message: string; options: { id: string; label: string }[] }
-  | { kind: "manualCode"; provider: string; requestId: string; message: string; placeholder?: string }
+  | {
+      kind: "prompt";
+      provider: string;
+      requestId: string;
+      message: string;
+      placeholder?: string;
+      allowEmpty?: boolean;
+    }
+  | {
+      kind: "select";
+      provider: string;
+      requestId: string;
+      message: string;
+      options: { id: string; label: string }[];
+    }
+  | {
+      kind: "manualCode";
+      provider: string;
+      requestId: string;
+      message: string;
+      placeholder?: string;
+    }
   | { kind: "done"; provider: string }
   | { kind: "error"; provider: string; message: string };
 
@@ -142,40 +161,114 @@ export interface PiCommandInfo {
 /** Canonical IPC channel map. Keys are the request channel names. */
 export interface PiApi {
   // Tab management
-  createTab: (args: { tabId: string; cwd?: string; mode?: "chat" | "code" }) => Promise<{ tabId: string; success: boolean }>;
+  createTab: (args: {
+    tabId: string;
+    cwd?: string;
+    mode?: "chat" | "code";
+  }) => Promise<{ tabId: string; success: boolean }>;
   setActiveTab: (args: { tabId: string }) => Promise<{ success: boolean }>;
   removeTab: (args: { tabId: string }) => Promise<{ success: boolean }>;
-  convertToCode: (args: { tabId?: string; cwd: string }) => Promise<{ success: boolean; mdPath?: string; cwd?: string; error?: string }>;
+  convertToCode: (args: {
+    tabId?: string;
+    cwd: string;
+  }) => Promise<{ success: boolean; mdPath?: string; cwd?: string; error?: string }>;
 
   // Prompting
-  prompt: (args: { message: string; images?: PiImage[]; streamingBehavior?: "steer" | "followUp"; tabId?: string }) => Promise<{ success: boolean }>;
-  steer: (args: { message: string; images?: PiImage[]; tabId?: string }) => Promise<{ success: boolean }>;
-  followUp: (args: { message: string; images?: PiImage[]; tabId?: string }) => Promise<{ success: boolean }>;
+  prompt: (args: {
+    message: string;
+    images?: PiImage[];
+    streamingBehavior?: "steer" | "followUp";
+    tabId?: string;
+  }) => Promise<{ success: boolean }>;
+  steer: (args: {
+    message: string;
+    images?: PiImage[];
+    tabId?: string;
+  }) => Promise<{ success: boolean }>;
+  followUp: (args: {
+    message: string;
+    images?: PiImage[];
+    tabId?: string;
+  }) => Promise<{ success: boolean }>;
   abort: (args?: { tabId?: string }) => Promise<{ success: boolean }>;
-  removeQueued: (args: { kind: "steering" | "followUp"; index: number; tabId?: string }) => Promise<{ success: boolean }>;
-  setChatWeb: (args: { enabled: boolean; tabId?: string }) => Promise<{ success: boolean; webEnabled?: boolean; available?: boolean }>;
-  setChatTools: (args: { enabled: boolean; tabId?: string }) => Promise<{ success: boolean; toolsEnabled?: boolean }>;
-  setChatRouting: (args: { enabled: boolean; teamId?: string; tabId?: string }) => Promise<{ success: boolean; routingEnabled?: boolean }>;
+  removeQueued: (args: {
+    kind: "steering" | "followUp";
+    index: number;
+    tabId?: string;
+  }) => Promise<{ success: boolean }>;
+  setChatWeb: (args: {
+    enabled: boolean;
+    tabId?: string;
+  }) => Promise<{ success: boolean; webEnabled?: boolean; available?: boolean }>;
+  setChatTools: (args: {
+    enabled: boolean;
+    tabId?: string;
+  }) => Promise<{ success: boolean; toolsEnabled?: boolean }>;
+  setChatRouting: (args: {
+    enabled: boolean;
+    teamId?: string;
+    tabId?: string;
+  }) => Promise<{ success: boolean; routingEnabled?: boolean }>;
   getMoaConfig: () => Promise<MoaConfig>;
   setMoaConfig: (args: MoaConfig) => Promise<{ success: boolean; error?: string }>;
-  moaTest: (args: { message: string; team: MoaTeam; mode?: "basic" | "advanced"; tabId?: string }) => Promise<MoaResult>;
+  moaTest: (args: {
+    message: string;
+    team: MoaTeam;
+    mode?: "basic" | "advanced";
+    tabId?: string;
+  }) => Promise<MoaResult>;
   // Tag Team — sequential model relay
-  setChatTagTeam: (args: { enabled: boolean; teamId?: string; tabId?: string }) => Promise<{ success: boolean; tagTeamEnabled?: boolean }>;
+  setChatTagTeam: (args: {
+    enabled: boolean;
+    teamId?: string;
+    tabId?: string;
+  }) => Promise<{ success: boolean; tagTeamEnabled?: boolean }>;
   getTagTeamConfig: () => Promise<TagTeamConfig>;
   setTagTeamConfig: (args: TagTeamConfig) => Promise<{ success: boolean; error?: string }>;
-  tagTeamTest: (args: { message: string; team: TagTeamTeam; tabId?: string }) => Promise<TagTeamResult>;
-  getWebSearchStatus: () => Promise<{ exa: boolean; perplexity: boolean; gemini: boolean; allowBrowserCookies: boolean; curator: boolean; webAccessInstalled: boolean }>;
-  setWebSearchConfig: (args: { exaApiKey?: string; perplexityApiKey?: string; geminiApiKey?: string; allowBrowserCookies?: boolean; workflow?: "none" | "summary-review" }) => Promise<{ success: boolean }>;
+  tagTeamTest: (args: {
+    message: string;
+    team: TagTeamTeam;
+    tabId?: string;
+  }) => Promise<TagTeamResult>;
+  getWebSearchStatus: () => Promise<{
+    exa: boolean;
+    perplexity: boolean;
+    gemini: boolean;
+    allowBrowserCookies: boolean;
+    curator: boolean;
+    webAccessInstalled: boolean;
+  }>;
+  setWebSearchConfig: (args: {
+    exaApiKey?: string;
+    perplexityApiKey?: string;
+    geminiApiKey?: string;
+    allowBrowserCookies?: boolean;
+    workflow?: "none" | "summary-review";
+  }) => Promise<{ success: boolean }>;
 
   // Session
-  newSession: (args?: { parentSession?: string; name?: string; cwd?: string; tabId?: string }) => Promise<{ success: boolean; cancelled?: boolean }>;
-  switchSession: (args: { sessionPath: string; cwd?: string; tabId?: string }) => Promise<{ success: boolean; cancelled?: boolean }>;
-  fork: (args: { entryId: string; tabId?: string }) => Promise<{ success: boolean; text?: string; cancelled?: boolean }>;
+  newSession: (args?: {
+    parentSession?: string;
+    name?: string;
+    cwd?: string;
+    tabId?: string;
+  }) => Promise<{ success: boolean; cancelled?: boolean }>;
+  switchSession: (args: {
+    sessionPath: string;
+    cwd?: string;
+    tabId?: string;
+  }) => Promise<{ success: boolean; cancelled?: boolean }>;
+  fork: (args: {
+    entryId: string;
+    tabId?: string;
+  }) => Promise<{ success: boolean; text?: string; cancelled?: boolean }>;
   clone: (args?: { tabId?: string }) => Promise<{ success: boolean; cancelled?: boolean }>;
   listSessions: (args?: { tabId?: string }) => Promise<PiSessionSummary[]>;
   listAllSessions: (args?: { tabId?: string }) => Promise<PiSessionSummary[]>;
   getSessionTree: (args?: { tabId?: string }) => Promise<PiSessionTree>;
-  getForkMessages: (args?: { tabId?: string }) => Promise<{ messages: { entryId: string; text: string }[] }>;
+  getForkMessages: (args?: {
+    tabId?: string;
+  }) => Promise<{ messages: { entryId: string; text: string }[] }>;
   renameSession: (args: { name: string; tabId?: string }) => Promise<{ success: boolean }>;
   exportHtml: (args?: { outputPath?: string; tabId?: string }) => Promise<{ path: string }>;
   getMessages: (args?: { tabId?: string }) => Promise<unknown>;
@@ -183,16 +276,31 @@ export interface PiApi {
   getSessionStats: (args?: { tabId?: string }) => Promise<PiSessionStats>;
 
   // Model & thinking
-  setModel: (args: { provider: string; modelId: string; tabId?: string }) => Promise<{ success: boolean }>;
+  setModel: (args: {
+    provider: string;
+    modelId: string;
+    tabId?: string;
+  }) => Promise<{ success: boolean }>;
   cycleModel: (args?: { tabId?: string }) => Promise<PiState>;
   setThinkingLevel: (args: { level: string; tabId?: string }) => Promise<{ success: boolean }>;
   cycleThinkingLevel: (args?: { tabId?: string }) => Promise<{ level: string }>;
   getAvailableModels: (args?: { tabId?: string }) => Promise<{ models: PiModelInfo[] }>;
 
   // Compaction
-  compact: (args?: { customInstructions?: string; tabId?: string }) => Promise<{ success: boolean; summary?: string; tokensBefore?: number; estimatedTokensAfter?: number }>;
+  compact: (args?: {
+    customInstructions?: string;
+    tabId?: string;
+  }) => Promise<{
+    success: boolean;
+    summary?: string;
+    tokensBefore?: number;
+    estimatedTokensAfter?: number;
+  }>;
   abortCompaction: (args?: { tabId?: string }) => Promise<{ success: boolean }>;
-  setAutoCompaction: (args: { enabled: boolean; tabId?: string }) => Promise<{ success: boolean; autoCompactionEnabled?: boolean }>;
+  setAutoCompaction: (args: {
+    enabled: boolean;
+    tabId?: string;
+  }) => Promise<{ success: boolean; autoCompactionEnabled?: boolean }>;
 
   // Auth
   getAuthStatus: () => Promise<PiAuthStatus[]>;
@@ -213,10 +321,32 @@ export interface PiApi {
   getThemes: () => Promise<{ name: string }[]>;
   getTools: () => Promise<{ tools: { name: string; description?: string; source?: string }[] }>;
   // Custom models management
-  customModelsList: () => Promise<{ providers: Record<string, { baseUrl?: string; api?: string; models: any[] }> }>;
-  customModelAdd: (args: { provider: string; baseUrl: string; api: string; apiKey: string; modelId: string; modelName?: string; reasoning?: boolean; contextWindow?: number }) => Promise<{ success: boolean; error?: string }>;
+  customModelsList: () => Promise<{
+    providers: Record<string, { baseUrl?: string; api?: string; models: any[] }>;
+  }>;
+  customModelAdd: (args: {
+    provider: string;
+    baseUrl: string;
+    api: string;
+    apiKey: string;
+    modelId: string;
+    modelName?: string;
+    reasoning?: boolean;
+    contextWindow?: number;
+  }) => Promise<{ success: boolean; error?: string }>;
   /** Edit an existing custom model. Renames are handled; a blank apiKey keeps the current one. */
-  customModelEdit: (args: { originalProvider: string; originalModelId: string; provider: string; baseUrl: string; api: string; apiKey?: string; modelId: string; modelName?: string; reasoning?: boolean; contextWindow?: number }) => Promise<{ success: boolean; error?: string }>;
+  customModelEdit: (args: {
+    originalProvider: string;
+    originalModelId: string;
+    provider: string;
+    baseUrl: string;
+    api: string;
+    apiKey?: string;
+    modelId: string;
+    modelName?: string;
+    reasoning?: boolean;
+    contextWindow?: number;
+  }) => Promise<{ success: boolean; error?: string }>;
   customModelRemove: (args: { provider: string; modelId: string }) => Promise<{ success: boolean }>;
   modelsJsonPath: () => Promise<string>;
   openModelsJson: () => Promise<{ success: boolean }>;
@@ -241,13 +371,17 @@ export interface PiApi {
   /** Load favorites from userData/favorites.json (survives restarts/updates). */
   getFavorites: () => Promise<{ path: string; name: string }[]>;
   /** Persist favorites to userData/favorites.json. */
-  setFavorites: (args: { favorites: { path: string; name: string }[] }) => Promise<{ success: boolean; error?: string }>;
+  setFavorites: (args: {
+    favorites: { path: string; name: string }[];
+  }) => Promise<{ success: boolean; error?: string }>;
   /** Load desktop UI preferences from userData/app-settings.json. */
   getAppSettings: () => Promise<AppSettings>;
   /** Persist a partial patch of desktop UI preferences; returns the merged result. */
   setAppSettings: (args: { patch: Partial<AppSettings> }) => Promise<AppSettings>;
   /** Open the prompt text in the user's external editor; returns the edited text. */
-  openExternalEditor: (args: { text: string }) => Promise<{ ok: boolean; text?: string; error?: string }>;
+  openExternalEditor: (args: {
+    text: string;
+  }) => Promise<{ ok: boolean; text?: string; error?: string }>;
   getGitInfo: (args?: { tabId?: string }) => Promise<GitRepoInfo>;
   /** Resolved Pi SDK version (from the SDK's own VERSION export). */
   getSdkVersion: () => Promise<string>;
@@ -256,7 +390,11 @@ export interface PiApi {
   checkPiInstalled: () => Promise<{ installed: boolean; version: string | null }>;
 
   // Extension UI dialog response (answers a select/confirm/input/editor request)
-  respondExtUi: (args: { tabId?: string; id: string; response: unknown }) => Promise<{ success: boolean }>;
+  respondExtUi: (args: {
+    tabId?: string;
+    id: string;
+    response: unknown;
+  }) => Promise<{ success: boolean }>;
 }
 
 /** GitHub API surface. */
@@ -267,11 +405,31 @@ export interface GitHubApi {
   getSyncState: (args?: { tabId?: string; fetch?: boolean }) => Promise<GitHubSyncState>;
   push: (args?: { tabId?: string }) => Promise<{ success: boolean; error?: string }>;
   pull: (args?: { tabId?: string }) => Promise<{ success: boolean; error?: string }>;
-  createRepo: (args: { name?: string; private?: boolean; description?: string; tabId?: string }) => Promise<{ success: boolean; repoUrl?: string; error?: string }>;
+  createRepo: (args: {
+    name?: string;
+    private?: boolean;
+    description?: string;
+    tabId?: string;
+  }) => Promise<{ success: boolean; repoUrl?: string; error?: string }>;
   listRepos: () => Promise<{ name: string; fullName: string; private: boolean; url: string }[]>;
-  attachRepo: (args: { owner: string; name: string; remoteUrl: string; tabId?: string }) => Promise<{ success: boolean; error?: string }>;
-  cloneRepo: (args: { remoteUrl: string; localPath: string }) => Promise<{ success: boolean; error?: string }>;
-  getLinkage: (args?: { tabId?: string }) => Promise<{ repoOwner: string; repoName: string; remoteUrl: string; linkedAt: string } | null>;
+  attachRepo: (args: {
+    owner: string;
+    name: string;
+    remoteUrl: string;
+    tabId?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
+  cloneRepo: (args: {
+    remoteUrl: string;
+    localPath: string;
+  }) => Promise<{ success: boolean; error?: string }>;
+  getLinkage: (args?: {
+    tabId?: string;
+  }) => Promise<{
+    repoOwner: string;
+    repoName: string;
+    remoteUrl: string;
+    linkedAt: string;
+  } | null>;
 }
 
 export interface GitHubAuthState {
@@ -328,7 +486,14 @@ export interface PiSettingsSchema {
   fields: PiSettingsField[];
 }
 export interface ExtensionDetail {
-  meta: { name: string; version?: string; description?: string; homepage?: string; repository?: string; source: string };
+  meta: {
+    name: string;
+    version?: string;
+    description?: string;
+    homepage?: string;
+    repository?: string;
+    source: string;
+  };
   readme: string | null;
   schema: PiSettingsSchema | null;
   values: Record<string, unknown>;
@@ -429,7 +594,7 @@ export interface MoaResult {
   briefing: string;
   teamResponses: MoaMemberResult[];
   layers: number;
-  confidence: number;
+  confidence: number | null;
   teamName: string;
 }
 
@@ -500,7 +665,10 @@ export interface PackagesApi {
   removeExtension: (args: { path: string }) => Promise<{ success: boolean; error?: string }>;
   restoreStock: () => Promise<{ success: boolean; removed: string[]; error?: string }>;
   detail: (args: { source: string }) => Promise<ExtensionDetail>;
-  setConfig: (args: { key: string; values: Record<string, unknown> }) => Promise<{ success: boolean }>;
+  setConfig: (args: {
+    key: string;
+    values: Record<string, unknown>;
+  }) => Promise<{ success: boolean }>;
 }
 
 export interface PiImage {
@@ -516,7 +684,9 @@ export interface PiEventApi {
   onQueue: (listener: (queue: PiQueueState) => void) => () => void;
   onDiagnostics: (listener: (msg: string) => void) => () => void;
   onMenu: (listener: (action: string) => void) => () => void;
-  onSessionReset: (listener: (data: { sessionId: string; sessionFile?: string }) => void) => () => void;
+  onSessionReset: (
+    listener: (data: { sessionId: string; sessionFile?: string }) => void,
+  ) => () => void;
   onPackagesChanged: (listener: () => void) => () => void;
   onUpdate: (listener: (data: any) => void) => () => void;
   onUpdateProgress: (listener: (data: { loaded: number; total: number }) => void) => () => void;
@@ -534,7 +704,9 @@ export interface PiEventApi {
     releaseNotes?: string;
     message?: string;
   }>;
-  downloadUpdate: (args?: { url?: string }) => Promise<{ success: boolean; error?: string; path?: string }>;
+  downloadUpdate: (args?: {
+    url?: string;
+  }) => Promise<{ success: boolean; error?: string; path?: string }>;
   getTheme: () => Promise<{ shouldUseDarkColors: boolean; themeSource: string }>;
   setTheme: (source: "system" | "light" | "dark") => Promise<{ success: boolean }>;
 }

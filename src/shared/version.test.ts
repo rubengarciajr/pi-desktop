@@ -21,4 +21,16 @@ describe("compareVersions", () => {
     expect(compareVersions("0.2.8", "0.2.7")).toBeGreaterThan(0);
     expect(compareVersions("0.2.7", "0.2.8")).toBeLessThan(0);
   });
+
+  it("strips pre-release/build suffixes instead of producing NaN", () => {
+    // A tagged version must not silently mis-rank (the bug parseSegment fixes):
+    // the numeric core is compared, so the suffix is ignored, not NaN.
+    expect(compareVersions("0.5.4-beta", "0.5.4")).toBe(0);
+    expect(compareVersions("1.2.3+build7", "1.2.3")).toBe(0);
+  });
+
+  it("still ranks a tagged version by its numeric core", () => {
+    expect(compareVersions("0.5.5-rc1", "0.5.4")).toBeGreaterThan(0);
+    expect(compareVersions("0.5.3-rc1", "0.5.4")).toBeLessThan(0);
+  });
 });

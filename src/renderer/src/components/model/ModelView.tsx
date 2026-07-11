@@ -13,7 +13,7 @@ interface CustomModelsData {
   providers: Record<string, { baseUrl?: string; api?: string; models: any[] }>;
 }
 
-const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
+const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 const API_OPTIONS = [
   { value: "openai-completions", label: "OpenAI Compatible" },

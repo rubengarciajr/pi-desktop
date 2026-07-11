@@ -1,14 +1,17 @@
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import { compareVersions } from "../shared/version";
+import { validateGitHubReleaseDmgUrl } from "../shared/updateUrl";
 import { getUpdateToken } from "./updateToken";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { createWriteStream } from "node:fs";
 import { mkdir, unlink } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
+import { once } from "node:events";
 
 const REPO_OWNER = "rubengarciajr";
 const REPO_NAME = "pi-desktop";
+const MAX_UPDATE_BYTES = 512 * 1024 * 1024;
 
 /**
  * Initialize theme forwarding and update checking.
@@ -26,6 +29,9 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
 
   // Renderer can override the system theme.
   ipcMain.handle("pi:theme:set", (_e, source: "system" | "light" | "dark") => {
+    if (source !== "system" && source !== "light" && source !== "dark") {
+      return { success: false };
+    }
     nativeTheme.themeSource = source;
     return { success: true };
   });
@@ -41,9 +47,8 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
     try {
       const currentVersion = app.getVersion();
       // The repo is public, so anonymous requests reach the releases API
-      // directly. The optional token is kept as an escape hatch for anyone who
-      // forks to a private repo (baked in at build time or read from
-      // ~/.pi-desktop-update-token).
+      // directly. Private forks can opt into a runtime token file without
+      // embedding a reusable secret in the distributed app.
       const token = getUpdateToken();
       const res = await fetch(
         `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`,
@@ -52,7 +57,7 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
             "User-Agent": "pi-desktop-updater",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-        }
+        },
       );
       if (!res.ok) {
         return { status: "error", message: `GitHub API returned ${res.status}` };
@@ -66,7 +71,7 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
 
       if (compareVersions(latestVersion, currentVersion) > 0) {
         const dmgAsset = (data.assets || []).find(
-          (a: any) => a.name.endsWith(".dmg") && a.name.includes(latestVersion)
+          (a: any) => a.name.endsWith(".dmg") && a.name.includes(latestVersion),
         );
         return {
           status: "available",
@@ -89,6 +94,7 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
   ipcMain.handle("pi:update:download", async (_e, args: any) => {
     const url: string | undefined = args?.url;
     const win = getMainWindow();
+    let destPath: string | undefined;
     const reportProgress = (loaded: number, total: number) => {
       if (win && !win.isDestroyed()) {
         win.webContents.send("pi:update:progress", { loaded, total });
@@ -103,7 +109,12 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
         const token = getUpdateToken();
         const res = await fetch(
           `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`,
-          { headers: { "User-Agent": "pi-desktop-updater", ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
+          {
+            headers: {
+              "User-Agent": "pi-desktop-updater",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          },
         );
         if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
         const data: any = await res.json();
@@ -112,35 +123,46 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
         dmgUrl = asset.browser_download_url;
         filename = asset.name;
       }
-      const downloadUrl: string = dmgUrl!;
+      const downloadUrl = validateGitHubReleaseDmgUrl(dmgUrl!, REPO_OWNER, REPO_NAME);
 
       // Stream the download to a temp file, reporting progress.
       const destDir = join(tmpdir(), "pi-desktop-update");
       await mkdir(destDir, { recursive: true });
-      const destPath = join(destDir, filename);
+      destPath = join(destDir, basename(filename));
 
       const res = await fetch(downloadUrl, { redirect: "follow" });
       if (!res.ok || !res.body) throw new Error(`Download failed: ${res.status}`);
 
       const total = Number(res.headers.get("content-length") || 0);
+      if (total > MAX_UPDATE_BYTES) throw new Error("Update DMG is unexpectedly large.");
       let loaded = 0;
       const stream = createWriteStream(destPath);
       const reader = res.body.getReader();
       // Read the stream chunk-by-chunk so we can report progress to the
       // renderer, which shows a percentage on the Download button.
       // (Node 20+ web streams: pump via getReader on the ReadableStream.)
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        stream.write(Buffer.from(value));
-        loaded += value.byteLength;
-        reportProgress(loaded, total);
-      }
-      await new Promise<void>((resolve, reject) => {
-        stream.on("finish", resolve);
-        stream.on("error", reject);
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          loaded += value.byteLength;
+          if (loaded > MAX_UPDATE_BYTES) {
+            await reader.cancel();
+            throw new Error("Update DMG exceeded the maximum allowed size.");
+          }
+          if (!stream.write(Buffer.from(value))) await once(stream, "drain");
+          reportProgress(loaded, total);
+        }
+        const finished = once(stream, "finish");
         stream.end();
-      });
+        await finished;
+      } catch (error) {
+        // Cancel the read side so the underlying fetch connection doesn't
+        // linger until GC on a write-side failure (e.g. disk full).
+        reader.cancel().catch(() => {});
+        stream.destroy();
+        throw error;
+      }
 
       // Strip the com.apple.quarantine extended attribute from the downloaded
       // DMG before opening it. On Apple Silicon, an ad-hoc signed app that
@@ -160,6 +182,7 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
       return { success: true, path: destPath };
     } catch (e: any) {
       console.error("[updater] DMG download failed:", e);
+      if (destPath) await unlink(destPath).catch(() => {});
       // Last-resort fallback: send the user to the release page in a browser.
       const fallback = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest`;
       await shell.openExternal(fallback);
@@ -180,13 +203,6 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null): void
       return { success: false };
     }
   });
-
-  // Check for updates on startup (non-blocking, just notifies the renderer).
-  setTimeout(async () => {
-    const win = getMainWindow();
-    if (!win || win.isDestroyed()) return;
-    // The renderer will call pi:update:check itself; this is just a heads-up.
-  }, 3000);
 }
 
 function send(getMainWindow: () => BrowserWindow | null, channel: string, data: unknown): void {
