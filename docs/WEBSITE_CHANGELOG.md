@@ -1,8 +1,18 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.5.5** · Last updated: **July 11, 2026**
+> Current version: **v0.5.6** · Last updated: **July 13, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.5.6 — July 13, 2026
+
+### Pi Routing — now works in the installed app
+- **Fixed.** Pi Routing (Mixture of Agents) was failing in the packaged app with "Could not locate pi-ai/compat." The root cause: electron-builder flattens npm dependencies inside the asar bundle, so the compat module moved from a nested path to a top-level path. The engine now checks both layouts and uses `createRequire` to load from inside the asar — MOA and Tag Team both work in the installed DMG now.
+
+### Streaming freeze fix
+- **The UI no longer freezes after a model finishes.** A coding session on AgentMail revealed that when the model completed normally, the "Thinking..." indicator could stay forever and the input stayed disabled — because `isStreaming: false` was set in only one event handler with no fallback. Now streaming resets on three independent signals: the message-end event with a terminal stop reason, backend state pushes, and a 30-second watchdog that force-resets any stuck tab. A single missed event can never freeze the app again.
 
 ---
 

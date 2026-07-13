@@ -444,31 +444,68 @@ export async function getCompat(): Promise<any> {
       // under the app; falling back to cwd covers any CJS edge case.
       const here = (import.meta as any).url ?? pathToFileURL(process.cwd() + "/").href;
       const compatFile = resolveNestedCompat(here);
-      return await import(pathToFileURL(compatFile).href);
+
+      // Dynamic import() does NOT work for files packed inside an asar archive
+      // because Node's ESM loader doesn't understand the asar format. Electron
+      // patches require() (and by extension createRequire) to handle asar
+      // transparently. So we try require first, then fall back to import for
+      // dev mode where the file is a regular .js on disk.
+      try {
+        const { createRequire } = await import("node:module");
+        const req = createRequire(here);
+        return req(compatFile);
+      } catch {
+        // Dev mode or unpacked file — ESM import works here.
+        return await import(pathToFileURL(compatFile).href);
+      }
     })();
   }
   return compatModulePromise;
 }
 
 /**
- * Walk up from `fromUrl` looking for `node_modules/@earendil-works/pi-coding-agent`,
- * then return the absolute path to its nested pi-ai compat entry. Throws if the
- * package can't be located (e.g. dependency not installed).
+ * Walk up from `fromUrl` looking for the pi-ai compat module.
+ *
+ * Checks two layouts on every directory level:
+ * 1. FLATTENED: `node_modules/@earendil-works/pi-ai/dist/compat.js`
+ *    This is what electron-builder produces in the asar — it hoists nested
+ *    deps to the top level.
+ * 2. NESTED: `node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/compat.js`
+ *    This is what npm produces in dev — pi-ai is a nested dep of pi-coding-agent.
+ *
+ * Without checking both, MOA works in dev but fails in the packaged app
+ * (or vice versa).
  */
 function resolveNestedCompat(fromUrl: string): string {
   let dir = dirname(fileURLToPath(fromUrl));
-  const root = dirname(process.cwd());
-  while (dir && dir !== root && dir !== dirname(dir)) {
-    const agentDir = join(dir, "node_modules", "@earendil-works", "pi-coding-agent");
-    const compatFile = join(
-      agentDir,
+  for (let i = 0; i < 20; i++) {
+    if (!dir || dir === dirname(dir)) break;
+
+    // 1. Flattened layout (asar / production).
+    const flatCompat = join(
+      dir,
       "node_modules",
       "@earendil-works",
       "pi-ai",
       "dist",
       "compat.js",
     );
-    if (existsSync(compatFile)) return compatFile;
+    if (existsSync(flatCompat)) return flatCompat;
+
+    // 2. Nested layout (npm dev install).
+    const nestedCompat = join(
+      dir,
+      "node_modules",
+      "@earendil-works",
+      "pi-coding-agent",
+      "node_modules",
+      "@earendil-works",
+      "pi-ai",
+      "dist",
+      "compat.js",
+    );
+    if (existsSync(nestedCompat)) return nestedCompat;
+
     dir = dirname(dir);
   }
   throw new Error(

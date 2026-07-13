@@ -346,8 +346,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
 
   setTabPiState: (tabId, s) => {
-    // Never let state events override isStreaming.
-    const { isStreaming: _ignored, ...rest } = s as any;
+    // State events from the backend can carry isStreaming. We must NOT allow
+    // a stale state push to flip isStreaming back to true (agent_end is the
+    // authority for that). But we DO allow false through, so the backend can
+    // reset streaming when a turn ends — a critical fallback if agent_end is
+    // missed or delayed.
+    const incoming = s as any;
+    const allowStreamingReset = incoming.isStreaming === false;
+    const { isStreaming: _ignored, ...rest } = incoming;
+    if (allowStreamingReset) rest.isStreaming = false;
     set((st) => {
       const ts = st.tabStates[tabId];
       if (!ts) return {};
@@ -475,11 +482,18 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         case "message_end": {
           if (!event.message) break;
+          // If the assistant message ended with a terminal stop reason (not a
+          // tool-use, which continues the turn), reset isStreaming as a safety
+          // net. Normally agent_end handles this, but if agent_end is missed or
+          // delayed, this prevents the UI from freezing forever.
+          const stopReason = (event.message as any)?.stopReason;
+          const isTerminal = stopReason === "stop" || stopReason === "length" || stopReason === "content_filter";
           updated = {
             ...ts,
             messages: ts.messages.map((m) =>
               m.streaming ? { ...m, blocks: extractBlocks(event.message), streaming: false } : m,
             ),
+            ...(isTerminal ? { piState: { ...ts.piState, isStreaming: false } } : {}),
           };
           break;
         }
