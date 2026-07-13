@@ -6,6 +6,24 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.5.6",
+    date: "2026-07-13",
+    sections: [
+      {
+        title: "Pi Routing fix",
+        items: [
+          "Fixed Pi Routing (Mixture of Agents) failing in the installed app with \"Could not locate pi-ai/compat\" — electron-builder flattens dependencies in the asar bundle, so the engine now checks both the flattened and nested layouts, and uses createRequire to load modules from inside the asar archive",
+        ],
+      },
+      {
+        title: "Streaming freeze fix",
+        items: [
+          "Fixed the UI freezing after a model finished its turn (\"Thinking...\" stuck, input disabled). The streaming indicator now resets on multiple redundant signals — message_end with a terminal stop reason, backend state events, and a 30-second watchdog — so a single missed event can never freeze the app permanently",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.5.5",
     date: "2026-07-11",
     sections: [

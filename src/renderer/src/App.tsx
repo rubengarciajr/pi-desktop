@@ -249,6 +249,31 @@ export default function App() {
     };
   }, [handleTabAgentEvent, setTabPiState, setTabQueue, loadTabMessages, resetTabMessages, addDiagnostic, handleExtUi, handleAuthEvent, loadAddons, addTab, setActiveView, setSidebarOpen, setActiveTab, setSessionsPanelOpen]);
 
+  // Streaming watchdog: polls every 30s. If any tab is stuck in isStreaming
+  // but the backend session reports not streaming, force-reset it. This is the
+  // last line of defense against UI freezes when agent_end is missed/delayed.
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const store = useAppStore.getState();
+      const stuckTabs = store.tabs.filter(
+        (t) => store.tabStates[t.id]?.piState?.isStreaming,
+      );
+      for (const tab of stuckTabs) {
+        try {
+          const state = await window.pi.api.getState({ tabId: tab.id });
+          // If the backend says not streaming, the UI is stale — force reset.
+          if (state && !state.isStreaming) {
+            useAppStore.getState().setTabPiState(tab.id, { isStreaming: false });
+          }
+        } catch {
+          // Tab might be gone or session disposed — force-reset to unstick UI.
+          useAppStore.getState().setTabPiState(tab.id, { isStreaming: false });
+        }
+      }
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Sync active tab to backend when renderer switches tabs.
   useEffect(() => {
     if (activeTabId) {

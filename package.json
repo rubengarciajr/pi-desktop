@@ -1,6 +1,6 @@
 {
   "name": "pi-desktop",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "Pi Desktop - a full-featured macOS desktop app for the Pi coding agent",
   "main": "out/main/index.js",
   "author": "Pi Desktop",
@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.80.6",
+    "@esbuild/darwin-arm64": "^0.28.1",
     "@types/react-syntax-highlighter": "^15.5.13",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.1",
