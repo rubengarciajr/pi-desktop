@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useAppStore } from "../store/useAppStore";
 import { GitRepoBadge } from "./GitRepoBadge";
 import { ExtensionStatusBadges } from "./extensions/ExtensionUi";
+import { PiRoutingIcon } from "./Icons";
 
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
@@ -15,6 +16,7 @@ interface ModelInfo {
 
 export function StatusBar() {
   const piState = useAppStore((s) => s.activeTab.piState);
+  const moaActivity = useAppStore((s) => s.activeTab.moaActivity);
   const setPiState = (s: any) => {
     const tid = useAppStore.getState().activeTabId;
     if (tid) useAppStore.getState().setTabPiState(tid, s);
@@ -234,7 +236,24 @@ export function StatusBar() {
           )}
         </div>
 
-        <span className="text-text-faint">Pi Desktop</span>
+        {/* MOA branded indicator — replaces "Pi Desktop" when Pi Routing is active */}
+        {moaActivity && moaActivity.phase !== "complete" ? (
+          <span className="flex items-center gap-1.5 text-accent animate-pulse-subtle">
+            <PiRoutingIcon size={11} />
+            <span className="text-[11px] font-medium">
+              {moaActivity.message ?? "Pi Routing…"}
+            </span>
+          </span>
+        ) : moaActivity?.phase === "complete" && moaActivity.result ? (
+          <span className="flex items-center gap-1.5 text-accent">
+            <PiRoutingIcon size={11} />
+            <span className="text-[11px] font-medium">
+              Pi Routing · {moaActivity.result.confidence != null ? `${moaActivity.result.confidence}/10` : "complete"}
+            </span>
+          </span>
+        ) : (
+          <span className="text-text-faint">Pi Desktop</span>
+        )}
       </div>
     </footer>
   );

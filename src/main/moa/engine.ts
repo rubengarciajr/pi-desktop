@@ -77,7 +77,15 @@ export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
     message: `Consulting ${team.members.length} models…`,
   });
 
-  let memberResults = await fanOut(team.members, llmMessages, modelRegistry, signal);
+  let memberResults = await fanOut(team.members, llmMessages, modelRegistry, signal, (done, total, modelName) => {
+    onProgress?.({
+      phase: "member-done",
+      layer: 1,
+      member: modelName,
+      progress: 10 + Math.round((done / total) * 35),
+      message: `${done}/${total} models responded`,
+    });
+  });
 
   if (!memberResults.some((result) => result.response?.trim())) {
     const reasons = memberResults
@@ -202,7 +210,11 @@ async function fanOut(
   llmMessages: any[],
   modelRegistry: ModelRegistry,
   signal?: AbortSignal,
+  onMemberDone?: (doneCount: number, total: number, modelName: string) => void,
 ): Promise<MoaMemberResult[]> {
+  let doneCount = 0;
+  const total = members.length;
+
   const results = await Promise.allSettled(
     members.map(async (member) => {
       const model = resolveModel(modelRegistry, member.provider, member.modelId);
@@ -222,7 +234,13 @@ async function fanOut(
         signal,
       });
 
-      return extractText(response);
+      const text = extractText(response);
+      // Emit per-member progress as each model finishes.
+      doneCount++;
+      const modelName =
+        modelRegistry?.find?.(member.provider, member.modelId)?.name ?? member.modelId;
+      onMemberDone?.(doneCount, total, modelName);
+      return text;
     }),
   );
 

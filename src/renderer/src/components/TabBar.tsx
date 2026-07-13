@@ -1,5 +1,5 @@
 import { useAppStore } from "../store/useAppStore";
-import { PlusIcon, FolderIcon } from "./Icons";
+import { PlusIcon, FolderIcon, PiRoutingIcon } from "./Icons";
 import { GitDirtyDot } from "./GitRepoBadge";
 
 export function TabBar() {
@@ -34,6 +34,7 @@ export function TabBar() {
         const active = tab.id === activeTabId;
         const ts = tabStates[tab.id];
         const isStreaming = ts?.piState?.isStreaming;
+        const moaActive = ts?.moaActivity && ts.moaActivity.phase !== "complete";
         return (
           <div
             key={tab.id}
@@ -57,6 +58,10 @@ export function TabBar() {
             <div className="relative flex items-center gap-1.5" style={{ zIndex: 1 }}>
               {isStreaming && (
                 <span className="h-1.5 w-1.5 animate-pulse-subtle rounded-full bg-accent" />
+              )}
+              {/* Pi Routing (MOA) active on this tab — show the routing icon */}
+              {moaActive && (
+                <PiRoutingIcon size={10} className="animate-pulse-subtle text-accent" />
               )}
               <FolderIcon size={11} className="text-text-faint" />
               {active && tab.cwd && <GitDirtyDot cwd={tab.cwd} tabId={tab.id} />}

@@ -6,6 +6,21 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.5.8",
+    date: "2026-07-13",
+    sections: [
+      {
+        title: "Pi Routing visibility",
+        items: [
+          "See what each agent said — a collapsible report card now appears after every Pi Routing run, showing each team member's response, confidence score, and the synthesized briefing. Expand individual responses or all at once",
+          "Real-time per-agent progress — the engine now emits events as each model finishes, so you see \"2/3 models responded\" instead of a generic \"Consulting 3 models…\"",
+          "Branded status bar indicator — when Pi Routing is active, the bottom-right shows the routing icon in the app brand color with live progress (\"Pi Routing · 2/3 models ✓\"). After completion it shows the confidence score",
+          "Tab bar routing icon — tabs running a routed prompt now show the Pi Routing icon with a pulse animation, so you can instantly see which tab is doing multi-agent work",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.5.7",
     date: "2026-07-13",
     sections: [

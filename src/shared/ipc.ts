@@ -599,7 +599,7 @@ export interface MoaResult {
 }
 
 export interface MoaProgressEvent {
-  phase: "fanning-out" | "aggregating" | "scoring" | "re-querying" | "done" | "error";
+  phase: "fanning-out" | "member-done" | "aggregating" | "scoring" | "re-querying" | "done" | "error";
   layer: number;
   member?: string;
   progress: number;
