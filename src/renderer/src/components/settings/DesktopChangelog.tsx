@@ -6,6 +6,18 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.5.7",
+    date: "2026-07-13",
+    sections: [
+      {
+        title: "Sidebar",
+        items: [
+          "Mixture of Agents (Pi Routing) is now a top-level sidebar item, right below Tag Team — no longer buried in Settings",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.5.6",
     date: "2026-07-13",
     sections: [

@@ -4,7 +4,6 @@ import { GitHubIcon } from "../GitHubBadge";
 import { PiChangelog } from "./PiChangelog";
 import { DesktopChangelog } from "./DesktopChangelog";
 import { SystemPanel } from "./SystemPanel";
-import { MoaPanel } from "./MoaPanel";
 
 interface AuthStatus {
   provider: string;
@@ -21,7 +20,7 @@ interface GitHubAuth {
   error?: string;
 }
 
-type SettingsTab = "settings" | "system" | "moa" | "desktop-changelog" | "pi-changelog";
+type SettingsTab = "settings" | "system" | "desktop-changelog" | "pi-changelog";
 
 export function SettingsView() {
   const [tab, setTab] = useState<SettingsTab>("settings");
@@ -36,9 +35,6 @@ export function SettingsView() {
         <SettingsTabButton active={tab === "system"} onClick={() => setTab("system")}>
           System
         </SettingsTabButton>
-        <SettingsTabButton active={tab === "moa"} onClick={() => setTab("moa")}>
-          Mixture of Agents
-        </SettingsTabButton>
         <SettingsTabButton active={tab === "desktop-changelog"} onClick={() => setTab("desktop-changelog")}>
           Desktop Changelog
         </SettingsTabButton>
@@ -49,7 +45,6 @@ export function SettingsView() {
       <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4">
         {tab === "settings" && <SettingsPanel />}
         {tab === "system" && <SystemPanel />}
-        {tab === "moa" && <MoaPanel />}
         {tab === "desktop-changelog" && <DesktopChangelog />}
         {tab === "pi-changelog" && <PiChangelog />}
       </div>

@@ -1,8 +1,15 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.5.6** · Last updated: **July 13, 2026**
+> Current version: **v0.5.7** · Last updated: **July 13, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.5.7 — July 13, 2026
+
+### Sidebar
+- **Mixture of Agents (Pi Routing) is now a top-level sidebar item**, sitting right below Tag Team. It's no longer buried inside Settings — both multi-model features are now side by side where you expect them.
 
 ---
 

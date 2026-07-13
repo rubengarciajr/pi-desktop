@@ -29,6 +29,9 @@ const PackagesView = lazy(() =>
 const TagTeamView = lazy(() =>
   import("./components/settings/TagTeamView").then((m) => ({ default: m.TagTeamView })),
 );
+const MoaView = lazy(() =>
+  import("./components/settings/MoaPanel").then((m) => ({ default: m.MoaPanel })),
+);
 
 export default function App() {
   const activeView = useAppStore((s) => s.activeView);
@@ -330,6 +333,16 @@ export default function App() {
             {activeView === "tagteam" && (
               <Suspense fallback={null}>
                 <TagTeamView />
+              </Suspense>
+            )}
+            {activeView === "moa" && (
+              <Suspense fallback={null}>
+                <div className="flex h-full flex-col">
+                  <div className="drag-region h-14 shrink-0" />
+                  <div className="flex-1 overflow-y-auto px-6 pb-6">
+                    <MoaView />
+                  </div>
+                </div>
               </Suspense>
             )}
             {activeView === "panel" && <PanelView panel={panels.find((p) => p.id === activePanelId)} />}
