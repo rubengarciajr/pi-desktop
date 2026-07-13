@@ -1,8 +1,17 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.5.7** · Last updated: **July 13, 2026**
+> Current version: **v0.5.8** · Last updated: **July 13, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.5.8 — July 13, 2026
+
+### Pi Routing — now you can see what each agent said
+- **Per-agent report card.** After every Pi Routing run, a collapsible card appears in the chat showing each team member's full response, confidence score, and the synthesized briefing. Expand individual agents or everything at once — full transparency into what your multi-agent team contributed.
+- **Real-time per-agent progress.** Instead of a generic "Consulting 3 models…" you now see which models have finished ("2/3 models responded") as each one completes.
+- **Branded status bar indicator.** The bottom-right of the window shows the Pi Routing icon in the app brand color with live progress while routing, and the confidence score after completion. The tab bar also gets a pulsing routing icon so you can instantly spot which tab is running multi-agent work.
 
 ---
 

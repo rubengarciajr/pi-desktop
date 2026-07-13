@@ -774,6 +774,17 @@ export class PiSessionManager {
       this.DIAG_EVENT,
       `Pi Routing complete: ${result.teamName} · ${result.layers} layer(s) · ${confidenceLabel}`,
     );
+
+    // Emit the full result to the renderer so it can show a post-completion
+    // report card with each team member's response, score, and the briefing.
+    this.events.emit(this.EXT_UI_EVENT, {
+      type: "moa:result",
+      teamName: result.teamName,
+      briefing: result.briefing,
+      teamResponses: result.teamResponses,
+      layers: result.layers,
+      confidence: result.confidence,
+    });
   }
 
   /**

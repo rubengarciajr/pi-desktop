@@ -7,6 +7,7 @@ import { QueueChips } from "./QueueChips";
 import { ExtensionWidgets } from "../extensions/ExtensionUi";
 import { PiLogoIcon, FolderIcon } from "../Icons";
 import { PiRoutingIcon, TagTeamIcon } from "../Icons";
+import { MoaReportCard } from "./MoaReportCard";
 
 export function ChatView() {
   // Select only the fields this component uses, so unrelated tab state changes
@@ -17,6 +18,8 @@ export function ChatView() {
   const isStreaming = useAppStore((s) => s.activeTab.piState.isStreaming);
   const cwd = useAppStore((s) => s.activeTab.piState.cwd);
   const activeTabId = useAppStore((s) => s.activeTab.id);
+  const moaActivity = useAppStore((s) => s.activeTab.moaActivity);
+  const setTabMoaActivity = useAppStore((s) => s.setTabMoaActivity);
 
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   // Whether the viewport is pinned to the bottom (auto-following streaming
@@ -24,11 +27,6 @@ export function ChatView() {
   // so a token arriving while the user scrolled up never yanks the view back.
   const atBottomRef = useRef(true);
   const [showJump, setShowJump] = useState(false);
-  const [moaProgress, setMoaProgress] = useState<{
-    tabId: string;
-    phase: string;
-    message?: string;
-  } | null>(null);
   const [tagTeamHandoff, setTagTeamHandoff] = useState<{
     tabId: string;
     fromModel: string;
@@ -37,31 +35,60 @@ export function ChatView() {
   } | null>(null);
   const handoffTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Listen for MOA (Pi Routing) progress events + Tag Team handoff events.
+  // Listen for MOA (Pi Routing) progress/result events + Tag Team handoff.
+  // MOA events are routed into the global store (moaActivity) so StatusBar
+  // and TabBar can also react — they read from the store, not local state.
   useEffect(() => {
     const off = window.pi.events.onExtUi((message: any) => {
+      const eventTabId = message?.tabId as string | undefined;
+
       if (message?.type === "moa:progress") {
-        const eventTabId = message.tabId as string | undefined;
         if (!eventTabId) return;
         if (message.phase === "done" || message.phase === "error") {
-          setMoaProgress((current) => (current?.tabId === eventTabId ? null : current));
+          // Don't clear immediately — the moa:result event (next) carries the
+          // full result. Clear only the progress phase; the result persists.
+          useAppStore.getState().setTabMoaActivity(eventTabId, (prev) => ({
+            phase: "done",
+            message: prev?.message,
+            membersDone: prev?.membersDone,
+            membersTotal: prev?.membersTotal,
+            result: prev?.result,
+          }));
         } else {
-          setMoaProgress({
-            tabId: eventTabId,
+          const done = message.phase === "member-done";
+          const membersDone = done
+            ? (useAppStore.getState().tabStates[eventTabId]?.moaActivity?.membersDone ?? 0) + 1
+            : useAppStore.getState().tabStates[eventTabId]?.moaActivity?.membersDone;
+          const membersTotal = useAppStore.getState().tabStates[eventTabId]?.moaActivity?.membersTotal;
+          useAppStore.getState().setTabMoaActivity(eventTabId, {
             phase: message.phase,
             message: message.message,
+            member: message.member,
+            membersDone,
+            membersTotal,
           });
         }
-      } else if (message?.type === "tagteam:handoff") {
-        const eventTabId = (message.toTabId ?? message.tabId) as string | undefined;
+      } else if (message?.type === "moa:result") {
         if (!eventTabId) return;
+        useAppStore.getState().setTabMoaActivity(eventTabId, {
+          phase: "complete",
+          result: {
+            teamName: message.teamName,
+            briefing: message.briefing,
+            teamResponses: message.teamResponses,
+            layers: message.layers,
+            confidence: message.confidence,
+          },
+        });
+      } else if (message?.type === "tagteam:handoff") {
+        const handoffTabId = (message.toTabId ?? eventTabId) as string | undefined;
+        if (!handoffTabId) return;
         setTagTeamHandoff({
-          tabId: eventTabId,
+          tabId: handoffTabId,
           fromModel: message.fromModel ?? "Model A",
           toModel: message.toModel ?? "Model B",
           teamName: message.teamName ?? "Tag Team",
         });
-        // Auto-clear after 8 seconds — the indicator is transient.
         if (handoffTimerRef.current) clearTimeout(handoffTimerRef.current);
         handoffTimerRef.current = setTimeout(() => {
           handoffTimerRef.current = null;
@@ -123,6 +150,19 @@ export function ChatView() {
         </button>
       )}
 
+      {/* MOA report card — shows after Pi Routing completes, before the main model responds */}
+      {moaActivity?.result && moaActivity.phase === "complete" && (
+        <div className="px-[var(--msg-pad-x)]">
+          <MoaReportCard
+            teamName={moaActivity.result.teamName}
+            briefing={moaActivity.result.briefing}
+            teamResponses={moaActivity.result.teamResponses}
+            layers={moaActivity.result.layers}
+            confidence={moaActivity.result.confidence}
+          />
+        </div>
+      )}
+
       {/* Messages */}
       <div className="relative flex-1 overflow-hidden">
         {isEmpty ? (
@@ -155,10 +195,10 @@ export function ChatView() {
             components={{ Footer: () => <div className="h-6" /> }}
           />
         )}
-        {moaProgress?.tabId === activeTabId && (
+        {moaActivity && moaActivity.phase !== "complete" && moaActivity.phase !== "done" && (
           <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-1.5 py-1 text-xs text-accent animate-pulse-subtle">
             <PiRoutingIcon size={12} />
-            {moaProgress.message ?? "Pi Routing…"}
+            {moaActivity.message ?? "Pi Routing…"}
           </div>
         )}
         {tagTeamHandoff?.tabId === activeTabId && (

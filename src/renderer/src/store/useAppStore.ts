@@ -111,6 +111,33 @@ export interface ExtToast {
 
 export type TabMode = "chat" | "code";
 
+/**
+ * MOA (Pi Routing) activity state for a tab — drives the StatusBar indicator,
+ * TabBar icon, and post-completion report card. UI-only; not emitted by the
+ * backend (the backend emits `moa:progress` / `moa:result` ext-ui events that
+ * the renderer maps into this state).
+ */
+export interface MoaActivity {
+  /** Current phase: "fanning-out", "member-done", "aggregating", etc. */
+  phase: string;
+  /** Human-readable message, e.g. "2/3 models responded". */
+  message?: string;
+  /** How many team members have finished responding. */
+  membersDone?: number;
+  /** Total team members. */
+  membersTotal?: number;
+  /** Which member just completed (model name). */
+  member?: string;
+  /** Set when MOA completes — carries the full result for the report card. */
+  result?: {
+    teamName: string;
+    briefing: string;
+    teamResponses: { modelName: string; role?: string; response?: string; error?: string; score?: number }[];
+    layers: number;
+    confidence: number | null;
+  };
+}
+
 export interface TabState {
   id: string;
   title: string;
@@ -125,6 +152,8 @@ export interface TabState {
   extStatuses: Record<string, string>;
   /** Extension-driven widgets (banners), keyed by widget key. */
   extWidgets: Record<string, ExtWidget>;
+  /** MOA (Pi Routing) activity — null when MOA is not running on this tab. */
+  moaActivity?: MoaActivity | null;
 }
 
 export interface Tab {
@@ -198,6 +227,9 @@ interface AppState {
   // Per-tab state actions
   setTabPiState: (tabId: string, s: Partial<PiState>) => void;
   setTabQueue: (tabId: string, q: QueueState) => void;
+  /** Update MOA (Pi Routing) activity for a tab — drives StatusBar + report card.
+   *  Accepts either a value or an updater function (receives the current activity). */
+  setTabMoaActivity: (tabId: string, activity: MoaActivity | null | ((prev: MoaActivity | null) => MoaActivity | null)) => void;
   resetTabMessages: (tabId: string) => void;
   loadTabMessages: (tabId: string, rawMessages: any[]) => void;
   handleTabAgentEvent: (tabId: string, event: any) => void;
@@ -371,6 +403,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       const ts = st.tabStates[tabId];
       if (!ts) return {};
       const updated = { ...ts, queue: q };
+      return {
+        tabStates: { ...st.tabStates, [tabId]: updated },
+        activeTab: st.activeTabId === tabId ? updated : st.activeTab,
+      };
+    }),
+
+  setTabMoaActivity: (tabId, activity) =>
+    set((st) => {
+      const ts = st.tabStates[tabId];
+      if (!ts) return {};
+      const resolved = typeof activity === "function" ? activity(ts.moaActivity ?? null) : activity;
+      const updated = { ...ts, moaActivity: resolved };
       return {
         tabStates: { ...st.tabStates, [tabId]: updated },
         activeTab: st.activeTabId === tabId ? updated : st.activeTab,
