@@ -53,6 +53,7 @@ const api = {
   getSessionTree: invoke("pi:session.tree"),
   getForkMessages: invoke("pi:session.forkMessages"),
   renameSession: invoke("pi:session.rename"),
+  deleteSession: invoke("pi:session.delete"),
   exportHtml: invoke("pi:session.exportHtml"),
   getMessages: invoke("pi:messages"),
   getState: invoke("pi:state"),

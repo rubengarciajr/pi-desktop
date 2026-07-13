@@ -732,7 +732,7 @@ export class PiSessionManager {
         team,
         modelRegistry: this.deps.modelRegistry,
         sessionMessages,
-        mode: config.defaultMode,
+        mode: team.mode ?? config.defaultMode,
         maxLayers: config.advanced.maxLayers,
         confidenceThreshold: config.advanced.confidenceThreshold,
         signal,

@@ -270,6 +270,7 @@ export interface PiApi {
     tabId?: string;
   }) => Promise<{ messages: { entryId: string; text: string }[] }>;
   renameSession: (args: { name: string; tabId?: string }) => Promise<{ success: boolean }>;
+  deleteSession: (args: { file: string; tabId?: string }) => Promise<{ success: boolean; error?: string }>;
   exportHtml: (args?: { outputPath?: string; tabId?: string }) => Promise<{ path: string }>;
   getMessages: (args?: { tabId?: string }) => Promise<unknown>;
   getState: (args?: { tabId?: string }) => Promise<PiState>;
@@ -565,6 +566,8 @@ export interface MoaTeam {
   name: string;
   members: MoaMember[];
   aggregatorModel: { provider: string; modelId: string };
+  /** "basic" = single pass (default); "advanced" = score + re-query loop. */
+  mode?: "basic" | "advanced";
 }
 
 export interface MoaAdvancedConfig {

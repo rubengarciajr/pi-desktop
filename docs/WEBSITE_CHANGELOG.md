@@ -1,8 +1,16 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.5.8** · Last updated: **July 13, 2026**
+> Current version: **v0.5.9** · Last updated: **July 13, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.5.9 — July 13, 2026
+
+### Sessions — right-click to manage
+- **Right-click any session** to favorite or delete it. The context menu appears at your cursor with "Add/Remove from Favorites" and "Delete Session" options.
+- Sessions belonging to a favorited folder now show a **star indicator** on the card so you can spot your favorites at a glance.
 
 ---
 

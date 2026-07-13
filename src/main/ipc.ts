@@ -438,6 +438,15 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
     const m = await mgr(a);
     return m.renameSession(a.name);
   });
+  handle("pi:session.delete", async (a) => {
+    try {
+      const { unlink } = await import("node:fs/promises");
+      await unlink(a.file);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
   handle("pi:session.exportHtml", async (a) => {
     const m = await mgr(a);
     return m.exportHtml(a?.outputPath);

@@ -158,7 +158,12 @@ export function MoaPanel() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium text-text">{team.name}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="truncate text-sm font-medium text-text">{team.name}</div>
+                        {team.mode === "advanced" && (
+                          <span className="rounded bg-accent/20 px-1 py-0.5 text-[9px] font-bold uppercase text-accent">Advanced</span>
+                        )}
+                      </div>
                       {/* Model chips — see the team's makeup at a glance */}
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {memberNames.map((name, i) => (
@@ -514,6 +519,34 @@ function TeamEditor({
             </div>
             <p className="mt-1 text-[10px] text-text-faint">
               The aggregator synthesizes team responses into a briefing for the main model.
+            </p>
+          </div>
+
+          {/* Mode toggle — Basic vs Advanced */}
+          <div>
+            <label className="mb-1 block text-xs text-text-muted">Mode</label>
+            <div className="flex gap-1 rounded-lg border border-border bg-bg-subtle p-0.5">
+              <button
+                onClick={() => setDraft({ ...draft, mode: "basic" })}
+                className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  (draft.mode ?? "basic") === "basic" ? "bg-bg-active text-text" : "text-text-faint hover:text-text-muted"
+                }`}
+              >
+                Basic
+              </button>
+              <button
+                onClick={() => setDraft({ ...draft, mode: "advanced" })}
+                className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  draft.mode === "advanced" ? "bg-bg-active text-text" : "text-text-faint hover:text-text-muted"
+                }`}
+              >
+                Advanced
+              </button>
+            </div>
+            <p className="mt-1 text-[10px] text-text-faint">
+              {(draft.mode ?? "basic") === "basic"
+                ? "Single pass — team members respond once, the aggregator synthesizes a briefing."
+                : "Score + re-query — the aggregator scores each response (0–10) and re-queries low-scoring members with feedback for a refined result. Uses the global max layers and threshold settings."}
             </p>
           </div>
 

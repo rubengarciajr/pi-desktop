@@ -30,7 +30,7 @@ export function MoaReportCard({
   confidence: number | null;
 }) {
   const [expandedMembers, setExpandedMembers] = useState<Set<number>>(new Set());
-  const [briefingExpanded, setBriefingExpanded] = useState(false);
+  const [briefingExpanded, setBriefingExpanded] = useState(true);
   const [allExpanded, setAllExpanded] = useState(false);
 
   const toggleMember = (i: number) => {
@@ -131,25 +131,27 @@ export function MoaReportCard({
         ))}
       </div>
 
-      {/* Briefing */}
-      <div className="border-t border-accent/20 px-4 py-2.5">
+      {/* Briefing — the key output: the synthesized analysis fed to the main model */}
+      <div className="border-t border-accent/20 px-4 py-3 bg-accent/5">
         <button
           onClick={() => setBriefingExpanded((v) => !v)}
           className="flex w-full items-center justify-between text-left"
         >
-          <span className="text-[11px] font-semibold text-accent">Briefing</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold text-accent">📝 Briefing</span>
+            <span className="text-[9px] text-text-faint">— what the main model received</span>
+          </div>
           <span className="text-[10px] text-text-faint">
             {briefingExpanded ? "▲" : "▼"}
           </span>
         </button>
-        {briefingExpanded && (
-          <pre className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border bg-bg p-2.5 text-[11px] leading-relaxed text-text-muted">
+        {briefingExpanded ? (
+          <pre className="mt-2 max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-accent/20 bg-bg p-3 text-[11px] leading-relaxed text-text">
             {briefing}
           </pre>
-        )}
-        {!briefingExpanded && (
-          <p className="mt-1 line-clamp-2 text-[11px] text-text-faint">
-            {briefing.slice(0, 200)}…
+        ) : (
+          <p className="mt-1 line-clamp-1 text-[11px] text-text-faint">
+            {briefing.slice(0, 120)}…
           </p>
         )}
       </div>
