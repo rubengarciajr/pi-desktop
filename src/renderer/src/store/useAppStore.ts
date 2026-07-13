@@ -67,7 +67,7 @@ export interface QueueState {
   followUp: string[];
 }
 
-export type View = "chat" | "model" | "settings" | "extensions" | "packages" | "tagteam" | "panel";
+export type View = "chat" | "model" | "settings" | "extensions" | "packages" | "tagteam" | "moa" | "panel";
 
 export interface ExtWidget {
   lines: string[];
