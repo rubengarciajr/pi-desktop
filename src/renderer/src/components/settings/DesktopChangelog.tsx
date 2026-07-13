@@ -6,6 +6,19 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.5.9",
+    date: "2026-07-13",
+    sections: [
+      {
+        title: "Sessions",
+        items: [
+          "Right-click any session to favorite or delete it — the context menu appears at the cursor with options to add/remove from Favorites and delete the session from disk",
+          "Sessions that belong to a favorited folder now show a star indicator on the card",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.5.8",
     date: "2026-07-13",
     sections: [

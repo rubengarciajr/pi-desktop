@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { PlusIcon, FolderIcon } from "../Icons";
 import { GitRepoHeader } from "../GitRepoBadge";
+import { FilePathMenu, type FilePathAction } from "../chat/FilePathMenu";
 
 interface SessionItem {
   id: string;
@@ -16,6 +17,7 @@ interface SessionItem {
 export function SessionsView() {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; session: SessionItem } | null>(null);
   const addTab = useAppStore((s) => s.addTab);
   const focusExistingTab = useAppStore((s) => s.focusExistingTab);
   const favorites = useAppStore((s) => s.favorites);
@@ -193,6 +195,7 @@ export function SessionsView() {
                   <div className="space-y-1.5">
                     {dirSessions.map((s) => {
                       const isActive = s.file === activeSessionFile;
+                      const isFav = isFavorite(s.cwd || "");
                       return (
                         <button
                           key={s.id}
@@ -202,6 +205,11 @@ export function SessionsView() {
                             await window.pi.api.createTab({ tabId, cwd: s.cwd });
                             addTab({ id: tabId, title: s.cwd?.split("/").pop() || s.name || s.id.slice(0, 8), cwd: s.cwd });
                             await window.pi.api.switchSession({ sessionPath: s.file, cwd: s.cwd, tabId });
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setContextMenu({ x: e.clientX, y: e.clientY, session: s });
                           }}
                           className={`no-drag flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-all ${
                             isActive
@@ -223,13 +231,18 @@ export function SessionsView() {
                               )}
                             </div>
                           </div>
-                          {s.messageCount != null && (
-                            <span className={`ml-2 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] ${
-                              isActive ? "bg-accent/20 text-accent" : "bg-bg-active text-text-faint"
-                            }`}>
-                              {s.messageCount}
-                            </span>
-                          )}
+                          <div className="ml-2 flex shrink-0 items-center gap-1">
+                            {isFav && (
+                              <StarIcon size={12} filled className="text-accent" />
+                            )}
+                            {s.messageCount != null && (
+                              <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                                isActive ? "bg-accent/20 text-accent" : "bg-bg-active text-text-faint"
+                              }`}>
+                                {s.messageCount}
+                              </span>
+                            )}
+                          </div>
                         </button>
                       );
                     })}
@@ -240,6 +253,39 @@ export function SessionsView() {
           </div>
         )}
       </div>
+
+      {/* Right-click context menu */}
+      {contextMenu && (
+        <FilePathMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          actions={[
+            {
+              label: isFavorite(contextMenu.session.cwd || "")
+                ? "Remove from Favorites"
+                : "Add to Favorites",
+              onSelect: () => {
+                toggleFavorite(contextMenu.session.cwd || "");
+              },
+            },
+            {
+              label: "Delete Session",
+              onSelect: async () => {
+                const s = contextMenu.session;
+                try {
+                  const result = await window.pi.api.deleteSession({ file: s.file });
+                  if (result.success) {
+                    refresh();
+                  }
+                } catch (err) {
+                  console.error("[sessions] Failed to delete:", err);
+                }
+              },
+            },
+          ]}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }

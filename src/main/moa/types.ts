@@ -23,6 +23,8 @@ export interface MoaTeam {
   members: MoaMember[];
   /** The model that synthesizes member responses into a briefing. */
   aggregatorModel: { provider: string; modelId: string };
+  /** "basic" = single pass (default); "advanced" = score + re-query loop. */
+  mode?: "basic" | "advanced";
 }
 
 /** Advanced-mode tuning knobs. */
