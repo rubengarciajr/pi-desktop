@@ -1,8 +1,15 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.6.0** · Last updated: **July 17, 2026**
+> Current version: **v0.6.1** · Last updated: **July 17, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.6.1 — July 17, 2026
+
+### Fixes
+- **Model errors are now visible.** When a model request fails — a provider rejecting an unsupported option, or repeated errors that use up the automatic retries — Pi Desktop now shows the error instead of the turn silently stopping. (Previously a rejected request could look like a frozen "Thinking…" with no explanation.)
 
 ---
 

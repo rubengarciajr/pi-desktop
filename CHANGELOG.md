@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.6.1] — 2026-07-17
+
+### Fixed
+- **Surface model-request errors instead of failing silently.** `onAgentEvent` now emits the SDK's `auto_retry_start` / `auto_retry_end` signals as diagnostics — a "retrying: <error>" notice and, on retry exhaustion, "Model request failed after N attempts: <finalError>". Previously a retried-then-failed turn ended with no visible error (e.g. a provider rejecting an unsupported thinking level looked like a silent freeze).
+
+---
+
 ## [0.6.0] — 2026-07-17
 
 ### Added

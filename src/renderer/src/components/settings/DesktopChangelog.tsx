@@ -6,6 +6,18 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.6.1",
+    date: "2026-07-17",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "Model errors are now visible — when a model request fails (a provider rejecting an unsupported option, or repeated errors that use up the automatic retries), you now see the error instead of the turn silently stopping",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.6.0",
     date: "2026-07-17",
     sections: [
