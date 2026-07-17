@@ -45,9 +45,22 @@ export class SessionPool {
    * Call after invalidateSharedDeps() so the shared cache rebuilds fresh.
    */
   async refreshAllModelRegistries(): Promise<void> {
-    await Promise.all(
-      [...this.pools.values()].map((mgr) => mgr.refreshModelRegistry().catch(() => {})),
-    );
+    // All managers for one agentDir share a single ModelRuntime, so refreshing
+    // per-manager would reload the same object N times (N× reload + custom-key
+    // re-apply, each a throttled catalog refresh). Dedupe by runtime identity so
+    // each distinct runtime reloads once. (Managers can hold different runtimes
+    // after invalidateSharedDeps rebuilds the cache, hence identity, not "first".)
+    const seen = new Set<unknown>();
+    const tasks: Promise<void>[] = [];
+    for (const mgr of this.pools.values()) {
+      const rt = mgr.deps?.modelRuntime;
+      if (rt) {
+        if (seen.has(rt)) continue;
+        seen.add(rt);
+      }
+      tasks.push(mgr.refreshModelRegistry().catch(() => {}));
+    }
+    await Promise.all(tasks);
   }
 
   /** Get or create a manager for a tab. */

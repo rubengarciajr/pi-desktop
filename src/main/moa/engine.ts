@@ -4,13 +4,12 @@
  * Orchestrates fan-out to team models in parallel, aggregates their responses,
  * and (in advanced mode) scores + re-queries low-confidence responses.
  *
- * Uses the Pi SDK's `completeSimple` for standalone model calls (no agent loop),
- * and `convertToLlm` to convert the session's agent messages into LLM format.
+ * Uses the shared ModelRuntime's `completeSimple` for standalone model calls
+ * (no agent loop; auth is resolved internally by the runtime), and
+ * `convertToLlm` to convert the session's agent messages into LLM format.
  */
 
-import { pathToFileURL, fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-import { existsSync } from "node:fs";
+import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { MoaTeam, MoaMemberResult, MoaResult, MoaProgressEvent } from "./types";
 import { memberSystemPrompt, aggregatorSystemPrompt, reQueryPrompt } from "./prompts";
 
@@ -20,7 +19,6 @@ async function getSdk() {
 }
 
 // Types from the SDK (lazily resolved at call time).
-type ModelRegistry = any;
 type Model = any;
 type Context = any;
 type AssistantMessage = any;
@@ -31,8 +29,8 @@ export interface RunMoaOptions {
   message: string;
   /** The team to use. */
   team: MoaTeam;
-  /** The live model registry (from PiSessionManager.deps). */
-  modelRegistry: ModelRegistry;
+  /** The shared model runtime (from PiSessionManager.deps). */
+  modelRuntime: ModelRuntime;
   /** Existing session messages for context. */
   sessionMessages: AgentMessage[];
   /** Basic = single pass; Advanced = score + re-query loop. */
@@ -54,7 +52,7 @@ export interface RunMoaOptions {
  * members fail (caller should catch and skip MOA enrichment in that case).
  */
 export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
-  const { message, team, modelRegistry, sessionMessages, mode, onProgress, signal } = opts;
+  const { message, team, modelRuntime, sessionMessages, mode, onProgress, signal } = opts;
   const maxLayers = opts.maxLayers ?? 3;
   const confidenceThreshold = opts.confidenceThreshold ?? 6;
 
@@ -77,7 +75,7 @@ export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
     message: `Consulting ${team.members.length} models…`,
   });
 
-  let memberResults = await fanOut(team.members, llmMessages, modelRegistry, signal, (done, total, modelName) => {
+  let memberResults = await fanOut(team.members, llmMessages, modelRuntime, signal, (done, total, modelName) => {
     onProgress?.({
       phase: "member-done",
       layer: 1,
@@ -107,7 +105,7 @@ export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
     message,
     memberResults,
     team.aggregatorModel,
-    modelRegistry,
+    modelRuntime,
     llmMessages,
     mode === "advanced",
     confidenceThreshold,
@@ -146,7 +144,7 @@ export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
       // Re-query the low-scoring members with refined prompts.
       const reQueried = await Promise.allSettled(
         lowScorers.map((r) =>
-          reQueryMember(r, message, aggregatorOutput.feedback, modelRegistry, signal),
+          reQueryMember(r, message, aggregatorOutput.feedback, modelRuntime, signal),
         ),
       );
 
@@ -167,7 +165,7 @@ export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
         message,
         memberResults,
         team.aggregatorModel,
-        modelRegistry,
+        modelRuntime,
         llmMessages,
         true,
         confidenceThreshold,
@@ -208,7 +206,7 @@ export async function runMoa(opts: RunMoaOptions): Promise<MoaResult> {
 async function fanOut(
   members: MoaTeam["members"],
   llmMessages: any[],
-  modelRegistry: ModelRegistry,
+  modelRuntime: ModelRuntime,
   signal?: AbortSignal,
   onMemberDone?: (doneCount: number, total: number, modelName: string) => void,
 ): Promise<MoaMemberResult[]> {
@@ -217,28 +215,22 @@ async function fanOut(
 
   const results = await Promise.allSettled(
     members.map(async (member) => {
-      const model = resolveModel(modelRegistry, member.provider, member.modelId);
+      const model = resolveModel(modelRuntime, member.provider, member.modelId);
       if (!model) throw new Error(`Model not found: ${member.provider}/${member.modelId}`);
-
-      const auth = await resolveAuth(modelRegistry, model);
-      if (!auth.ok) throw new Error(`No auth for ${member.provider}/${member.modelId}`);
 
       const context: Context = {
         systemPrompt: memberSystemPrompt(member.role),
         messages: llmMessages,
       };
 
-      const response = await completeSimple(model, context, {
-        apiKey: auth.apiKey,
-        headers: auth.headers,
-        signal,
-      });
+      // ModelRuntime resolves auth internally from the model's provider.
+      const response = await modelRuntime.completeSimple(model, context, { signal });
 
       const text = extractText(response);
       // Emit per-member progress as each model finishes.
       doneCount++;
       const modelName =
-        modelRegistry?.find?.(member.provider, member.modelId)?.name ?? member.modelId;
+        resolveModel(modelRuntime, member.provider, member.modelId)?.name ?? member.modelId;
       onMemberDone?.(doneCount, total, modelName);
       return text;
     }),
@@ -247,7 +239,7 @@ async function fanOut(
   return members.map((member, i) => {
     const result = results[i];
     const modelName =
-      modelRegistry?.find?.(member.provider, member.modelId)?.name ?? member.modelId;
+      resolveModel(modelRuntime, member.provider, member.modelId)?.name ?? member.modelId;
     if (result?.status === "fulfilled") {
       return {
         provider: member.provider,
@@ -307,21 +299,17 @@ async function aggregate(
   userMessage: string,
   memberResults: MoaMemberResult[],
   aggregatorSpec: { provider: string; modelId: string },
-  modelRegistry: ModelRegistry,
+  modelRuntime: ModelRuntime,
   llmMessages: any[],
   advanced: boolean,
   confidenceThreshold: number,
   signal?: AbortSignal,
 ): Promise<AggregatorOutput> {
-  const model = resolveModel(modelRegistry, aggregatorSpec.provider, aggregatorSpec.modelId);
+  const model = resolveModel(modelRuntime, aggregatorSpec.provider, aggregatorSpec.modelId);
   if (!model)
     throw new Error(
       `Aggregator model not found: ${aggregatorSpec.provider}/${aggregatorSpec.modelId}`,
     );
-
-  const auth = await resolveAuth(modelRegistry, model);
-  if (!auth.ok)
-    throw new Error(`No auth for aggregator ${aggregatorSpec.provider}/${aggregatorSpec.modelId}`);
 
   // Build the aggregator's context: the user's message + each member's response.
   const teamResponsesText = memberResults
@@ -345,11 +333,7 @@ ${aggregatorSystemPrompt(advanced, confidenceThreshold)}`;
     messages: [{ role: "user", content: aggregatorUserMessage }],
   };
 
-  const response = await completeSimple(model, context, {
-    apiKey: auth.apiKey,
-    headers: auth.headers,
-    signal,
-  });
+  const response = await modelRuntime.completeSimple(model, context, { signal });
 
   const text = extractText(response);
 
@@ -380,14 +364,11 @@ async function reQueryMember(
   member: MoaMemberResult,
   userMessage: string,
   feedback: string,
-  modelRegistry: ModelRegistry,
+  modelRuntime: ModelRuntime,
   signal?: AbortSignal,
 ): Promise<string | undefined> {
-  const model = resolveModel(modelRegistry, member.provider, member.modelId);
+  const model = resolveModel(modelRuntime, member.provider, member.modelId);
   if (!model) return undefined;
-
-  const auth = await resolveAuth(modelRegistry, model);
-  if (!auth.ok) return undefined;
 
   const context: Context = {
     systemPrompt: memberSystemPrompt(member.role),
@@ -399,11 +380,7 @@ async function reQueryMember(
     ],
   };
 
-  const response = await completeSimple(model, context, {
-    apiKey: auth.apiKey,
-    headers: auth.headers,
-    signal,
-  });
+  const response = await modelRuntime.completeSimple(model, context, { signal });
 
   return extractText(response);
 }
@@ -411,135 +388,15 @@ async function reQueryMember(
 // --- SDK helpers ---
 
 function resolveModel(
-  modelRegistry: ModelRegistry,
+  modelRuntime: ModelRuntime,
   provider: string,
   modelId: string,
 ): Model | undefined {
   try {
-    return modelRegistry?.find?.(provider, modelId) ?? undefined;
+    return modelRuntime?.getModel?.(provider, modelId) ?? undefined;
   } catch {
     return undefined;
   }
-}
-
-async function resolveAuth(
-  modelRegistry: ModelRegistry,
-  model: Model,
-): Promise<{ ok: boolean; apiKey?: string; headers?: Record<string, string> }> {
-  try {
-    const auth = await modelRegistry?.getApiKeyAndHeaders?.(model);
-    if (!auth?.ok) return { ok: false };
-    return { ok: true, apiKey: auth.apiKey, headers: auth.headers };
-  } catch {
-    return { ok: false };
-  }
-}
-
-// Cached compat module — resolved once, reused across all completeSimple calls.
-let compatModulePromise: Promise<any> | null = null;
-
-/**
- * Resolve the pi-ai/compat module on disk and import it via a file:// URL.
- *
- * Why this is non-trivial: `@earendil-works/pi-ai` is a NESTED dependency of
- * `@earendil-works/pi-coding-agent` (not a direct dep of this app). Its
- * package.json `exports` map only declares an ESM `import` condition for
- * "./compat" — so every standard resolution path fails:
- *   - bare `import("@earendil-works/pi-ai/compat")` → not in our deps
- *   - `import("…/node_modules/…/compat")`           → ERR_PACKAGE_PATH_NOT_EXPORTED
- *   - `require.resolve("@earendil-works/pi-ai/compat")` from within the
- *     agent package → no `require` condition in the exports map
- *
- * The escape hatch: locate pi-coding-agent's package directory on disk, then
- * directly import its nested pi-ai/dist/compat.js by absolute file path. This
- * bypasses the exports map entirely (Node allows direct file imports) and
- * works identically in dev and inside the packaged asar bundle.
- */
-export async function getCompat(): Promise<any> {
-  if (!compatModulePromise) {
-    compatModulePromise = (async () => {
-      // import.meta.url is the ESM-safe base. Bundled output is a file:// URL
-      // under the app; falling back to cwd covers any CJS edge case.
-      const here = (import.meta as any).url ?? pathToFileURL(process.cwd() + "/").href;
-      const compatFile = resolveNestedCompat(here);
-
-      // Dynamic import() does NOT work for files packed inside an asar archive
-      // because Node's ESM loader doesn't understand the asar format. Electron
-      // patches require() (and by extension createRequire) to handle asar
-      // transparently. So we try require first, then fall back to import for
-      // dev mode where the file is a regular .js on disk.
-      try {
-        const { createRequire } = await import("node:module");
-        const req = createRequire(here);
-        return req(compatFile);
-      } catch {
-        // Dev mode or unpacked file — ESM import works here.
-        return await import(pathToFileURL(compatFile).href);
-      }
-    })();
-  }
-  return compatModulePromise;
-}
-
-/**
- * Walk up from `fromUrl` looking for the pi-ai compat module.
- *
- * Checks two layouts on every directory level:
- * 1. FLATTENED: `node_modules/@earendil-works/pi-ai/dist/compat.js`
- *    This is what electron-builder produces in the asar — it hoists nested
- *    deps to the top level.
- * 2. NESTED: `node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/compat.js`
- *    This is what npm produces in dev — pi-ai is a nested dep of pi-coding-agent.
- *
- * Without checking both, MOA works in dev but fails in the packaged app
- * (or vice versa).
- */
-function resolveNestedCompat(fromUrl: string): string {
-  let dir = dirname(fileURLToPath(fromUrl));
-  for (let i = 0; i < 20; i++) {
-    if (!dir || dir === dirname(dir)) break;
-
-    // 1. Flattened layout (asar / production).
-    const flatCompat = join(
-      dir,
-      "node_modules",
-      "@earendil-works",
-      "pi-ai",
-      "dist",
-      "compat.js",
-    );
-    if (existsSync(flatCompat)) return flatCompat;
-
-    // 2. Nested layout (npm dev install).
-    const nestedCompat = join(
-      dir,
-      "node_modules",
-      "@earendil-works",
-      "pi-coding-agent",
-      "node_modules",
-      "@earendil-works",
-      "pi-ai",
-      "dist",
-      "compat.js",
-    );
-    if (existsSync(nestedCompat)) return nestedCompat;
-
-    dir = dirname(dir);
-  }
-  throw new Error(
-    "Could not locate @earendil-works/pi-ai/compat — is @earendil-works/pi-coding-agent installed?",
-  );
-}
-
-async function completeSimple(
-  model: Model,
-  context: Context,
-  options: any,
-): Promise<AssistantMessage> {
-  const piAi = await getCompat();
-  const complete = (piAi as any).completeSimple ?? (piAi as any).complete;
-  if (!complete) throw new Error("completeSimple not found in pi-ai/compat");
-  return complete(model, context, options);
 }
 
 function extractText(message: AssistantMessage): string {
