@@ -219,6 +219,8 @@ const events = {
   restartForUpdate: () => {},
   checkForUpdates: invoke("pi:update:check"),
   downloadUpdate: invoke("pi:update:download"),
+  installUpdate: invoke("pi:update:install"),
+  revealUpdate: invoke("pi:update:reveal"),
   getTheme: invoke("pi:theme:get"),
   setTheme: invoke("pi:theme:set"),
 };

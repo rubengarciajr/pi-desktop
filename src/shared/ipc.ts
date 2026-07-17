@@ -710,6 +710,15 @@ export interface PiEventApi {
   downloadUpdate: (args?: {
     url?: string;
   }) => Promise<{ success: boolean; error?: string; path?: string }>;
+  /** Install a downloaded update in place and relaunch. `fallback: true` means
+   *  auto-install couldn't run and the UI should offer revealUpdate instead. */
+  installUpdate: (args?: {
+    path?: string;
+  }) => Promise<{ success: boolean; error?: string; fallback?: boolean }>;
+  /** Open the downloaded DMG in Finder (manual drag-to-Applications fallback). */
+  revealUpdate: (args?: {
+    path?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
   getTheme: () => Promise<{ shouldUseDarkColors: boolean; themeSource: string }>;
   setTheme: (source: "system" | "light" | "dark") => Promise<{ success: boolean }>;
 }
