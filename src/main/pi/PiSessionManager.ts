@@ -16,8 +16,7 @@ import type {
   AgentSession,
   AgentSessionEvent,
   AgentSessionRuntime,
-  AuthStorage,
-  ModelRegistry,
+  ModelRuntime,
   SessionManager as PiSessionManagerType,
   SettingsManager as PiSettingsManagerType,
 } from "@earendil-works/pi-coding-agent";
@@ -82,8 +81,7 @@ function applyHttpProxySettings(httpProxy: string | undefined): void {
 }
 
 export interface PiManagerDeps {
-  authStorage: AuthStorage;
-  modelRegistry: ModelRegistry;
+  modelRuntime: ModelRuntime;
   settingsManager: PiSettingsManagerType;
 }
 
@@ -415,18 +413,17 @@ export class PiSessionManager {
     applyHttpProxySettings((bootstrapSettings as any).getGlobalSettings?.()?.httpProxy);
     configureHttpDispatcher();
 
-    // Use shared deps cache - avoids recreating AuthStorage/ModelRegistry/SettingsManager per tab.
+    // Use shared deps cache - avoids recreating ModelRuntime/SettingsManager per tab.
     const shared = await getSharedDeps(this.agentDir, pi, this.cwd);
     this._deps = {
-      authStorage: shared.authStorage,
-      modelRegistry: shared.modelRegistry,
+      modelRuntime: shared.modelRuntime,
       settingsManager: shared.settingsManager,
     };
 
     await this.buildRuntime(pi, this.cwd, pi.SessionManager.create(this.cwd));
-    // Ensure every custom provider's key is in authStorage from the start, so
-    // model selection works without depending on which registry instance is hit.
-    this.registerCustomProviderKeys();
+    // Ensure every custom provider's key is registered in the model runtime from
+    // the start, so model selection works immediately.
+    await this.registerCustomProviderKeys();
     this.initialized = true;
   }
 
@@ -440,13 +437,11 @@ export class PiSessionManager {
       const services = await pi.createAgentSessionServices({
         cwd,
         agentDir: this.agentDir,
-        authStorage: this._deps?.authStorage,
+        modelRuntime: this._deps?.modelRuntime,
         settingsManager: this._deps?.settingsManager,
       });
-      // Update modelRegistry after services loads custom models from models.json
-      if (this._deps && services.modelRegistry) {
-        this._deps.modelRegistry = services.modelRegistry;
-      }
+      // The shared modelRuntime is passed in above, so services.modelRuntime is
+      // the same instance — no re-bind needed (it already knows custom models).
       // Register our native headless web_search ONLY when the pi-web-access
       // package isn't installed — that package's richer web_search takes priority.
       const customTools = this.isWebAccessInstalled() ? undefined : [createNativeWebSearchTool()];
@@ -715,7 +710,7 @@ export class PiSessionManager {
    * injectWebNudge.
    */
   private async runMoaEnrichment(message: string, signal?: AbortSignal): Promise<void> {
-    if (!this.session || !this.routingTeamId || !this.deps?.modelRegistry) return;
+    if (!this.session || !this.routingTeamId || !this.deps?.modelRuntime) return;
 
     const { runMoa } = await import("../moa/engine");
     const config = loadMoaConfig();
@@ -730,7 +725,7 @@ export class PiSessionManager {
       result = await runMoa({
         message,
         team,
-        modelRegistry: this.deps.modelRegistry,
+        modelRuntime: this.deps.modelRuntime,
         sessionMessages,
         mode: team.mode ?? config.defaultMode,
         maxLayers: config.advanced.maxLayers,
@@ -796,13 +791,13 @@ export class PiSessionManager {
    * in-memory draft.
    */
   async runMoaTest(message: string, team: any, modeOverride?: "basic" | "advanced"): Promise<any> {
-    if (!this.deps?.modelRegistry) throw new Error("Model registry not available");
+    if (!this.deps?.modelRuntime) throw new Error("Model runtime not available");
     const { runMoa } = await import("../moa/engine");
     const config = loadMoaConfig();
     return runMoa({
       message,
       team,
-      modelRegistry: this.deps.modelRegistry,
+      modelRuntime: this.deps.modelRuntime,
       sessionMessages: this.session?.messages ?? [],
       mode: modeOverride ?? config.defaultMode,
       maxLayers: config.advanced.maxLayers,
@@ -818,7 +813,7 @@ export class PiSessionManager {
    * until the final stage, which has no successor and ends the chain.
    */
   private async runTagTeamHandoff(): Promise<void> {
-    if (!this.session || !this.tagTeamTeamId || !this.deps?.modelRegistry) return;
+    if (!this.session || !this.tagTeamTeamId || !this.deps?.modelRuntime) return;
     if (!this.tagTeamHandoffCallback) {
       this.events.emit(this.DIAG_EVENT, "Tag Team: tab creation not available. Skipping handoff.");
       return;
@@ -846,10 +841,10 @@ export class PiSessionManager {
     if (!previousOutput) return;
 
     const fromModelName =
-      this.deps.modelRegistry.find(currentStage.provider, currentStage.modelId)?.name ??
+      this.deps.modelRuntime.getModel(currentStage.provider, currentStage.modelId)?.name ??
       currentStage.modelId;
     const toModelName =
-      this.deps.modelRegistry.find(nextStage.provider, nextStage.modelId)?.name ??
+      this.deps.modelRuntime.getModel(nextStage.provider, nextStage.modelId)?.name ??
       nextStage.modelId;
     const handoffPrompt = getHandoffPrompt(team, fromStage);
     // Is there a stage AFTER the one we're handing to? If so, the new tab must
@@ -886,7 +881,7 @@ export class PiSessionManager {
    * outputs so the user can preview the relay without creating tabs.
    */
   async runTagTeamTest(message: string, team: any): Promise<any> {
-    if (!this.deps?.modelRegistry) throw new Error("Model registry not available");
+    if (!this.deps?.modelRuntime) throw new Error("Model runtime not available");
     const { runTagTeamRelay } = await import("../tagteam/orchestrator");
     // Abort the test relay after 5 minutes so a stuck provider doesn't hang
     // the settings panel indefinitely. The user can re-run if it times out.
@@ -896,7 +891,7 @@ export class PiSessionManager {
       return await runTagTeamRelay({
         message,
         team,
-        modelRegistry: this.deps.modelRegistry,
+        modelRuntime: this.deps.modelRuntime,
         sessionMessages: this.session?.messages ?? [],
         signal: controller.signal,
       });
@@ -976,8 +971,7 @@ export class PiSessionManager {
     // Reuse shared deps cache instead of recreating from scratch.
     const shared = await getSharedDeps(this.agentDir, pi, newCwd);
     this._deps = {
-      authStorage: shared.authStorage,
-      modelRegistry: shared.modelRegistry,
+      modelRuntime: shared.modelRuntime,
       settingsManager: shared.settingsManager,
     };
     await this.buildRuntime(pi, newCwd, pi.SessionManager.create(newCwd));
@@ -1203,7 +1197,7 @@ export class PiSessionManager {
   async setModel(provider: string, modelId: string) {
     if (!this.session) throw new Error("Session not initialized");
     if (!this.deps) throw new Error("Deps not initialized");
-    const model = this.deps.modelRegistry.find(provider, modelId);
+    const model = this.deps.modelRuntime.getModel(provider, modelId);
     if (!model) throw new Error(`Model not found: ${provider}/${modelId}`);
     await this.session.setModel(model as any);
     this.emitState();
@@ -1238,17 +1232,17 @@ export class PiSessionManager {
    * deps cache. Call invalidateSharedDeps() before this so the cache rebuilds.
    */
   /**
-   * Mirror every custom provider's literal key into the SDK's authStorage. The
-   * live session's model registry validates selection and resolves request keys
-   * against this same authStorage, so registering here makes a model that was
-   * added OR edited mid-session take effect immediately — no restart, and no
+   * Mirror every custom provider's literal key into the shared ModelRuntime as
+   * a runtime API key. The live session's model runtime validates selection and
+   * resolves request keys against these, so registering here makes a model that
+   * was added OR edited mid-session take effect immediately — no restart, and no
    * need to re-save every model.
    */
-  private registerCustomProviderKeys(): void {
+  private async registerCustomProviderKeys(): Promise<void> {
     if (!this._deps) return;
     for (const cred of listCustomProviderCredentials()) {
       try {
-        this._deps.authStorage.set(cred.provider, { type: "api_key", key: cred.apiKey });
+        await this._deps.modelRuntime.setRuntimeApiKey(cred.provider, cred.apiKey);
       } catch {
         /* best-effort: a failed registration just means restart-to-apply */
       }
@@ -1256,24 +1250,19 @@ export class PiSessionManager {
   }
 
   async refreshModelRegistry(): Promise<void> {
-    if (!this._deps || !this.agentDir) return;
-    const pi = await import("@earendil-works/pi-coding-agent");
-    // Keep the SAME authStorage the live session was built with, and sync all
-    // custom keys into it, so selection/edits apply to the running session.
-    this.registerCustomProviderKeys();
-    // Fresh listing registry (sharing that authStorage) so add/edit/remove show
-    // up in the model list immediately.
-    this._deps.modelRegistry = pi.ModelRegistry.create(
-      this._deps.authStorage,
-      join(this.agentDir, "models.json"),
-    );
+    if (!this._deps?.modelRuntime) return;
+    // Reload models.json in place (no rebuild) so add/edit/remove of custom
+    // models show up immediately, then re-apply the custom provider keys so
+    // selection/edits apply to the running session.
+    await this._deps.modelRuntime.reloadConfig();
+    await this.registerCustomProviderKeys();
   }
 
   async getAvailableModels() {
     if (!this.deps) throw new Error("Deps not initialized");
-    const models = await this.deps.modelRegistry.getAvailable();
+    const models = await this.deps.modelRuntime.getAvailable();
     return {
-      models: (models as Model[]).map((m) => ({
+      models: (models as unknown as Model[]).map((m) => ({
         id: m.id,
         name: m.name,
         provider: m.provider,
@@ -1505,18 +1494,20 @@ export class PiSessionManager {
   // --- Misc --------------------------------------------------------------
 
   async getAuthStatus() {
-    if (!this._deps?.authStorage) return [];
-    const authStorage = this._deps.authStorage;
+    if (!this._deps?.modelRuntime) return [];
+    const modelRuntime = this._deps.modelRuntime;
     // Build the provider set from (a) the SDK's registered OAuth providers —
     // Anthropic (Claude Pro/Max), OpenAI (ChatGPT), GitHub Copilot — plus
     // (b) the legacy API-key-only providers so both surfaces show in Settings.
     const oauthProviders: { id: string; name: string }[] = [];
     try {
-      for (const p of authStorage.getOAuthProviders() ?? []) {
-        oauthProviders.push({ id: p.id, name: p.name });
+      for (const p of modelRuntime.getProviders() ?? []) {
+        if ((p as any).auth?.oauth) {
+          oauthProviders.push({ id: p.id, name: p.name });
+        }
       }
     } catch {
-      /* getOAuthProviders not available — fall back to API-key providers only */
+      /* getProviders not available — fall back to API-key providers only */
     }
     const apiKeyProviders = ["openai", "google", "anthropic"];
     // Merge, dedupe by id (OAuth "anthropic" overlaps the API-key one).
@@ -1535,15 +1526,30 @@ export class PiSessionManager {
       }
     }
 
+    // Map providerId → stored credential type so we can report how each is
+    // currently authenticated (oauth subscription vs api_key).
+    const credentialType = new Map<string, string>();
+    try {
+      for (const cred of await modelRuntime.listCredentials()) {
+        credentialType.set(cred.providerId, cred.type);
+      }
+    } catch {
+      /* listCredentials unavailable — fall back to loginType for the type field */
+    }
+
     const status: any[] = [];
     for (const { id, name, oauth } of providers) {
-      const statusInfo = authStorage.getAuthStatus(id);
-      const credential = authStorage.get(id);
-      const isOauth = credential?.type === "oauth";
+      let configured = false;
+      try {
+        configured = modelRuntime.getProviderAuthStatus(id)?.configured ?? false;
+      } catch {
+        /* provider not registered — leave unconfigured */
+      }
+      const isOauth = credentialType.get(id) === "oauth";
       status.push({
         provider: id,
         name,
-        authed: statusInfo.configured,
+        authed: configured,
         // Whether the provider offers subscription (OAuth) login at all.
         loginType: oauth ? "oauth" : "apiKey",
         // How it's currently authenticated — oauth subscription vs api_key.
@@ -1554,76 +1560,111 @@ export class PiSessionManager {
   }
 
   async setApiKey(provider: string, apiKey: string) {
-    if (!this._deps?.authStorage) return { success: false, error: "Auth not initialized" };
-    this._deps.authStorage.set(provider, { type: "api_key", key: apiKey });
-    return { success: true };
+    if (!this._deps?.modelRuntime) return { success: false, error: "Auth not initialized" };
+    try {
+      // Persist the key to auth.json via the provider's api-key login flow.
+      // (setRuntimeApiKey is in-memory only and would be lost on restart.) The
+      // api-key login prompts for the key; our interaction supplies it directly.
+      await this._deps.modelRuntime.login(provider, "api_key", {
+        prompt: async () => apiKey,
+        notify: () => {},
+      });
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message ?? String(err) };
+    }
   }
 
   async logout(provider: string) {
-    if (!this._deps?.authStorage) return { success: false, error: "Auth not initialized" };
-    this._deps.authStorage.remove(provider);
-    return { success: true };
+    if (!this._deps?.modelRuntime) return { success: false, error: "Auth not initialized" };
+    try {
+      // logout() now removes the credential AND runs a provider refresh, which
+      // can reject (e.g. offline). Return the error contract instead of throwing.
+      await this._deps.modelRuntime.logout(provider);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message ?? String(err) };
+    }
   }
 
   /**
    * Run an OAuth subscription login (Claude Pro/Max, ChatGPT, Copilot) using the
-   * SDK's AuthStorage.login(). All PKCE / device-code / token-exchange work
-   * happens inside the SDK; we only bridge the interactive callbacks to the
-   * renderer over the AUTH_EVENT channel so the user sees a login modal.
+   * SDK's ModelRuntime.login(). All PKCE / device-code / token-exchange work
+   * happens inside the SDK; we only bridge the AuthInteraction (prompt/notify)
+   * to the renderer over the AUTH_EVENT channel so the user sees a login modal.
    */
   async login(providerId: string): Promise<{ success: boolean; error?: string }> {
-    if (!this._deps?.authStorage) return { success: false, error: "Auth not initialized" };
-    const authStorage = this._deps.authStorage;
+    if (!this._deps?.modelRuntime) return { success: false, error: "Auth not initialized" };
+    const modelRuntime = this._deps.modelRuntime;
     try {
-      await authStorage.login(providerId, {
-        // Browser PKCE flow (Anthropic, Codex browser method): open the authorize
-        // URL in the system browser AND tell the renderer to show a "complete
-        // sign-in" panel with a manual-code-paste fallback.
-        onAuth: (info: { url: string; instructions?: string }) => {
-          shell.openExternal(info.url).catch(() => {});
-          this.events.emit(this.AUTH_EVENT, {
-            kind: "auth",
-            provider: providerId,
-            url: info.url,
-            instructions: info.instructions,
-          });
+      await modelRuntime.login(providerId, "oauth", {
+        // Non-blocking events (auth_url / device_code / progress / info).
+        notify: (event: any) => {
+          switch (event?.type) {
+            case "auth_url": {
+              // Browser PKCE flow (Anthropic, Codex browser method): open the
+              // authorize URL AND tell the renderer to show a "complete sign-in"
+              // panel with a manual-code-paste fallback.
+              shell.openExternal(event.url).catch(() => {});
+              this.events.emit(this.AUTH_EVENT, {
+                kind: "auth",
+                provider: providerId,
+                url: event.url,
+                instructions: event.instructions,
+              });
+              break;
+            }
+            case "device_code": {
+              // Device-code flow (Copilot, Codex device method): show the user
+              // code and open the verification page prominently.
+              if (event.verificationUri) shell.openExternal(event.verificationUri).catch(() => {});
+              this.events.emit(this.AUTH_EVENT, {
+                kind: "deviceCode",
+                provider: providerId,
+                userCode: event.userCode,
+                verificationUri: event.verificationUri,
+              });
+              break;
+            }
+            case "progress":
+            case "info": {
+              this.events.emit(this.AUTH_EVENT, {
+                kind: "progress",
+                provider: providerId,
+                message: event.message,
+              });
+              break;
+            }
+          }
         },
-        // Device-code flow (Copilot, Codex device method): show the user code and
-        // open the verification page. The renderer displays the code prominently.
-        onDeviceCode: (info: { userCode: string; verificationUri: string }) => {
-          if (info.verificationUri) shell.openExternal(info.verificationUri).catch(() => {});
-          this.events.emit(this.AUTH_EVENT, {
-            kind: "deviceCode",
-            provider: providerId,
-            userCode: info.userCode,
-            verificationUri: info.verificationUri,
-          });
+        // Blocking prompts — bridge to the renderer and return its reply string.
+        prompt: (prompt: any): Promise<string> => {
+          switch (prompt?.type) {
+            case "select":
+              // Ask the renderer to pick an option (e.g. Codex browser vs device).
+              return this.requestAuthInput(providerId, "select", {
+                message: prompt.message,
+                options: (prompt.options ?? []).map((o: any) => ({ id: o.id, label: o.label })),
+              });
+            case "manual_code":
+              // Manual code paste fallback for callback-server flows.
+              return this.requestAuthInput(providerId, "manualCode", {
+                message: prompt.message || "Paste the authorization code from the browser:",
+                placeholder: prompt.placeholder ?? "code",
+              });
+            case "text":
+            case "secret":
+            default:
+              // Text/secret input (e.g. manual auth code).
+              return this.requestAuthInput(providerId, "prompt", {
+                message: prompt.message,
+                placeholder: prompt.placeholder,
+              });
+          }
         },
-        onProgress: (message: string) => {
-          this.events.emit(this.AUTH_EVENT, { kind: "progress", provider: providerId, message });
-        },
-        // Blocking: ask the renderer for a text input (e.g. manual auth code).
-        onPrompt: (prompt: { message: string; placeholder?: string; allowEmpty?: boolean }) =>
-          this.requestAuthInput(providerId, "prompt", {
-            message: prompt.message,
-            placeholder: prompt.placeholder,
-            allowEmpty: prompt.allowEmpty,
-          }),
-        // Blocking: ask the renderer to pick an option (e.g. Codex browser vs device).
-        onSelect: (prompt: { message: string; options: { id: string; label: string }[] }) =>
-          this.requestAuthInput(providerId, "select", {
-            message: prompt.message,
-            options: prompt.options,
-          }),
-        // Blocking: manual code paste fallback for callback-server flows.
-        onManualCodeInput: () =>
-          this.requestAuthInput(providerId, "manualCode", {
-            message: "Paste the authorization code from the browser:",
-            placeholder: "code",
-          }),
       });
-      // Credentials persisted by the SDK to auth.json. Rebuild deps so model
-      // registries pick up the new OAuth token.
+      // Credentials persisted by the SDK to auth.json. Rebuild deps so future
+      // tabs' runtimes pick up the new OAuth token.
       invalidateSharedDeps();
       // Rebuild THIS session's listing registry before announcing "done" so the
       // provider's (possibly newly-released) models are pulled and the model

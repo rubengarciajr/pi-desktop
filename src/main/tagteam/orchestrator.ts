@@ -10,16 +10,16 @@
  * agent session. This module is only for the test preview.
  */
 
+import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { TagTeamTeam, TagTeamStageResult } from "./types";
 import { buildHandoffMessage, getHandoffPrompt } from "./relay";
 
-type ModelRegistry = any;
 type AgentMessage = any;
 
 export interface RunTagTeamRelayOptions {
   message: string;
   team: TagTeamTeam;
-  modelRegistry: ModelRegistry;
+  modelRuntime: ModelRuntime;
   sessionMessages: AgentMessage[];
   /** Optional abort signal so a stuck multi-stage relay can be cancelled. */
   signal?: AbortSignal;
@@ -35,12 +35,11 @@ export async function runTagTeamRelay(opts: RunTagTeamRelayOptions): Promise<{
   teamName: string;
   stages: TagTeamStageResult[];
 }> {
-  const { message, team, modelRegistry, sessionMessages, signal } = opts;
+  const { message, team, modelRuntime, sessionMessages, signal } = opts;
 
-  // Lazily import the SDK + compat (same pattern as moa/engine.ts).
+  // Lazily import the SDK for convertToLlm (ESM + large).
   const sdk = await import("@earendil-works/pi-coding-agent");
   const convertToLlm = (sdk as any).convertToLlm as (msgs: AgentMessage[]) => any[];
-  const { completeSimple, extractText } = await importCompat();
 
   // Build base context from existing session messages.
   const baseLlm = convertToLlm(sessionMessages ?? []);
@@ -53,7 +52,7 @@ export async function runTagTeamRelay(opts: RunTagTeamRelayOptions): Promise<{
     if (signal?.aborted) break;
 
     const stage = team.stages[i];
-    const model = resolveModel(modelRegistry, stage.provider, stage.modelId);
+    const model = resolveModel(modelRuntime, stage.provider, stage.modelId);
     const modelName = model?.name ?? stage.modelId;
 
     if (!model) {
@@ -61,16 +60,6 @@ export async function runTagTeamRelay(opts: RunTagTeamRelayOptions): Promise<{
         modelName,
         role: stage.role,
         error: `Model not found: ${stage.provider}/${stage.modelId}`,
-      });
-      break;
-    }
-
-    const auth = await resolveAuth(modelRegistry, model);
-    if (!auth.ok) {
-      results.push({
-        modelName,
-        role: stage.role,
-        error: `No API key for ${stage.provider}/${stage.modelId}`,
       });
       break;
     }
@@ -94,11 +83,8 @@ export async function runTagTeamRelay(opts: RunTagTeamRelayOptions): Promise<{
         messages: [...baseLlm, { role: "user", content: userContent }],
       };
 
-      const response = await completeSimple(model, context, {
-        apiKey: auth.apiKey,
-        headers: auth.headers,
-        signal,
-      });
+      // ModelRuntime resolves auth internally from the model's provider.
+      const response = await modelRuntime.completeSimple(model, context, { signal });
 
       const output = extractText(response);
       results.push({ modelName, role: stage.role, output });
@@ -118,54 +104,23 @@ export async function runTagTeamRelay(opts: RunTagTeamRelayOptions): Promise<{
 
 // --- Helpers (mirror moa/engine.ts) ---
 
-function resolveModel(modelRegistry: ModelRegistry, provider: string, modelId: string) {
+function resolveModel(modelRuntime: ModelRuntime, provider: string, modelId: string) {
   try {
-    return modelRegistry?.find?.(provider, modelId) ?? undefined;
+    return modelRuntime?.getModel?.(provider, modelId) ?? undefined;
   } catch {
     return undefined;
   }
 }
 
-async function resolveAuth(
-  modelRegistry: ModelRegistry,
-  model: any,
-): Promise<{ ok: boolean; apiKey?: string; headers?: Record<string, string> }> {
-  try {
-    const auth = await modelRegistry?.getApiKeyAndHeaders?.(model);
-    if (!auth?.ok) return { ok: false };
-    return { ok: true, apiKey: auth.apiKey, headers: auth.headers };
-  } catch {
-    return { ok: false };
+/** Flatten an assistant message's content to plain text (text blocks only). */
+function extractText(message: any): string {
+  if (!message?.content) return "";
+  if (typeof message.content === "string") return message.content;
+  if (Array.isArray(message.content)) {
+    return message.content
+      .filter((c: any) => c?.type === "text")
+      .map((c: any) => c?.text ?? "")
+      .join("");
   }
-}
-
-/**
- * Import the pi-ai compat module + extract the functions we need. Delegates the
- * nested-dep resolution to moa/engine's cached getCompat (see the long comment
- * there for why direct file-path import is required) so the workaround lives in
- * exactly one place.
- */
-async function importCompat(): Promise<{
-  completeSimple: (model: any, context: any, options: any) => Promise<any>;
-  extractText: (message: any) => string;
-}> {
-  const { getCompat } = await import("../moa/engine");
-  const mod = await getCompat();
-  const complete = mod.completeSimple ?? mod.complete;
-  if (!complete) throw new Error("completeSimple not found in pi-ai/compat");
-
-  // extractText — inline since it's trivial and not exported by compat.
-  const extractText = (message: any): string => {
-    if (!message?.content) return "";
-    if (typeof message.content === "string") return message.content;
-    if (Array.isArray(message.content)) {
-      return message.content
-        .filter((c: any) => c?.type === "text")
-        .map((c: any) => c?.text ?? "")
-        .join("");
-    }
-    return "";
-  };
-
-  return { completeSimple: complete, extractText };
+  return "";
 }
