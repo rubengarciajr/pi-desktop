@@ -290,7 +290,7 @@ export function SessionsView() {
   );
 }
 
-function StarIcon({ size = 14, filled }: { size?: number; filled?: boolean }) {
+function StarIcon({ size = 14, filled, className }: { size?: number; filled?: boolean; className?: string }) {
   return (
     <svg
       width={size}
@@ -302,6 +302,7 @@ function StarIcon({ size = 14, filled }: { size?: number; filled?: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       style={{ flexShrink: 0 }}
+      className={className}
     >
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
     </svg>
