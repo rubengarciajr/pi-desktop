@@ -11,7 +11,9 @@ interface UpdateState {
 type DownloadState =
   | { phase: "idle" }
   | { phase: "downloading"; loaded: number; total: number }
-  | { phase: "ready" }
+  | { phase: "ready"; path?: string }
+  | { phase: "installing" }
+  | { phase: "fallback"; path?: string }
   | { phase: "error"; message: string };
 
 function formatBytes(n: number): string {
@@ -46,14 +48,14 @@ export function UpdateBanner() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Listen for download progress events from the main process.
+  // Listen for download progress events from the main process. The authoritative
+  // "ready" transition comes from the awaited downloadUpdate() result (which
+  // carries the file path and fires only after quarantine stripping) — so this
+  // listener just advances the byte counter, never flips the phase.
   useEffect(() => {
     if (download.phase !== "downloading") return;
     const off = window.pi.events.onUpdateProgress(({ loaded, total }) => {
-      setDownload({ phase: "downloading", loaded, total });
-      if (total > 0 && loaded >= total) {
-        setDownload({ phase: "ready" });
-      }
+      setDownload((d) => (d.phase === "downloading" ? { phase: "downloading", loaded, total } : d));
     });
     return off;
   }, [download.phase]);
@@ -65,7 +67,7 @@ export function UpdateBanner() {
     try {
       const res = await window.pi.events.downloadUpdate({ url: state.downloadUrl });
       if (res?.success) {
-        setDownload({ phase: "ready" });
+        setDownload({ phase: "ready", path: res.path });
       } else {
         setDownload({ phase: "error", message: res?.error ?? "Download failed" });
       }
@@ -74,9 +76,35 @@ export function UpdateBanner() {
     }
   };
 
-  const pct = download.phase === "downloading" && download.total > 0
-    ? Math.round((download.loaded / download.total) * 100)
-    : 0;
+  const handleInstall = async () => {
+    if (download.phase !== "ready") return;
+    const path = download.path;
+    setDownload({ phase: "installing" });
+    try {
+      const res = await window.pi.events.installUpdate({ path });
+      // Explicit failure = pre-flight couldn't run (needs admin, dev mode, …).
+      // Offer the manual Finder path. On success the app quits & relaunches.
+      if (res && res.success === false) {
+        if (path) window.pi.events.revealUpdate({ path }).catch(() => {});
+        setDownload({ phase: "fallback", path });
+      }
+    } catch {
+      // A rejected await means the IPC channel tore down because the app is
+      // already quitting to install — that's the success path. Do NOT reveal
+      // (it would mount the DMG in Finder and fight the installer for the
+      // volume). Stay in "installing"; the app is about to relaunch.
+    }
+  };
+
+  const handleReveal = () => {
+    const path = download.phase === "ready" || download.phase === "fallback" ? download.path : undefined;
+    if (path) window.pi.events.revealUpdate({ path }).catch(() => {});
+  };
+
+  const pct =
+    download.phase === "downloading" && download.total > 0
+      ? Math.round((download.loaded / download.total) * 100)
+      : 0;
 
   return (
     <div className="no-drag fixed bottom-10 left-1/2 z-50 -translate-x-1/2 animate-fade-in">
@@ -86,16 +114,16 @@ export function UpdateBanner() {
           <span className="text-sm text-text">
             Downloading… {pct > 0 ? `${pct}%` : formatBytes(download.loaded)}
           </span>
+        ) : download.phase === "installing" ? (
+          <span className="text-sm text-text">Installing… Pi Desktop will restart</span>
         ) : download.phase === "ready" ? (
-          <span className="text-sm text-text">
-            Installer opened — drag Pi Desktop to Applications
-          </span>
+          <span className="text-sm text-text">Update ready to install</span>
+        ) : download.phase === "fallback" ? (
+          <span className="text-sm text-text">Installer opened — drag Pi Desktop to Applications</span>
         ) : download.phase === "error" ? (
           <span className="text-sm text-danger">Update failed — try again</span>
         ) : (
-          <span className="text-sm text-text">
-            Pi Desktop v{state.version} is available
-          </span>
+          <span className="text-sm text-text">Pi Desktop v{state.version} is available</span>
         )}
 
         {download.phase === "idle" && (
@@ -108,18 +136,31 @@ export function UpdateBanner() {
         )}
         {download.phase === "downloading" && (
           <div className="h-1.5 w-24 overflow-hidden rounded-full bg-bg-hover">
-            <div
-              className="h-full bg-accent transition-all"
-              style={{ width: `${pct}%` }}
-            />
+            <div className="h-full bg-accent transition-all" style={{ width: `${pct}%` }} />
           </div>
         )}
         {download.phase === "ready" && (
+          <>
+            <button
+              onClick={handleInstall}
+              className="rounded-lg bg-accent px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover"
+            >
+              Install & Restart
+            </button>
+            <button
+              onClick={handleReveal}
+              className="text-xs text-text-faint transition-colors hover:text-text"
+            >
+              Open in Finder
+            </button>
+          </>
+        )}
+        {download.phase === "fallback" && (
           <button
-            onClick={handleDownload}
+            onClick={handleReveal}
             className="rounded-lg bg-accent px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover"
           >
-            Reopen installer
+            Open in Finder
           </button>
         )}
         {download.phase === "error" && (
@@ -132,10 +173,7 @@ export function UpdateBanner() {
         )}
 
         {download.phase === "idle" && (
-          <button
-            onClick={() => setDismissed(true)}
-            className="text-text-faint hover:text-text"
-          >
+          <button onClick={() => setDismissed(true)} className="text-text-faint hover:text-text">
             <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
