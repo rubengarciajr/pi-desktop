@@ -570,6 +570,23 @@ export class PiSessionManager {
       this.emitState();
     } else if (event.type === "message_end") {
       this.emitState();
+    } else if (event.type === "auto_retry_start") {
+      // A model request hit a retryable error. Surface it — otherwise a failing
+      // turn looks like a silent freeze while the SDK retries in the background.
+      this.events.emit(
+        this.DIAG_EVENT,
+        `Model request failed (attempt ${event.attempt}/${event.maxAttempts}), retrying: ${event.errorMessage}`,
+      );
+    } else if (event.type === "auto_retry_end") {
+      // Retries exhausted → the turn failed. This is the "it just stopped
+      // working" case (e.g. a provider rejecting an unsupported request);
+      // make the provider's error visible instead of ending silently.
+      if (!event.success) {
+        this.events.emit(
+          this.DIAG_EVENT,
+          `Model request failed after ${event.attempt} attempt${event.attempt === 1 ? "" : "s"}: ${event.finalError ?? "unknown error"}`,
+        );
+      }
     }
   }
 
