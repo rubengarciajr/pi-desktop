@@ -5,6 +5,46 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.6.0] — 2026-07-17
+
+### Added
+- **Auto-install updates on restart** — the update banner now downloads, installs the new version in place, and relaunches (Download → Install & Restart), instead of asking you to drag the app to Applications. A detached helper waits for the app to quit, swaps the bundle (staged, with restore-on-failure), clears quarantine, and relaunches. Falls back to opening the DMG in Finder when auto-install can't run (dev mode, non-writable install dir). No Apple Developer ID required — the app stays ad-hoc signed. (#12)
+
+### Changed
+- **Pi SDK 0.80.6 → 0.80.10** — brings Kimi K3, xAI Grok 4.5, and the latest provider catalogs. Migrated the auth/model core from `AuthStorage` + `ModelRegistry` to the new async `ModelRuntime` (one shared instance per agentDir passed into every session's services). `login`/`setApiKey`/`logout`/`getAuthStatus`/model listing all ported; existing users' auth.json is preserved. (#11)
+- **Removed the nested-pi-ai compat loader** — MOA and Tag Team now call `modelRuntime.completeSimple()` directly (auth resolved internally), eliminating the fragile module resolution behind the v0.5.6 asar "Could not locate pi-ai/compat" bug.
+
+---
+
+## [0.5.9] — 2026-07-13
+
+### Added
+- **Right-click session management** — right-click any session to add/remove it from Favorites or delete it from disk (context menu at the cursor). Sessions in a favorited folder now show a star indicator.
+
+---
+
+## [0.5.8] — 2026-07-13
+
+### Added
+- **Pi Routing visibility** — a collapsible per-agent report card after each run (each member's full response, confidence score, and the synthesized briefing); real-time per-agent progress ("2/3 models responded"); a branded status-bar indicator with live progress and confidence; and a pulsing routing icon in the tab bar.
+
+---
+
+## [0.5.7] — 2026-07-13
+
+### Changed
+- **Mixture of Agents (Pi Routing) promoted to a top-level sidebar item**, below Tag Team — no longer buried in Settings.
+
+---
+
+## [0.5.6] — 2026-07-13
+
+### Fixed
+- **Pi Routing in the packaged app** — fixed "Could not locate pi-ai/compat" (electron-builder flattens dependencies inside the asar bundle; the engine now checks both the flattened and nested layouts and uses `createRequire` to load from inside the asar). MOA and Tag Team work in the installed DMG.
+- **Streaming freeze** — the UI no longer stays stuck on "Thinking..." with the input disabled after a model finishes; `isStreaming` now resets on three independent signals (message-end with a terminal stop reason, backend state pushes, and a 30-second watchdog).
+
+---
+
 ## [0.5.5] — 2026-07-11
 
 ### Changed

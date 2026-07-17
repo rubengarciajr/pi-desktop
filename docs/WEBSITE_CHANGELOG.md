@@ -1,8 +1,21 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.5.9** · Last updated: **July 13, 2026**
+> Current version: **v0.6.0** · Last updated: **July 17, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.6.0 — July 17, 2026
+
+### One-click updates
+- **Update and restart in one click.** The update banner now downloads the new version, installs it in place, and relaunches for you — no more dragging the app to Applications. If auto-install can't run (e.g. the app is in a folder that needs admin rights), it falls back to opening the installer in Finder.
+
+### Models
+- **Newer models** — **Kimi K3** and **xAI Grok 4.5** are now available, along with the latest provider catalogs, via the Pi SDK **0.80.10** upgrade. They appear in the model switcher (⌘M) automatically.
+
+### Under the hood
+- **Modernized the model & auth layer.** Migrated to the Pi SDK's new unified model runtime (model configuration + provider authentication in one place). This also removed a fragile module loader that caused the v0.5.6 "Could not locate pi-ai/compat" packaging bug — so Pi Routing and Tag Team are more robust in the installed app. Your existing sign-ins carry over.
 
 ---
 

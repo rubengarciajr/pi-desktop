@@ -6,6 +6,30 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.6.0",
+    date: "2026-07-17",
+    sections: [
+      {
+        title: "One-click updates",
+        items: [
+          "Update and restart in one click — the update banner now installs the new version in place and relaunches for you, instead of asking you to drag it to Applications. If auto-install can't run, it falls back to opening the installer in Finder",
+        ],
+      },
+      {
+        title: "Models",
+        items: [
+          "Newer models — Kimi K3 and xAI Grok 4.5 are now available, plus the latest provider catalogs, via the Pi SDK 0.80.10 upgrade. They show up in the model switcher (⌘M) automatically",
+        ],
+      },
+      {
+        title: "Under the hood",
+        items: [
+          "Modernized the model & auth layer (migrated to the SDK's new unified model runtime) and removed the fragile module loader behind the v0.5.6 packaging bug — Pi Routing and Tag Team are more robust in the installed app. Your existing sign-ins carry over",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.5.9",
     date: "2026-07-13",
     sections: [
