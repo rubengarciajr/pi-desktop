@@ -135,16 +135,10 @@
 - **Relays all the way through.** A team isn't capped at two models — each stage hands off to the next until the finalizer, so a **build → review → finalize** team runs end-to-end on its own.
 
 ### Pi Routing (Mixture of Agents)
-- The toolbar toggle now shows the **team name** instead of the word "Routing," so you always see what's active at a glance.
-
----
-
-## v0.4.8 — July 9, 2026
-
-### Pi Routing — Mixture of Agents
 - **MOA now works** — fixed a packaging bug (ERR_PACKAGE_PATH_NOT_EXPORTED) that prevented the Mixture of Agents engine from loading the model-calling layer. Team fan-out, aggregation, and the advanced score-and-re-query loop all run now.
 - **Test before you save** — the Test button in the team editor runs against your in-progress draft, so you can iterate on a team without saving it first. Previously it threw "Team not found."
 - **Clearer model selection** — each team member row shows a colored provider badge and an accent border the moment you pick a model, so you can see the team's makeup at a glance. Dropdown chevrons are now cleanly spaced with a custom arrow.
+- The toolbar toggle now shows the **team name** instead of the word "Routing," so you always see what's active at a glance.
 
 ---
 
