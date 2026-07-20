@@ -1,8 +1,17 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.6.1** · Last updated: **July 17, 2026**
+> Current version: **v0.6.2** · Last updated: **July 20, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.6.2 — July 20, 2026
+
+### Fixes
+- **Quick presets work again.** Adding a model from a preset could fail with a 401 — the preset saved a provider without a usable API key, so requests went out unauthenticated even though the save looked successful. Presets now use a stable provider name, and a missing key is caught when you save rather than at the first request.
+- **Subscription sign-ins update immediately.** After approving the device code for xAI or ChatGPT, Settings kept showing "Not connected" until you restarted the app — which made a successful login look like a failed one. The badge now flips to Connected the moment you approve.
+- **The sign-in dialog shows the provider's real name** — "Connect xAI (Grok)" instead of "Connect xai".
 
 ---
 

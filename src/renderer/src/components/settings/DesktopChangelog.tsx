@@ -6,6 +6,20 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.6.2",
+    date: "2026-07-20",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "Adding a model from Quick presets no longer fails with a 401 — a preset could save a provider without a usable API key, and the request then went out unauthenticated. Presets now use a stable provider name, and a missing key is caught when you save instead of at the first request",
+          "Signing in with a subscription now updates right away — after approving the code for xAI or ChatGPT, Settings kept showing \"Not connected\" until you restarted the app. The badge now flips to Connected as soon as you approve",
+          "The sign-in dialog shows the provider's real name (\"Connect xAI (Grok)\" rather than \"Connect xai\")",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.6.1",
     date: "2026-07-17",
     sections: [

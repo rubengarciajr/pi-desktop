@@ -6,7 +6,7 @@ Pi Desktop is a native macOS desktop application that wraps the [Pi coding agent
 
 Built with **Electron 41**, **React 18**, **TypeScript**, and **Tailwind CSS**.
 
-**Current version:** 0.5.4
+**Current version:** 0.6.2
 **License:** MIT
 **Platform:** macOS (Apple Silicon + Intel)
 **Download:** [github.com/rubengarciajr/pi-desktop/releases](https://github.com/rubengarciajr/pi-desktop/releases)
