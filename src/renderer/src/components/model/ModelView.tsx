@@ -37,6 +37,13 @@ interface EditTarget {
 interface Preset {
   id: string;
   label: string;
+  /**
+   * Provider id written to models.json. Kept separate from `label` on purpose:
+   * the label is prose ("Grok (xAI)") and slugifying it produced ids like
+   * `grok-(xai)`, which don't match what a user types by hand and so created a
+   * second, parallel provider entry. This is the stable identity.
+   */
+  providerId: string;
   description: string;
   baseUrl: string;
   api: string;
@@ -50,9 +57,15 @@ interface Preset {
   signupUrl: string;
 }
 
+/** Mirrors isLocalUrl() in src/main/models.ts — local servers ignore the key. */
+function isLocalBaseUrl(url: string): boolean {
+  return /\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[?::1\]?)(:|\/|$)/i.test(url ?? "");
+}
+
 const PRESETS: Preset[] = [
   {
     id: "local",
+    providerId: "local",
     label: "Local",
     description: "Ollama / LM Studio / llama.cpp",
     // Generic localhost template — 11434 is Ollama's port; change it for
@@ -68,6 +81,7 @@ const PRESETS: Preset[] = [
   },
   {
     id: "claude",
+    providerId: "claude",
     label: "Claude",
     description: "Anthropic",
     baseUrl: "https://api.anthropic.com/v1",
@@ -80,6 +94,7 @@ const PRESETS: Preset[] = [
   },
   {
     id: "codex",
+    providerId: "openai",
     label: "Codex / OpenAI",
     description: "OpenAI",
     baseUrl: "https://api.openai.com/v1",
@@ -92,6 +107,7 @@ const PRESETS: Preset[] = [
   },
   {
     id: "zai",
+    providerId: "z.ai",
     label: "Z.ai (GLM)",
     description: "Zhipu AI",
     baseUrl: "https://api.z.ai/api/paas/v4",
@@ -104,6 +120,7 @@ const PRESETS: Preset[] = [
   },
   {
     id: "minimax",
+    providerId: "minimax",
     label: "MiniMax",
     description: "MiniMax M3",
     baseUrl: "https://api.minimax.chat/v1",
@@ -117,6 +134,7 @@ const PRESETS: Preset[] = [
   },
   {
     id: "mimo",
+    providerId: "xiaomi-mimo",
     label: "Xiaomi MiMo",
     description: "MiMo V2.5 Pro",
     baseUrl: "https://api.xiaomimimo.com/v1",
@@ -129,6 +147,7 @@ const PRESETS: Preset[] = [
   },
   {
     id: "grok",
+    providerId: "grok",
     label: "Grok (xAI)",
     description: "Grok 4",
     baseUrl: "https://api.x.ai/v1",
@@ -423,7 +442,7 @@ function AddModelForm({ onDone, initial }: { onDone: () => void; initial?: EditT
   };
 
   const applyPreset = (preset: Preset) => {
-    setProvider(preset.label);
+    setProvider(preset.providerId);
     setBaseUrl(preset.baseUrl);
     setApi(preset.api);
     setModelId(preset.modelId);
@@ -437,6 +456,15 @@ function AddModelForm({ onDone, initial }: { onDone: () => void; initial?: EditT
   const handleSubmit = async () => {
     if (!provider.trim() || !baseUrl.trim() || !modelId.trim()) {
       setError("Provider, Base URL, and Model ID are required.");
+      return;
+    }
+    // A blank key used to be stored as the literal "$API_KEY", which the SDK
+    // then resolved as an *environment variable* of that name. It is never set,
+    // so requests went out unauthenticated and came back 401 — with nothing in
+    // the UI to explain why. Remote providers must have a key up front. On edit
+    // a blank field still means "keep the existing key", so only block on add.
+    if (!isEdit && !apiKey.trim() && !isLocalBaseUrl(baseUrl)) {
+      setError("An API key is required for remote providers.");
       return;
     }
     setSaving(true);

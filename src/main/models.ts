@@ -64,6 +64,24 @@ export function listCustomModels(): { providers: Record<string, { baseUrl?: stri
   return { providers: data.providers };
 }
 
+/**
+ * Slugify a user- or preset-supplied provider name into a models.json key.
+ * Previously this was just lowercase + space→dash, so a prose label such as
+ * "Grok (xAI)" became the key `grok-(xai)`: punctuation survived, and the same
+ * provider added via preset vs. typed by hand produced two separate entries.
+ * Keep only characters that read cleanly as an id, and collapse the runs the
+ * stripping leaves behind.
+ */
+export function slugifyProvider(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9._-]/g, "")
+    .replace(/-{2,}/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "");
+}
+
 /** True for localhost / loopback base URLs (local model servers). */
 function isLocalUrl(url: string): boolean {
   return /\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[?::1\]?)(:|\/|$)/i.test(url ?? "");
@@ -135,8 +153,17 @@ export function addCustomModel(config: {
 }): { success: boolean; error?: string } {
   const data = readModelsJson();
 
-  const providerKey = config.provider.toLowerCase().replace(/\s+/g, "-");
+  const providerKey = slugifyProvider(config.provider);
+  if (!providerKey) {
+    return { success: false, error: "Provider name must contain a letter or number." };
+  }
   const apiKey = normalizeApiKey(config.apiKey, config.baseUrl);
+  // Refuse to persist the unresolved placeholder for a remote provider. The SDK
+  // reads "$API_KEY" as an env var that is never set, so the provider would be
+  // saved successfully and then 401 on every request with no visible cause.
+  if (apiKey === "$API_KEY") {
+    return { success: false, error: "An API key is required for remote providers." };
+  }
 
   // Create or update the provider.
   if (!data.providers[providerKey]) {
@@ -210,7 +237,7 @@ export function editCustomModel(config: {
   }
 
   // Upsert the edited model under its (possibly new) provider key.
-  const providerKey = config.provider.toLowerCase().replace(/\s+/g, "-");
+  const providerKey = slugifyProvider(config.provider);
   if (!data.providers[providerKey]) {
     data.providers[providerKey] = { baseUrl: config.baseUrl, api: config.api, apiKey, models: [] };
   } else {

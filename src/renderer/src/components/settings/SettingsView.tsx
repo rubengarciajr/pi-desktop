@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { GitHubIcon } from "../GitHubBadge";
 import { PiChangelog } from "./PiChangelog";
@@ -76,16 +76,27 @@ function SettingsPanel() {
   const [ghToken, setGhToken] = useState("");
   const [ghVerifying, setGhVerifying] = useState(false);
 
+  // Re-fetch auth status (called after login/logout/apiKey-save so the UI updates).
+  const refreshAuth = useCallback(() => {
+    window.pi.api.getAuthStatus().then(setAuthStatus).catch(() => {});
+  }, []);
+
   useEffect(() => {
     refreshAuth();
     window.pi.api.getCwd().then(setCwd).catch(() => {});
     window.pi.github.getAuthStatus().then((s: GitHubAuth) => setGhAuth(s)).catch(() => {});
-  }, []);
+  }, [refreshAuth]);
 
-  // Re-fetch auth status (called after login/logout/apiKey-save so the UI updates).
-  const refreshAuth = () => {
-    window.pi.api.getAuthStatus().then(setAuthStatus).catch(() => {});
-  };
+  // Reflect OAuth results live. The device-code flow finishes in the main
+  // process, so without this the row kept showing "Not connected" until the
+  // view was remounted — users reasonably read that as a failed login and
+  // restarted the app. ModelView already did this; Settings did not.
+  useEffect(() => {
+    const off = window.pi.events.onAuthEvent((message: any) => {
+      if (message?.kind === "done" || message?.kind === "error") refreshAuth();
+    });
+    return () => { off?.(); };
+  }, [refreshAuth]);
 
   return (
     <div className="space-y-6">
