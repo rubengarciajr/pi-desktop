@@ -186,4 +186,5 @@ const PROVIDER_LABELS: Record<string, string> = {
   "github-copilot": "GitHub Copilot",
   openai: "OpenAI",
   google: "Google",
+  xai: "xAI (Grok)",
 };

@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Quick presets produced 401s when adding a model.** A preset filled the provider field with its display label, which was then slugified into the models.json key — so `Grok (xAI)` became the provider `grok-(xai)`, never matching the same provider typed by hand. Worse, a blank API key was stored as the literal `$API_KEY`, which the SDK resolves as an *environment variable* of that name; it is never set, so requests went out unauthenticated and came back 401 while the save reported success. Presets now carry an explicit stable `providerId`, provider names are slugified properly, and a remote provider without a key is rejected in the form and again in the main process. Note that "Test connection" never caught this: it probes `GET {baseUrl}/models` with the key currently typed in the form, bypassing `ModelRuntime` and the stored config entirely.
+- **OAuth logins looked like they had failed until the app was restarted.** `SettingsPanel` read auth status once on mount and never re-read it, so after approving a device code (xAI, Codex) the provider row kept showing "Not connected". The store's `done` handler appeared to refresh but discarded the result and returned no state. Settings now subscribes to `onAuthEvent` and refreshes on `done`/`error`, so the badge updates the moment authorization completes.
+- **The device-code modal showed a raw provider id.** `PROVIDER_LABELS` had no `xai` entry, so the dialog read "Connect xai" instead of "Connect xAI (Grok)".
+
+---
+
 ## [0.6.1] — 2026-07-17
 
 ### Fixed

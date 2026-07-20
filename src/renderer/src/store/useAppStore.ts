@@ -730,8 +730,10 @@ export const useAppStore = create<AppState>((set, get) => ({
             } as AuthFlow,
           };
         case "done":
-          // Refresh auth status so the new credential shows as authenticated.
-          window.pi.api.getAuthStatus().catch(() => {});
+          // Just close the modal. Refreshing auth status is the subscribing
+          // view's job (SettingsView / ModelView both listen for "done") — the
+          // fire-and-forget getAuthStatus() that used to live here discarded its
+          // result and updated nothing.
           return { authFlow: null };
         case "error":
           return {
