@@ -191,7 +191,7 @@ Arrow-key navigation with autocomplete. Commands load with retry/backoff to hand
 | Styling  | Tailwind CSS 3 with CSS variables (RGB triplets for opacity support) |
 | State    | Zustand                                                              |
 | Bundler  | electron-vite (Vite)                                                 |
-| AI SDK   | @earendil-works/pi-coding-agent 0.80.10                              |
+| AI SDK   | @earendil-works/pi-coding-agent 0.81.1                               |
 | Build    | electron-builder (DMG output)                                        |
 | CI       | GitHub Actions (auto-build on tag push)                              |
 
