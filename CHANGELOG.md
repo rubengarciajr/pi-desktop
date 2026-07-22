@@ -5,6 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **Pi SDK 0.80.10 → 0.81.1.** A minor bump, so `^0.80.10` would not have picked it up. Brings new built-in **Qwen Token Plan** providers (international + China), **llama.cpp** router support with Hugging Face model search/download, and full provider registration for extensions. Compaction and branch summarization now follow the configured retry policy instead of failing on a transient provider error, and tool/compaction/branch-summary usage is counted in session totals. Also fixes GPT-5.6 Codex defaulting to a 272K context window (avoids automatic long-context pricing), Kimi K3 thinking levels, and OpenAI Responses early stream endings now retrying rather than ending the run.
+- Every SDK entry point Pi Desktop uses is unchanged (`createAgentSessionServices` / `createAgentSessionFromServices` / `createAgentSessionRuntime` and the `ModelRuntime` methods behind MOA and Tag Team). 0.81.0 altered the agent-core streaming API, but 0.81.1 restores the pre-0.81 fallback, which is why this lands on .1 rather than .0.
+
+---
+
 ## [0.6.2] — 2026-07-20
 
 ### Fixed
