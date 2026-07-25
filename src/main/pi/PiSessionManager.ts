@@ -1268,10 +1268,17 @@ export class PiSessionManager {
 
   async refreshModelRegistry(): Promise<void> {
     if (!this._deps?.modelRuntime) return;
-    // Reload models.json in place (no rebuild) so add/edit/remove of custom
-    // models show up immediately, then re-apply the custom provider keys so
-    // selection/edits apply to the running session.
-    await this._deps.modelRuntime.reloadConfig();
+    // Reload models.json so add/edit/remove of custom models show up
+    // immediately, then re-apply the custom provider keys so selection/edits
+    // apply to the running session.
+    //
+    // SDK 0.82 removed reloadConfig(); refresh() is its successor. We pass
+    // allowNetwork:false to keep this a local config reload (the old
+    // reloadConfig() never hit the network) — bare refresh() would default to
+    // the runtime's network setting and could fire catalog fetches on every
+    // custom-model edit. This mirrors the SDK's own internal "config changed"
+    // calls (e.g. registerNativeProvider).
+    await this._deps.modelRuntime.refresh({ allowNetwork: false });
     await this.registerCustomProviderKeys();
   }
 
