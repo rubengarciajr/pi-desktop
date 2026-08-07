@@ -1,8 +1,32 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.6.2** · Last updated: **July 20, 2026**
+> Current version: **v0.6.3** · Last updated: **August 7, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.6.3 — August 7, 2026
+
+### New models
+- **Claude Opus 5** is now available — through Anthropic, Amazon Bedrock, or GitHub Copilot. The Copilot route carries a **1M-token context window**, and all three support extended thinking (including the new `xhigh` level) and prompt caching.
+
+### New providers you can sign into
+- **OpenRouter** — sign in with your account instead of pasting an API key; hundreds of models through one connection.
+- **Kimi Code** — use a Kimi For Coding subscription directly.
+- **Baseten** and the **Qwen Token Plan** family (International, China, and Individual) are now built in.
+- **Local models via llama.cpp** — connect to a llama.cpp server, search and download models from Hugging Face, and load or unload them with live progress.
+
+### Fewer interruptions
+- **Sign-ins last longer.** Credentials now refresh about five minutes *before* they expire rather than at the moment they lapse, so you're far less likely to be bounced mid-conversation.
+- **Network hiccups recover on their own.** Dropped DNS lookups and transient provider errors now retry automatically instead of ending your turn, and long-conversation compaction retries the same way rather than failing outright.
+- **Faster model list refreshes** — Pi Desktop now asks providers only for what changed, so unchanged catalogs cost nothing to check.
+
+### For advanced setups
+- **Custom models accept advanced sampling settings** — pass arbitrary OpenAI-compatible parameters, plus opt-in vLLM thinking-token budgets.
+- **Per-folder instructions** — an `AGENTS.override.md` file replaces the inherited context for that directory.
+
+_Under the hood: the Pi engine moves from 0.80.10 to 0.84.1, plus a routine dependency refresh._
 
 ---
 

@@ -6,6 +6,43 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.6.3",
+    date: "2026-08-07",
+    sections: [
+      {
+        title: "New models",
+        items: [
+          "Claude Opus 5 — available through Anthropic, Amazon Bedrock, or GitHub Copilot. The Copilot route carries a 1M-token context window, and all three support extended thinking (including the new xhigh level) and prompt caching",
+        ],
+      },
+      {
+        title: "New providers",
+        items: [
+          "OpenRouter — sign in with your account instead of pasting an API key",
+          "Kimi Code — use a Kimi For Coding subscription directly",
+          "Baseten and the Qwen Token Plan family (International, China, and Individual) are now built in",
+          "Local models via llama.cpp — connect to a llama.cpp server, search and download models from Hugging Face, and load or unload them with live progress",
+        ],
+      },
+      {
+        title: "Fewer interruptions",
+        items: [
+          "Sign-ins last longer — credentials refresh about five minutes before they expire rather than at the moment they lapse, so you're far less likely to be bounced mid-conversation",
+          "Network hiccups recover on their own — dropped DNS lookups and transient provider errors now retry automatically instead of ending your turn, and long-conversation compaction retries the same way",
+          "Faster model list refreshes — Pi Desktop asks providers only for what changed, so unchanged catalogs cost nothing to check",
+        ],
+      },
+      {
+        title: "For advanced setups",
+        items: [
+          "Custom models accept advanced sampling settings — arbitrary OpenAI-compatible parameters, plus opt-in vLLM thinking-token budgets",
+          "Per-folder instructions — an AGENTS.override.md file replaces the inherited context for that directory",
+          "Under the hood: the Pi engine moves from 0.80.10 to 0.84.1, plus a routine dependency refresh",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.6.2",
     date: "2026-07-20",
     sections: [

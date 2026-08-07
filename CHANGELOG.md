@@ -5,7 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
-## [Unreleased]
+## [0.6.3] — 2026-08-07
+
+### Added
+- **Claude Opus 5** — available on Anthropic, Amazon Bedrock, and GitHub Copilot (the Copilot route carries a 1M context window), with adaptive thinking including `xhigh` and prompt caching.
+- **New sign-in providers** — OpenRouter (OAuth PKCE), Kimi Code subscription, Baseten, and the Qwen Token Plan family (international, China, and Individual). These appear in Settings alongside the existing providers.
+- **Local models via llama.cpp** — connect to a llama.cpp router, search and download Hugging Face models, and load/unload them with live progress.
+- **Advanced custom model sampling** — custom models accept arbitrary OpenAI-compatible `samplingParams`, plus opt-in vLLM `thinking_token_budget`.
+- **Per-directory context overrides** — `AGENTS.override.md` replaces context files for a specific directory.
 
 ### Changed
 - **Pi SDK 0.80.10 → 0.84.1.** Four minor bumps (0.81.x–0.84.x), none of which a `^` range picks up. Highlights: **Claude Opus 5** (Anthropic, Amazon Bedrock, and GitHub Copilot with a 1M context window); new built-in **Qwen Token Plan**, **OpenRouter**, **Kimi Code**, and **Baseten** sign-in providers; **llama.cpp** router support with Hugging Face model search/download; per-directory `AGENTS.override.md` context overrides; and configurable OpenAI-compatible `samplingParams` for custom models. Reliability: compaction and branch summarization now follow the configured retry policy, model catalogs revalidate with ETag/`If-None-Match`, DNS failures (`ENOTFOUND`/`EAI_AGAIN`) trigger automatic retries, OAuth credentials refresh five minutes before expiry rather than at it, and GPT-5.6 Codex defaults to a 272K context window (avoiding automatic long-context pricing).
