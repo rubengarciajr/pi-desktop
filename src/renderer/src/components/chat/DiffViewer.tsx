@@ -30,6 +30,7 @@ export const DiffViewer = memo(function DiffViewer({ toolCallId }: { toolCallId:
           <ClampBox
             label={`Show full diff (${lines.length} lines)`}
             maxHeight={320}
+            fade={false}
             buttonClassName="block w-full border-t border-border bg-bg-subtle/60 px-3 py-1 text-left text-[10px] text-accent hover:bg-bg-subtle"
           >
             <DiffLines lines={lines} />
