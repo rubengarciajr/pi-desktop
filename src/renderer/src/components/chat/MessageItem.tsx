@@ -3,6 +3,7 @@ import type { ChatMessage } from "../../store/useAppStore";
 import { ToolCallBlock } from "./ToolCallBlock";
 import { DiffViewer } from "./DiffViewer";
 import { Markdown } from "./Markdown";
+import { ClampBox } from "./ClampBox";
 
 // Memoized: the store hands out a new message object only when that specific
 // message changes, so unchanged history is skipped on every streaming delta.
@@ -19,10 +20,24 @@ function UserMessage({ message }: { message: ChatMessage }) {
     .filter((b) => b.type === "text")
     .map((b) => b.text)
     .join("");
+  const lineCount = text.split("\n").length;
+  // Big pastes (logs, files, long prompts) collapse so scrollback stays usable.
+  const isLong = lineCount > 12 || text.length > 1200;
+  const body = <p className="whitespace-pre-wrap break-words">{text}</p>;
   return (
     <div className="group flex justify-end py-2 animate-slide-up">
       <div className="max-w-[80%] rounded-2xl rounded-br-md bg-user/15 px-4 py-2.5 text-[13px] text-text selectable">
-        <p className="whitespace-pre-wrap break-words">{text}</p>
+        {isLong ? (
+          <ClampBox
+            label={lineCount > 1 ? `Show all ${lineCount} lines` : "Show full message"}
+            maxHeight={220}
+            fade={false}
+          >
+            {body}
+          </ClampBox>
+        ) : (
+          body
+        )}
       </div>
     </div>
   );

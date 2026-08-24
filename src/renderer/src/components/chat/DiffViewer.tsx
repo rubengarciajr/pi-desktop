@@ -1,5 +1,6 @@
 import { memo, useMemo } from "react";
 import { useAppStore } from "../../store/useAppStore";
+import { ClampBox } from "./ClampBox";
 
 /**
  * Renders a unified diff (from edit tool's details.patch) with syntax coloring.
@@ -24,18 +25,37 @@ export const DiffViewer = memo(function DiffViewer({ toolCallId }: { toolCallId:
         <span className="font-medium text-text">Diff</span>
         <span className="truncate text-text-faint font-mono">{filePath}</span>
       </summary>
-      <div className="border-t border-border overflow-x-auto">
-        <pre className="px-3 py-2 text-[11px] font-mono leading-relaxed">
-          {lines.map((line, i) => (
-            <div key={i} className={diffLineClass(line)}>
-              {line || " "}
-            </div>
-          ))}
-        </pre>
+      <div className="border-t border-border">
+        {lines.length > 24 ? (
+          <ClampBox
+            label={`Show full diff (${lines.length} lines)`}
+            maxHeight={320}
+            fade={false}
+            buttonClassName="block w-full border-t border-border bg-bg-subtle/60 px-3 py-1 text-left text-[10px] text-accent hover:bg-bg-subtle"
+          >
+            <DiffLines lines={lines} />
+          </ClampBox>
+        ) : (
+          <DiffLines lines={lines} />
+        )}
       </div>
     </details>
   );
 });
+
+function DiffLines({ lines }: { lines: string[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <pre className="px-3 py-2 text-[11px] font-mono leading-relaxed">
+        {lines.map((line, i) => (
+          <div key={i} className={diffLineClass(line)}>
+            {line || " "}
+          </div>
+        ))}
+      </pre>
+    </div>
+  );
+}
 
 function diffLineClass(line: string): string {
   if (line.startsWith("+++") || line.startsWith("---")) return "text-text-faint";
