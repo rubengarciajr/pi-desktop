@@ -93,7 +93,9 @@ export function GitRepoHeader({ cwd, tabId }: { cwd?: string; tabId?: string }) 
   useEffect(() => {
     if (!cwd) return;
     let cancelled = false;
-    window.pi.api.getGitInfo({ tabId }).then((data) => {
+    // Pass cwd explicitly: this header renders for arbitrary folders in the
+    // sessions list, which need not match the active tab's working directory.
+    window.pi.api.getGitInfo({ tabId, cwd }).then((data) => {
       if (!cancelled) setInfo(data);
     }).catch(() => {});
     return () => { cancelled = true; };
@@ -129,6 +131,16 @@ export function GitRepoHeader({ cwd, tabId }: { cwd?: string; tabId?: string }) 
         <BranchIcon size={10} />
         <span className="font-mono">{info.branch || "detached"}</span>
       </div>
+
+      {/* Linked worktree indicator */}
+      {info.isWorktree && (
+        <span
+          className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-medium text-accent"
+          title="This folder is an isolated git worktree"
+        >
+          worktree
+        </span>
+      )}
 
       {/* Dirty */}
       {dirtyCount > 0 && (

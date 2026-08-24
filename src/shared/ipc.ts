@@ -10,6 +10,8 @@ export interface AppSettings {
 
 export interface GitRepoInfo {
   isRepo: boolean;
+  /** True when the directory is a *linked* git worktree (not the primary checkout). */
+  isWorktree?: boolean;
   remoteUrl?: string;
   repoOwner?: string;
   repoName?: string;
@@ -25,6 +27,14 @@ export interface GitRepoInfo {
   lastCommitDate?: string;
   lastCommitAuthor?: string;
   totalCommits?: number;
+}
+
+/** A linked git worktree belonging to a repository. */
+export interface WorktreeInfo {
+  path: string;
+  branch: string;
+  repoPath: string;
+  repoName: string;
 }
 
 export interface PiSessionSummary {
@@ -383,7 +393,24 @@ export interface PiApi {
   openExternalEditor: (args: {
     text: string;
   }) => Promise<{ ok: boolean; text?: string; error?: string }>;
-  getGitInfo: (args?: { tabId?: string }) => Promise<GitRepoInfo>;
+  /** Git info for an explicit `cwd`, or the tab's working directory when omitted. */
+  getGitInfo: (args?: { tabId?: string; cwd?: string }) => Promise<GitRepoInfo>;
+  /** Create a new git worktree on a NEW branch and open a session inside it. */
+  createWorktreeSession: (args: {
+    tabId: string;
+    /** Any path inside the target repo; resolved to the repo root. */
+    repoPath: string;
+    branch: string;
+    baseRef?: string;
+  }) => Promise<{ success: boolean; worktreePath?: string; branch?: string; error?: string }>;
+  /** List linked worktrees for the repo containing `cwd`. */
+  listWorktrees: (args: { cwd: string }) => Promise<WorktreeInfo[]>;
+  /** Remove a linked worktree via `git worktree remove`. On a dirty worktree
+   *  (uncommitted changes) returns error "DIRTY_WORKTREE" unless `force`. */
+  removeWorktree: (args: {
+    worktreePath: string;
+    force?: boolean;
+  }) => Promise<{ success: boolean; error?: string }>;
   /** Resolved Pi SDK version (from the SDK's own VERSION export). */
   getSdkVersion: () => Promise<string>;
 

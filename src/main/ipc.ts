@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow, dialog } from "electron";
 import { SessionPool } from "./pi/SessionPool";
-import { getGitInfoCached } from "./git";
+import { getGitInfoCached, getRepoRoot, addWorktree, listWorktrees, removeWorktree } from "./git";
 import { checkPiInstalled } from "./installer";
 import { invalidateSharedDeps } from "./pi/SharedDepsCache";
 import { getCachedMessages, setCachedMessages } from "./pi/MessageCache";
@@ -480,9 +480,32 @@ export function registerIpc(pool: SessionPool, getMainWindow: () => BrowserWindo
 
   // --- Git repository info ---
   handle("pi:git.info", async (a) => {
+    // An explicit cwd (e.g. a folder group in the sessions list) wins over the
+    // active tab's working directory — the two can differ.
+    if (a.cwd) return getGitInfoCached(a.cwd);
     const m = await mgr(a);
     const cwd = m.getCwd();
     return getGitInfoCached(cwd);
+  });
+
+  // --- Git worktree sessions ---
+  handle("pi:worktree.create", async (a: { tabId: string; repoPath: string; branch: string; baseRef?: string }) => {
+    const repoRoot = await getRepoRoot(a.repoPath);
+    if (!repoRoot) return { success: false, error: "The selected folder is not a git repository." };
+    const res = await addWorktree(repoRoot, a.branch, { baseRef: a.baseRef });
+    if (!res.ok) return { success: false, error: res.error };
+    // Open a normal agent session with the worktree as its cwd — the isolation
+    // is entirely the worktree's; the session machinery is unchanged.
+    await pool.createForTab(a.tabId, res.info.path, {});
+    pool.setActiveTab(a.tabId);
+    return { success: true, worktreePath: res.info.path, branch: res.info.branch };
+  });
+  handle("pi:worktree.list", async (a: { cwd: string }) => {
+    return listWorktrees(a.cwd);
+  });
+  handle("pi:worktree.remove", async (a: { worktreePath: string; force?: boolean }) => {
+    const r = await removeWorktree(a.worktreePath, a.force);
+    return { success: r.ok, error: r.error };
   });
 
   // --- Pi CLI install ---
