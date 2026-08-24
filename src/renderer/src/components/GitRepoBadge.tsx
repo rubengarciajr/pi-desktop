@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { GitRepoInfo } from "../../../shared/ipc";
 import { useAppStore } from "../store/useAppStore";
+import { BranchIcon } from "./Icons";
 
 /**
  * A tiny glowing dot shown in a tab after the folder icon when the repo has
@@ -165,17 +166,6 @@ export function GitRepoHeader({ cwd, tabId }: { cwd?: string; tabId?: string }) 
         </span>
       )}
     </div>
-  );
-}
-
-function BranchIcon({ size = 12 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-      <line x1="6" y1="3" x2="6" y2="15" />
-      <circle cx="18" cy="6" r="3" />
-      <circle cx="6" cy="18" r="3" />
-      <path d="M18 9a9 9 0 0 1-9 9" />
-    </svg>
   );
 }
 

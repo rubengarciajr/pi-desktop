@@ -305,8 +305,7 @@ export async function removeWorktree(
   if (!mainRoot) {
     return { ok: false, error: "Could not resolve the worktree's main repository." };
   }
-  const args = ["worktree", "remove", worktreePath];
-  if (force) args.push("--force");
+  const args = ["worktree", "remove", ...(force ? ["--force"] : []), worktreePath];
   const res = await runVerbose(args, mainRoot, 30000);
   if (!res.ok) {
     const dirty = /contains modified or untracked files|is dirty/i.test(res.stderr);

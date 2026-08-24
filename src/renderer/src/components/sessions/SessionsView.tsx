@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
-import { PlusIcon, FolderIcon } from "../Icons";
+import { PlusIcon, FolderIcon, BranchIcon } from "../Icons";
 import { GitRepoHeader } from "../GitRepoBadge";
 import { FilePathMenu, type FilePathAction } from "../chat/FilePathMenu";
 
@@ -28,6 +28,8 @@ export function SessionsView() {
   const [worktreeError, setWorktreeError] = useState<string | null>(null);
   const [worktreeBusy, setWorktreeBusy] = useState(false);
   const addTab = useAppStore((s) => s.addTab);
+  const tabs = useAppStore((s) => s.tabs);
+  const removeTabFromStore = useAppStore((s) => s.removeTab);
   const focusExistingTab = useAppStore((s) => s.focusExistingTab);
   const favorites = useAppStore((s) => s.favorites);
   const addFavorite = useAppStore((s) => s.addFavorite);
@@ -89,7 +91,7 @@ export function SessionsView() {
         setWorktreeError(res.error || "Failed to create worktree.");
         return;
       }
-      addTab({ id: tabId, title: `⑂ ${res.branch}`, cwd: res.worktreePath! });
+      addTab({ id: tabId, title: `⑂ ${res.branch}`, cwd: res.worktreePath });
       setWorktreeModal(null);
       await refresh();
     } catch (err: any) {
@@ -113,6 +115,16 @@ export function SessionsView() {
         console.error("[sessions] Failed to remove worktree:", res.error);
         window.alert(`Could not remove worktree:\n${res.error}`);
         return;
+      }
+      // The checkout is gone — close any tab still pointing at it, or every
+      // action in that tab would fail against a deleted directory.
+      for (const t of tabs.filter((t) => t.cwd === worktreePath)) {
+        try {
+          await window.pi.api.removeTab({ tabId: t.id });
+        } catch {
+          // Main-side manager may already be gone; still drop the UI tab.
+        }
+        removeTabFromStore(t.id);
       }
       await refresh();
     } catch (err) {
@@ -427,17 +439,6 @@ export function SessionsView() {
         </div>
       )}
     </div>
-  );
-}
-
-function BranchIcon({ size = 12 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-      <line x1="6" y1="3" x2="6" y2="15" />
-      <circle cx="18" cy="6" r="3" />
-      <circle cx="6" cy="18" r="3" />
-      <path d="M18 9a9 9 0 0 1-9 9" />
-    </svg>
   );
 }
 

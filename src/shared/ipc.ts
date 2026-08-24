@@ -402,7 +402,10 @@ export interface PiApi {
     repoPath: string;
     branch: string;
     baseRef?: string;
-  }) => Promise<{ success: boolean; worktreePath?: string; branch?: string; error?: string }>;
+  }) => Promise<
+    | { success: true; worktreePath: string; branch: string }
+    | { success: false; error: string }
+  >;
   /** List linked worktrees for the repo containing `cwd`. */
   listWorktrees: (args: { cwd: string }) => Promise<WorktreeInfo[]>;
   /** Remove a linked worktree via `git worktree remove`. On a dirty worktree
