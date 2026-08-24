@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
-import { PlusIcon, FolderIcon } from "../Icons";
+import { PlusIcon, FolderIcon, BranchIcon } from "../Icons";
 import { GitRepoHeader } from "../GitRepoBadge";
 import { FilePathMenu, type FilePathAction } from "../chat/FilePathMenu";
 
@@ -14,11 +14,22 @@ interface SessionItem {
   firstMessage?: string;
 }
 
+/** Managed worktrees live under ~/.pi/worktrees/… — cheap renderer-side gate
+ *  for showing worktree actions (the main process re-verifies before acting). */
+const isManagedWorktreePath = (p?: string) => !!p && p.includes("/.pi/worktrees/");
+
 export function SessionsView() {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; session: SessionItem } | null>(null);
+  // "New Worktree" flow: repo picked, waiting for a branch name.
+  const [worktreeModal, setWorktreeModal] = useState<{ repoPath: string } | null>(null);
+  const [branchInput, setBranchInput] = useState("");
+  const [worktreeError, setWorktreeError] = useState<string | null>(null);
+  const [worktreeBusy, setWorktreeBusy] = useState(false);
   const addTab = useAppStore((s) => s.addTab);
+  const tabs = useAppStore((s) => s.tabs);
+  const removeTabFromStore = useAppStore((s) => s.removeTab);
   const focusExistingTab = useAppStore((s) => s.focusExistingTab);
   const favorites = useAppStore((s) => s.favorites);
   const addFavorite = useAppStore((s) => s.addFavorite);
@@ -55,6 +66,72 @@ export function SessionsView() {
     await refresh();
   };
 
+  const handleNewWorktree = async () => {
+    const repoPath = await window.pi.api.pickDirectory();
+    if (!repoPath) return;
+    setBranchInput("");
+    setWorktreeError(null);
+    setWorktreeModal({ repoPath });
+  };
+
+  const createWorktree = async () => {
+    if (!worktreeModal || worktreeBusy) return;
+    const branch = branchInput.trim();
+    if (!branch) return;
+    setWorktreeBusy(true);
+    setWorktreeError(null);
+    try {
+      const tabId = `tab-${Date.now()}`;
+      const res = await window.pi.api.createWorktreeSession({
+        tabId,
+        repoPath: worktreeModal.repoPath,
+        branch,
+      });
+      if (!res.success) {
+        setWorktreeError(res.error || "Failed to create worktree.");
+        return;
+      }
+      addTab({ id: tabId, title: `⑂ ${res.branch}`, cwd: res.worktreePath });
+      setWorktreeModal(null);
+      await refresh();
+    } catch (err: any) {
+      setWorktreeError(err?.message ?? String(err));
+    } finally {
+      setWorktreeBusy(false);
+    }
+  };
+
+  const handleRemoveWorktree = async (worktreePath: string) => {
+    try {
+      let res = await window.pi.api.removeWorktree({ worktreePath });
+      if (!res.success && res.error === "DIRTY_WORKTREE") {
+        const discard = window.confirm(
+          "This worktree has uncommitted changes. Remove it anyway and discard them?",
+        );
+        if (!discard) return;
+        res = await window.pi.api.removeWorktree({ worktreePath, force: true });
+      }
+      if (!res.success) {
+        console.error("[sessions] Failed to remove worktree:", res.error);
+        window.alert(`Could not remove worktree:\n${res.error}`);
+        return;
+      }
+      // The checkout is gone — close any tab still pointing at it, or every
+      // action in that tab would fail against a deleted directory.
+      for (const t of tabs.filter((t) => t.cwd === worktreePath)) {
+        try {
+          await window.pi.api.removeTab({ tabId: t.id });
+        } catch {
+          // Main-side manager may already be gone; still drop the UI tab.
+        }
+        removeTabFromStore(t.id);
+      }
+      await refresh();
+    } catch (err) {
+      console.error("[sessions] Failed to remove worktree:", err);
+    }
+  };
+
   // Group sessions by working directory.
   const grouped = sessions.reduce((acc, s) => {
     const dir = s.cwd || "Unknown";
@@ -80,6 +157,14 @@ export function SessionsView() {
           >
             <PlusIcon size={11} />
             New
+          </button>
+          <button
+            onClick={handleNewWorktree}
+            className="flex items-center gap-1 rounded-lg border border-border bg-bg-hover px-2 py-1 text-[11px] text-text-muted hover:bg-bg-active"
+            title="Create an isolated git worktree on a new branch and open a session in it"
+          >
+            <BranchIcon size={11} />
+            Worktree
           </button>
           <button
             onClick={refresh}
@@ -282,9 +367,76 @@ export function SessionsView() {
                 }
               },
             },
+            // Only offered for sessions living in a managed worktree; the main
+            // process re-verifies it's a linked worktree before removing.
+            ...(isManagedWorktreePath(contextMenu.session.cwd)
+              ? [
+                  {
+                    label: "Remove Worktree…",
+                    onSelect: () => handleRemoveWorktree(contextMenu.session.cwd!),
+                  },
+                ]
+              : []),
           ]}
           onClose={() => setContextMenu(null)}
         />
+      )}
+
+      {/* New-worktree branch prompt (window.prompt doesn't exist in Electron) */}
+      {worktreeModal && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => !worktreeBusy && setWorktreeModal(null)}
+        >
+          <div
+            className="w-[380px] max-w-[90vw] rounded-xl border border-border bg-bg-active p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-1 flex items-center gap-1.5 text-sm font-medium text-text">
+              <BranchIcon size={13} />
+              New worktree session
+            </div>
+            <p className="mb-3 text-[11px] text-text-muted">
+              Creates an isolated checkout of{" "}
+              <span className="font-mono text-text">
+                {worktreeModal.repoPath.split("/").pop() || worktreeModal.repoPath}
+              </span>{" "}
+              on a new branch, so this session can work in parallel without touching the main
+              folder.
+            </p>
+            <input
+              autoFocus
+              value={branchInput}
+              onChange={(e) => setBranchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") createWorktree();
+                if (e.key === "Escape" && !worktreeBusy) setWorktreeModal(null);
+              }}
+              placeholder="new branch name (e.g. feature/login)"
+              disabled={worktreeBusy}
+              className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-xs font-mono text-text focus:border-accent/50 focus:outline-none"
+            />
+            {worktreeError && (
+              <p className="mt-2 text-[11px] text-danger">{worktreeError}</p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setWorktreeModal(null)}
+                disabled={worktreeBusy}
+                className="rounded-lg border border-border bg-bg-hover px-3 py-1.5 text-[11px] text-text-muted hover:bg-bg-active disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createWorktree}
+                disabled={worktreeBusy || !branchInput.trim()}
+                className="rounded-lg bg-accent px-3 py-1.5 text-[11px] font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+              >
+                {worktreeBusy ? "Creating…" : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

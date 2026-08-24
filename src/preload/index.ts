@@ -110,6 +110,9 @@ const api = {
   setAppSettings: invoke("pi:appSettings.set"),
   openExternalEditor: invoke("pi:editor.openExternal"),
   getGitInfo: invoke("pi:git.info"),
+  createWorktreeSession: invoke("pi:worktree.create"),
+  listWorktrees: invoke("pi:worktree.list"),
+  removeWorktree: invoke("pi:worktree.remove"),
   getSdkVersion: invoke("pi:sdk.version"),
 
   // System checks

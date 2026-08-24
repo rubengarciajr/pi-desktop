@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { GitRepoInfo } from "../../../shared/ipc";
 import { useAppStore } from "../store/useAppStore";
+import { BranchIcon } from "./Icons";
 
 /**
  * A tiny glowing dot shown in a tab after the folder icon when the repo has
@@ -93,7 +94,9 @@ export function GitRepoHeader({ cwd, tabId }: { cwd?: string; tabId?: string }) 
   useEffect(() => {
     if (!cwd) return;
     let cancelled = false;
-    window.pi.api.getGitInfo({ tabId }).then((data) => {
+    // Pass cwd explicitly: this header renders for arbitrary folders in the
+    // sessions list, which need not match the active tab's working directory.
+    window.pi.api.getGitInfo({ tabId, cwd }).then((data) => {
       if (!cancelled) setInfo(data);
     }).catch(() => {});
     return () => { cancelled = true; };
@@ -130,6 +133,16 @@ export function GitRepoHeader({ cwd, tabId }: { cwd?: string; tabId?: string }) 
         <span className="font-mono">{info.branch || "detached"}</span>
       </div>
 
+      {/* Linked worktree indicator */}
+      {info.isWorktree && (
+        <span
+          className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-medium text-accent"
+          title="This folder is an isolated git worktree"
+        >
+          worktree
+        </span>
+      )}
+
       {/* Dirty */}
       {dirtyCount > 0 && (
         <span className="flex items-center gap-0.5">
@@ -153,17 +166,6 @@ export function GitRepoHeader({ cwd, tabId }: { cwd?: string; tabId?: string }) 
         </span>
       )}
     </div>
-  );
-}
-
-function BranchIcon({ size = 12 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-      <line x1="6" y1="3" x2="6" y2="15" />
-      <circle cx="18" cy="6" r="3" />
-      <circle cx="6" cy="18" r="3" />
-      <path d="M18 9a9 9 0 0 1-9 9" />
-    </svg>
   );
 }
 
