@@ -2,6 +2,7 @@ import { memo, useMemo, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { ToolRenderedResult } from "./ToolRenderer";
 import { FilePath, linkifyPaths } from "./FilePath";
+import { ClampBox } from "./ClampBox";
 
 /** Tools whose one-line summary IS a file path (so it gets the reveal/copy menu). */
 const PATH_TOOLS = new Set(["read", "edit", "write", "ls"]);
@@ -119,12 +120,23 @@ function ToolArgs({ tool }: { tool: any }) {
     [tool.args],
   );
   if (!tool.args) return null;
+  // Args can embed entire file contents (e.g. a `write` call) — clamp them.
+  const lineCount = argsText.split("\n").length;
+  const body = (
+    <pre className="overflow-x-auto rounded bg-bg px-2 py-1.5 text-[11px] text-text-muted font-mono">
+      {argsText}
+    </pre>
+  );
   return (
     <div className="mb-2">
       <div className="mb-1 text-[10px] uppercase tracking-wider text-text-faint">Args</div>
-      <pre className="overflow-x-auto rounded bg-bg px-2 py-1.5 text-[11px] text-text-muted font-mono">
-        {argsText}
-      </pre>
+      {lineCount > 15 ? (
+        <ClampBox label={`Show all ${lineCount} lines`} maxHeight={240}>
+          {body}
+        </ClampBox>
+      ) : (
+        body
+      )}
     </div>
   );
 }

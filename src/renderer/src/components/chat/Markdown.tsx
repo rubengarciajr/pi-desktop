@@ -3,6 +3,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { looksLikePath } from "../../../../shared/filePath";
 import { FilePath } from "./FilePath";
+import { ClampBox } from "./ClampBox";
 
 const SyntaxCodeBlock = lazy(() => import("./SyntaxCodeBlock"));
 
@@ -17,6 +18,9 @@ interface MarkdownProps {
  * CodeBlock and re-ran Prism highlighting over code whose content never
  * changed. Now unchanged code blocks skip Prism entirely.
  */
+/** Code blocks taller than this many lines start collapsed in the stream. */
+const CODE_COLLAPSE_LINES = 24;
+
 const CodeBlock = memo(function CodeBlock({
   language,
   value,
@@ -25,6 +29,20 @@ const CodeBlock = memo(function CodeBlock({
   value: string;
 }) {
   const lineCount = value.split("\n").length;
+  // Scroll long lines inside the block so they never widen the chat canvas.
+  const body = (
+    <div className="overflow-x-auto">
+      <Suspense
+        fallback={
+          <pre className="m-0 whitespace-pre px-3.5 py-2.5 font-mono text-xs leading-6 text-text-muted">
+            {value}
+          </pre>
+        }
+      >
+        <SyntaxCodeBlock language={language} value={value} />
+      </Suspense>
+    </div>
+  );
   return (
     <div className="group relative my-2.5 max-w-full overflow-hidden rounded-lg border border-border bg-bg">
       <div className="flex items-center justify-between border-b border-border bg-bg-subtle px-3 py-1.5">
@@ -41,18 +59,17 @@ const CodeBlock = memo(function CodeBlock({
           Copy
         </button>
       </div>
-      {/* Scroll long lines inside the block so they never widen the chat canvas. */}
-      <div className="overflow-x-auto">
-        <Suspense
-          fallback={
-            <pre className="m-0 whitespace-pre px-3.5 py-2.5 font-mono text-xs leading-6 text-text-muted">
-              {value}
-            </pre>
-          }
+      {lineCount > CODE_COLLAPSE_LINES ? (
+        <ClampBox
+          label={`Show all ${lineCount} lines`}
+          maxHeight={300}
+          buttonClassName="block w-full border-t border-border bg-bg-subtle/60 px-3 py-1 text-left text-[10px] text-accent hover:bg-bg-subtle"
         >
-          <SyntaxCodeBlock language={language} value={value} />
-        </Suspense>
-      </div>
+          {body}
+        </ClampBox>
+      ) : (
+        body
+      )}
     </div>
   );
 });
