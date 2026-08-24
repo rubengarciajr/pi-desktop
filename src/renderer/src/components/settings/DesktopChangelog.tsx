@@ -6,6 +6,27 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.7.0",
+    date: "2026-08-24",
+    sections: [
+      {
+        title: "Worktree sessions — run agents in parallel",
+        items: [
+          "The new ⑂ Worktree button in the Sessions panel creates a fresh git worktree on a brand-new branch and opens the session inside it — an agent can work there while your main folder and other sessions stay untouched",
+          "Worktree sessions get a ⑂ branch tab title, a \"worktree\" badge next to the branch name, and the isolated folder path in the header",
+          "Right-click a worktree session → \"Remove Worktree…\" to clean up — if there's uncommitted work, Pi Desktop asks before discarding it",
+        ],
+      },
+      {
+        title: "A tidier conversation stream",
+        items: [
+          "Long content now folds out of the way — giant code blocks, big pasted messages, long diffs, and verbose tool details start collapsed with a \"Show all N lines\" button, so the full content is always one click away",
+          "Folder headers in the Sessions panel now show that folder's git branch and status (previously they all mirrored the folder you had open)",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.6.4",
     date: "2026-08-24",
     sections: [

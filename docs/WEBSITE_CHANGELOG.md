@@ -1,8 +1,25 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.6.4** · Last updated: **August 24, 2026**
+> Current version: **v0.7.0** · Last updated: **August 24, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.7.0 — August 24, 2026
+
+### Worktree sessions — run agents in parallel ⑂
+- **Give each session its own isolated checkout.** The new **⑂ Worktree** button in the Sessions panel creates a fresh git worktree on a brand-new branch and opens the session inside it — so an agent can rewrite half your codebase on `feature/dark-mode` while your main folder (and other sessions) stay completely untouched.
+- **See where you are at a glance.** Worktree sessions get a `⑂ branch` tab title, a "worktree" badge next to the branch name, and the isolated folder path in the header.
+- **Clean up safely.** Right-click a worktree session → "Remove Worktree…". If there's uncommitted work in it, Pi Desktop refuses first and asks before discarding — your changes are never silently lost.
+
+### A tidier conversation stream
+- **Long content now folds out of the way.** Giant code blocks, big pasted messages, long diffs, and verbose tool details start collapsed with a "Show all N lines" button — so scrolling back through a conversation is fast, and the full content is always one click away.
+
+### Fixes
+- Folder headers in the Sessions panel now show **that folder's** git branch and status (previously they all mirrored the folder you had open).
+
+_Under the hood: worktree management is built on plain `git worktree` — your repos, your branches, nothing proprietary._
 
 ---
 

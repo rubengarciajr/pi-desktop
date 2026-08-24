@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.7.0] — 2026-08-24
+
+### Added
+- **Git worktree sessions (Phase 1).** Run agent sessions in isolated git worktrees so parallel sessions on the same repo never collide. The sessions panel gains a **⑂ Worktree** button: pick a repo, name a new branch, and the session opens inside a fresh checkout under `~/.pi/worktrees/<repo>-<hash>/<branch>` (tab titled `⑂ branch`). Right-click a worktree session → "Remove Worktree…" cleans up via `git worktree remove` — never raw deletion — refusing dirty worktrees unless confirmed, and closing any open tab pointing at the removed checkout. The git badge shows a "worktree" pill on linked worktrees. All git plumbing is app-side (`execFile` argument arrays; no shell interpolation); branch names are validated via `git check-ref-format` and flag-like names are rejected; the primary checkout can never be removed. (#18)
+- **Collapsible long boxes in the chat stream.** Long content now starts collapsed with a "Show all N lines" toggle: code blocks over 24 lines, pasted user messages over 12 lines, diffs over 24 lines, and tool args over 15 lines (a `write` call embeds the whole file). Tool output was already clamped; reasoning already collapsed. One shared `ClampBox` primitive (fixed-height clip + fade + toggle) keeps the behavior consistent. (#19)
+
+### Changed
+- `pi:git.info` now honors an explicit `cwd`, so folder headers in the sessions list show **their own** repo's branch/status instead of the active tab's. (#18)
+
+---
+
 ## [0.6.4] — 2026-08-24
 
 ### Changed
