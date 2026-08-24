@@ -6,6 +6,21 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.6.4",
+    date: "2026-08-24",
+    sections: [
+      {
+        title: "Reliability update",
+        items: [
+          "Reasoning models keep their full detail — reasoning-capable custom models now retain their thinking detail from one turn to the next instead of losing it mid-conversation",
+          "Your per-chat model choice stays put — picking a model or thinking level for one conversation no longer quietly becomes your global default",
+          "Smoother GitHub Copilot sign-in — Copilot authentication now backs off politely when rate-limited instead of retrying too aggressively",
+          "Under the hood: the Pi engine moves from 0.84.1 to 0.84.3",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.6.3",
     date: "2026-08-07",
     sections: [

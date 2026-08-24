@@ -5,6 +5,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.6.4] — 2026-08-24
+
+### Changed
+- **Pi SDK 0.84.1 → 0.84.3.** A maintenance bump; the app needed no code changes. 0.84.3's one breaking change — `GoogleThinkingLevel` renamed to `GoogleApiThinkingLevel` — is not a symbol Pi Desktop references. Most of 0.84.2/0.84.3's new work is TUI-only (fullscreen transcript search, a Windows PowerShell tool, the `/thinking` command, and safer managed updates for the CLI) and does not surface in the desktop app.
+
+### Fixed (inherited from the SDK)
+- **OpenAI-compatible reasoning replay preserves assistant-level details.** Reasoning-capable custom models (e.g. those routed through an OpenAI-compatible endpoint) now retain their assistant-level reasoning detail across turns instead of dropping it on replay.
+- **Session-scoped model and thinking selections no longer leak globally.** A model/thinking choice made for one session is kept to that session rather than being persisted as a global default.
+- **GitHub Copilot authentication respects rate limits.** Copilot sign-in backs off correctly instead of hammering the endpoint when rate-limited.
+
+---
+
 ## [0.6.3] — 2026-08-07
 
 ### Added

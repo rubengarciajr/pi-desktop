@@ -1,8 +1,19 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.6.3** · Last updated: **August 7, 2026**
+> Current version: **v0.6.4** · Last updated: **August 24, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.6.4 — August 24, 2026
+
+### Reliability update
+- **Reasoning models keep their full detail.** Reasoning-capable custom models now retain their thinking detail from one turn to the next instead of losing it mid-conversation.
+- **Your per-chat model choice stays put.** Picking a model or thinking level for one conversation no longer quietly becomes your global default.
+- **Smoother GitHub Copilot sign-in.** Copilot authentication now backs off politely when rate-limited instead of retrying too aggressively.
+
+_Under the hood: the Pi engine moves from 0.84.1 to 0.84.3._
 
 ---
 
