@@ -1,8 +1,17 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.7.0** · Last updated: **August 24, 2026**
+> Current version: **v0.7.1** · Last updated: **September 4, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.7.1 — September 4, 2026
+
+### Worktree sessions stay put
+- **An agent working in a worktree now stays inside it.** Worktree sessions are meant to give each agent its own isolated checkout — but the underlying tools (reading, writing, searching, and running commands) were falling back to the app's working folder instead of the session's own. In practice that meant an agent running in a worktree could read or edit files outside it, which is exactly what worktree sessions exist to prevent. Fixed upstream and now shipping here.
+
+_Under the hood: the Pi engine moves from 0.84.3 to 0.84.4._
 
 ---
 

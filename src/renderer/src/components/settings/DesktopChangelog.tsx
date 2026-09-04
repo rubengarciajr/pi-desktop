@@ -6,6 +6,19 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.7.1",
+    date: "2026-09-04",
+    sections: [
+      {
+        title: "Worktree sessions stay put",
+        items: [
+          "An agent working in a worktree now stays inside it — the underlying tools (reading, writing, searching, running commands) were falling back to the app's working folder instead of the session's own, which meant an agent in a worktree could read or edit files outside it. That's exactly what worktree sessions exist to prevent",
+          "Under the hood: the Pi engine moves from 0.84.3 to 0.84.4",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.7.0",
     date: "2026-08-24",
     sections: [
