@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **Pi SDK 0.84.3 → 0.84.4.** A maintenance bump with no breaking changes and no app-code changes required. The most relevant fix for Pi Desktop is inherited from the SDK: the `bash`, `edit`, `find`, `grep`, `ls`, `read`, and `write` tools previously **ignored `ctx.cwd`**, so an agent could operate against the process working directory instead of the session's own folder. That directly affects v0.7.0's worktree sessions, whose entire premise is a per-session isolated checkout. Also brings `ui_prompt_start`/`ui_prompt_end` extension events, RPC `clear_queue`, terminal capability overrides, and an experimental DeepSeek V4 Flash Vision model.
+
+### Notes
+- **Deliberately NOT upgraded to 0.85.0 — that release is broken for library consumers.** `pi-coding-agent@0.85.0` reaches `@earendil-works/pi-server` through its own package root (`dist/index.js` re-exports `main.js`, which imports `dist/experimental/server.js`, which imports `@earendil-works/pi-server`), but never declares that package as a dependency. `@earendil-works/pi-server@0.85.0` is published, so it resolves inside the upstream monorepo via workspace linking — but a fresh `npm install` of the published package does not get it, and because ESM resolves the whole module graph eagerly, **any** `import("@earendil-works/pi-coding-agent")` throws `ERR_MODULE_NOT_FOUND`. Pi Desktop imports the package root throughout the main process, so 0.85.0 would prevent the app from starting. Revisit when upstream declares the dependency (or moves the server export off the root entry point).
+
+---
+
 ## [0.7.0] — 2026-08-24
 
 ### Added
