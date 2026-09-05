@@ -5,6 +5,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.7.2] — 2026-09-05
+
+### Added
+- **GPT-6 Astra** — OpenAI's new frontier reasoning model, available through OpenAI API keys and **Codex subscriptions**. Verified present in the catalog via `openai-codex` with existing sign-ins; it appears in the model switcher (⌘M) with no re-login needed.
+- **Qwen3.8 Flash** added to the Qwen Token Plan catalog.
+
+### Changed
+- **Pi SDK 0.84.4 → 0.85.1.** No app-code changes required. Also inherited: persistent Claude thinking effort (Anthropic transports preserve per-turn effort and recover from signing mismatches), restorable in-memory sessions, and fixes for session-fork and concurrent-share corruption. 0.85.0's breaking changes (`getApiKeyAndHeaders` return shape, `setRuntimeApiKey` options, custom-harness `FileSystem.renameFile`) are all in APIs Pi Desktop does not use.
+- **0.85.0 remained skipped; 0.85.1 fixed it.** The v0.7.1 Notes documented that 0.85.0's package root imported `@earendil-works/pi-server` without declaring it, breaking fresh installs with `ERR_MODULE_NOT_FOUND`. Upstream's 0.85.1 note confirms: "Fixed SDK import failures from unintentionally published internal code." Verified additionally by an isolated fresh-install import test before adopting.
+
+---
+
 ## [0.7.1] — 2026-09-04
 
 ### Fixed

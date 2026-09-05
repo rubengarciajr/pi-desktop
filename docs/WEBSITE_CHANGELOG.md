@@ -1,8 +1,22 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.7.1** · Last updated: **September 4, 2026**
+> Current version: **v0.7.2** · Last updated: **September 5, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.7.2 — September 5, 2026
+
+### GPT-6 Astra is here
+- **OpenAI's new frontier reasoning model, ready to use.** GPT-6 Astra works with an OpenAI API key or your **Codex subscription** — if you're already signed in, it simply appears in the model switcher (⌘M). No re-login, no setup.
+- **Qwen3.8 Flash** joins the Qwen Token Plan catalog.
+
+### Fewer interruptions
+- **Claude thinking effort now sticks.** Your chosen thinking level is preserved turn to turn on Anthropic models, and recovers cleanly from provider hiccups.
+- **Session fixes** — forks and concurrently shared sessions no longer risk overwriting each other.
+
+_Under the hood: the Pi engine moves from 0.84.4 to 0.85.1._
 
 ---
 

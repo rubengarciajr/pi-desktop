@@ -6,6 +6,27 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.7.2",
+    date: "2026-09-05",
+    sections: [
+      {
+        title: "GPT-6 Astra is here",
+        items: [
+          "OpenAI's new frontier reasoning model, ready to use — GPT-6 Astra works with an OpenAI API key or your Codex subscription. If you're already signed in, it simply appears in the model switcher (⌘M). No re-login, no setup",
+          "Qwen3.8 Flash joins the Qwen Token Plan catalog",
+        ],
+      },
+      {
+        title: "Fewer interruptions",
+        items: [
+          "Claude thinking effort now sticks — your chosen thinking level is preserved turn to turn on Anthropic models, and recovers cleanly from provider hiccups",
+          "Session fixes — forks and concurrently shared sessions no longer risk overwriting each other",
+          "Under the hood: the Pi engine moves from 0.84.4 to 0.85.1",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.7.1",
     date: "2026-09-04",
     sections: [
