@@ -1,8 +1,20 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.7.2** · Last updated: **September 5, 2026**
+> Current version: **v0.7.3** · Last updated: **September 19, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.7.3 — September 19, 2026
+
+### Fixes
+- **GPT-6 Astra works properly through GitHub Copilot.** Copilot-routed GPT models — including Astra, added in v0.7.2 — were being sent through the wrong API, which could make responses fail or behave oddly. They now use the API those models actually require.
+- **Failed requests say what actually went wrong.** Certain empty error responses from providers were being reported as "context overflow," so a plain network or request failure looked like you'd run out of context.
+- **Retries stay responsive.** During a prolonged provider outage, the wait between retries is now capped at a minute instead of growing indefinitely.
+- **Long sessions stay within budget.** Automatic context compaction no longer skips oversized tool output mid-run.
+
+_Under the hood: the Pi engine moves from 0.85.1 to 0.86.0, which also adds prompt cache warming and per-model compaction budgets._
 
 ---
 

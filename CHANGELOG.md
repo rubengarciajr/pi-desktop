@@ -5,7 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
-## [Unreleased]
+## [0.7.3] — 2026-09-19
+
+### Fixed
+- **GPT-6 Astra over GitHub Copilot now uses the correct API adapter.** Inherited from the Pi SDK: Copilot-routed GPT models — including GPT-6 Astra, which v0.7.2 shipped as a headline — were being sent through the Chat Completions adapter instead of the Responses adapter they require. ([earendil-works/pi#9253](https://github.com/earendil-works/pi/pull/9253))
+- **Provider errors are no longer mislabelled as "context overflow."** Bodyless HTTP 400/413 responses from non-Cerebras providers were being misclassified, so an ordinary request failure could look like a full context window.
+- **Long retry runs stay responsive** — agent-level retry backoff is now capped at 60 seconds during prolonged transient outages.
+- **Compaction no longer silently skips oversized trailing tool results** mid-run, a case that could let a long session drift past its context budget.
 
 ### Changed
 - **Pi SDK 0.85.1 → 0.86.0.** A minor bump, so `^0.85.1` would not have picked it up. No app-code changes were required. Highlights: **prompt cache warming** (keeps valuable prompt caches alive through long tool runs, cost-aware), **per-model compaction budgets**, a `/bug` reporting command with redacted diagnostics, and an offline Radius catalog. Notable fix for us — GitHub Copilot GPT models, **including GPT-6 Astra shipped in v0.7.2**, were using the Chat Completions adapter instead of the required Responses adapter. Also: bodyless HTTP 400/413 errors are no longer misclassified as context overflow, retry backoff is capped at 60s, and mid-run compaction no longer silently skips oversized trailing tool results.

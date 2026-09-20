@@ -6,6 +6,22 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.7.3",
+    date: "2026-09-19",
+    sections: [
+      {
+        title: "Fixes",
+        items: [
+          "GPT-6 Astra works properly through GitHub Copilot — Copilot-routed GPT models, including Astra added in v0.7.2, were being sent through the wrong API, which could make responses fail or behave oddly",
+          "Failed requests say what actually went wrong — certain empty error responses from providers were being reported as \"context overflow\", so a plain request failure looked like you'd run out of context",
+          "Retries stay responsive — during a prolonged provider outage, the wait between retries is now capped at a minute instead of growing indefinitely",
+          "Long sessions stay within budget — automatic context compaction no longer skips oversized tool output mid-run",
+          "Under the hood: the Pi engine moves from 0.85.1 to 0.86.0, which also adds prompt cache warming and per-model compaction budgets",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.7.2",
     date: "2026-09-05",
     sections: [
