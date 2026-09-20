@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **Pi SDK 0.85.1 → 0.86.0.** A minor bump, so `^0.85.1` would not have picked it up. No app-code changes were required. Highlights: **prompt cache warming** (keeps valuable prompt caches alive through long tool runs, cost-aware), **per-model compaction budgets**, a `/bug` reporting command with redacted diagnostics, and an offline Radius catalog. Notable fix for us — GitHub Copilot GPT models, **including GPT-6 Astra shipped in v0.7.2**, were using the Chat Completions adapter instead of the required Responses adapter. Also: bodyless HTTP 400/413 errors are no longer misclassified as context overflow, retry backoff is capped at 60s, and mid-run compaction no longer silently skips oversized trailing tool results.
+
+### Notes
+- **0.86.0's three breaking changes were each checked and none affect Pi Desktop.** (1) pi-ai provider stream inputs moved from `Context` to a branded `TranscriptContext` — that applies to *custom providers*, which we do not implement; `ModelRuntime.completeSimple()` still takes a plain `Context`, and `Context.systemPrompt` / `messages` / `tools` are unchanged, so the MOA and Tag Team call sites are untouched. (2) `ToolCall.arguments` and `ToolResultMessage.details` are now restricted to JSON-compatible values with readonly `JsonValue` arrays — we reference neither type directly and typecheck is clean. (3) `user_bash` now fails closed — we register no `user_bash` handlers.
+
+---
+
 ## [0.7.2] — 2026-09-05
 
 ### Added
