@@ -41,19 +41,55 @@ jobs:
       - name: Build app
         run: npm run build
 
-      - name: Build, sign & publish DMG
+      # Build ONLY — electron-builder must not publish. Its GitHub publisher
+      # creates the release as a side effect of uploading, and with multiple
+      # artifacts it can race itself into two releases for the same tag,
+      # splitting the assets. That shipped a public release holding only the
+      # .blockmap (no DMG) on v0.6.3, v0.7.1 and v0.7.3 — green CI every time.
+      # We upload once, ourselves, in the step below.
+      - name: Build & sign DMG
         env:
-          # The auto-injected GITHUB_TOKEN has sufficient scope to publish
-          # releases on a public repo (the workflow grants contents: write).
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: node build/package-dmg.cjs --mac dmg --publish always
+        run: node build/package-dmg.cjs --mac dmg --publish never
 
-      # electron-builder sometimes leaves the release as a draft even with
-      # --publish always. This step flips any draft for the current tag to
-      # published so /releases/latest sees it immediately.
-      - name: Publish release (if still draft)
+      # Renames the DMG to the name latest-mac.yml promises (on disk it carries
+      # a space from productName; the manifest uses dashes), verifies its
+      # sha512/size against that manifest, and extracts release notes from
+      # CHANGELOG.md. Fails the build on any mismatch — before anything ships.
+      - name: Prepare release assets
+        id: assets
+        run: node build/prepare-release-assets.cjs
+
+      # One atomic upload: create the release with every asset attached, or
+      # replace the assets if the tag is being re-run. No draft, no race.
+      - name: Publish release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "${{ github.ref_name }}" --draft=false --latest || true
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          FILES=("${{ steps.assets.outputs.dmg }}" "${{ steps.assets.outputs.manifest }}")
+          if [ -n "${{ steps.assets.outputs.blockmap }}" ]; then
+            FILES+=("${{ steps.assets.outputs.blockmap }}")
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists — replacing assets"
+            gh release upload "$TAG" "${FILES[@]}" --clobber
+            gh release edit "$TAG" --draft=false --latest \
+              --notes-file "${{ steps.assets.outputs.notes }}"
+          else
+            gh release create "$TAG" "${FILES[@]}" \
+              --title "${TAG#v}" \
+              --notes-file "${{ steps.assets.outputs.notes }}" \
+              --latest
+          fi
+
+      # Assert the release a user actually downloads is intact: one release for
+      # the tag, published, and carrying a .dmg the updater's own lookup can
+      # find. Without this a split release passes CI unnoticed.
+      - name: Verify published release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node build/verify-release.cjs "${{ github.ref_name }}"
