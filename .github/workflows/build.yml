@@ -19,9 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Pi SDK 0.87+ requires Node >=22.19.0 (it uses fs.globSync, which Node 20
+      # lacks). The shipped app is unaffected — Electron bundles Node 24 — but
+      # CI loads the SDK directly in tests, so it must match the SDK's engines.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
