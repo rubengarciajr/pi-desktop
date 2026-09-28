@@ -5,6 +5,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Pi Routing's briefing now actually reaches the main model.** Pi Desktop injects the MOA team's synthesized briefing as a hidden message appended to the session right before the main model answers. On Pi SDK 0.86.0 that entry was saved to the session file but **left out of the model request**, so the main model never saw the team's analysis on the turn it was produced for — Pi Routing did all the work and then discarded it, with no error. The web-search nudge used the same path and was dropped the same way. SDK 0.87 made the SessionManager the canonical source of request context, which fixes both with no app-code change. Verified end to end against both SDK versions by driving a real `session.prompt()` with the provider call stubbed to capture the exact request. "Convert to code" seeding was unaffected — it appends before the session is created, and was included on both versions.
+
+### Changed
+- **Pi SDK 0.86.0 → 0.87.1** (via 0.86.1 and 0.87.0). A minor bump, so `^0.86.0` would not have picked it up. New models: **Claude Opus 5.5** (1M context, adaptive thinking), **GPT-6 Sol** and **GPT-6 Luna** — via Anthropic, OpenAI API keys, Codex subscriptions and GitHub Copilot — plus Grok 4.7 as the xAI default and a new **Meta Muse** sign-in. Also: per-model image input limits, image-only messages no longer rejected by some OpenAI-compatible providers, z.ai "Prompt too long" now recognised as context overflow, and Cerebras no longer 400s on mixed strict/non-strict tool schemas.
+
+### Added
+- **Regression test for hidden context injection** (`src/main/pi/hiddenContext.test.ts`). Builds a real SDK session in an isolated directory, appends a briefing exactly as `runMoaEnrichment` does, calls the real `prompt()`, and asserts the briefing is in the captured request. It fails against SDK 0.86.0 and passes against 0.87.1, so a future upgrade that stops sending appended context fails CI instead of silently disabling Pi Routing.
+
+### Notes
+- **0.87.0's five breaking changes were each checked against the code.** `shouldStopAfterTurn`, `ExtensionRunner.emit("turn_end")`, and `agent_settled` handlers are not used; no exhaustive `SessionEntry` switch exists for the new `context_edit` entry, and typecheck is clean. The fifth — the SessionManager becoming canonical, so assigning `session.agent.state.messages` no longer changes future requests — does not apply because Pi Desktop never assigns it; as above, it is the change that fixes Pi Routing. `completeSimple(model, context: Context)` is unchanged, so MOA and Tag Team call sites are untouched.
+
+---
+
 ## [0.7.3] — 2026-09-19
 
 ### Fixed
