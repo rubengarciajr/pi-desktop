@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
-## [Unreleased]
+## [0.7.4] — 2026-09-28
 
 ### Fixed
 - **Pi Routing's briefing now actually reaches the main model.** Pi Desktop injects the MOA team's synthesized briefing as a hidden message appended to the session right before the main model answers. On Pi SDK 0.86.0 that entry was saved to the session file but **left out of the model request**, so the main model never saw the team's analysis on the turn it was produced for — Pi Routing did all the work and then discarded it, with no error. The web-search nudge used the same path and was dropped the same way. SDK 0.87 made the SessionManager the canonical source of request context, which fixes both with no app-code change. Verified end to end against both SDK versions by driving a real `session.prompt()` with the provider call stubbed to capture the exact request. "Convert to code" seeding was unaffected — it appends before the session is created, and was included on both versions.

@@ -6,6 +6,37 @@ interface DesktopChangelogEntry {
 
 const CHANGELOG: DesktopChangelogEntry[] = [
   {
+    version: "0.7.4",
+    date: "2026-09-28",
+    sections: [
+      {
+        title: "Pi Routing works the way it should",
+        items: [
+          "The main model now actually sees your team's analysis — the Pi Routing briefing was being saved but not sent, so the main model answered without it. It now reaches the model on every routed prompt",
+          "Web search is more reliable — the hint telling the model to search instead of answering from memory was being dropped the same way, and now reaches the model too",
+        ],
+      },
+      {
+        title: "New models",
+        items: [
+          "Claude Opus 5.5 — with a 1M-token context window and adaptive thinking",
+          "GPT-6 Sol and GPT-6 Luna — through OpenAI API keys, ChatGPT/Codex subscriptions, and GitHub Copilot",
+          "Grok 4.7 is now the default for new xAI sessions",
+          "Meta Muse — sign in with your Meta account to use Muse Spark models",
+        ],
+      },
+      {
+        title: "Fixes",
+        items: [
+          "Image-only messages are no longer rejected by some OpenAI-compatible providers",
+          "z.ai \"prompt too long\" errors are now correctly recognised as a full context window",
+          "Cerebras models no longer fail when strict and non-strict tools are mixed",
+          "Under the hood: the Pi engine moves from 0.86.0 to 0.87.1",
+        ],
+      },
+    ],
+  },
+  {
     version: "0.7.3",
     date: "2026-09-19",
     sections: [

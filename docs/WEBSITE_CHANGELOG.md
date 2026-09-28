@@ -1,8 +1,29 @@
 # Pi Desktop — Website Changelog
 
 > **Source of truth for pi-desktop.dev.**
-> Current version: **v0.7.3** · Last updated: **September 19, 2026**
+> Current version: **v0.7.4** · Last updated: **September 28, 2026**
 > Copy directly into the website's changelog section.
+
+---
+
+## v0.7.4 — September 28, 2026
+
+### Pi Routing works the way it should
+- **The main model now actually sees your team's analysis.** When Pi Routing is on, your team of models produces a briefing before the main model answers. Until now that briefing was being saved but not sent — so the main model answered without it, and the team's work went unused. It now reaches the model on every routed prompt.
+- **Web search is more reliable.** The hint that tells the model to use web search instead of answering from memory was being dropped the same way. It now reaches the model too.
+
+### New models
+- **Claude Opus 5.5** — with a 1M-token context window and adaptive thinking.
+- **GPT-6 Sol and GPT-6 Luna** — through OpenAI API keys, ChatGPT/Codex subscriptions, and GitHub Copilot.
+- **Grok 4.7** is now the default for new xAI sessions.
+- **Meta Muse** — sign in with your Meta account to use Muse Spark models.
+
+### Fixes
+- Image-only messages are no longer rejected by some OpenAI-compatible providers.
+- z.ai "prompt too long" errors are now correctly recognised as a full context window.
+- Cerebras models no longer fail when strict and non-strict tools are mixed.
+
+_Under the hood: the Pi engine moves from 0.86.0 to 0.87.1._
 
 ---
 
