@@ -23,7 +23,7 @@
     "package": "electron-vite build && node build/package-dmg.cjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.19.0"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.87.1",
